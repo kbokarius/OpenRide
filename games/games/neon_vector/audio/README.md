@@ -1,5 +1,5 @@
-# Vector Drive
+# Night Drive
 
-Original instrumental electronic soundtrack for NEON VECTOR: 138 bpm, 64 bars, approximately 111.304 seconds, stereo Ogg Vorbis loop. Synthesized from oscillators and deterministic noise; no third-party recordings, melodies or samples are incorporated. Distributed under this repository's MIT license.
+Original 128 BPM dark electronic instrumental for Lane Smash: 64 bars, 120 seconds, stereo Ogg Vorbis. Deep syncopated bass, restrained acid pulses, industrial percussion and suspended minor pads. Synthesized from oscillators and deterministic noise, without third-party recordings or samples. Licensed under the repository's Apache-2.0 license.
 
-Reproduce from the repository root with `python3 games/tools/generate_neon_music.py /tmp/neon-vector-audio`. The required directory argument holds the intermediate WAV. The generator requires Python, NumPy, SciPy and ffmpeg. It writes the Ogg asset here; Godot's import settings enable looping. Music is optional and does not affect scoring.
+Reproduce from the repository root with `python3 games/tools/generate_neon_music.py ../lane-smash-audio`. The directory argument holds the intermediate WAV. Requires NumPy, SciPy and ffmpeg. AudioDirector sets the stream to loop from zero; its import flag alone does not enable looping. The master peaks at -1.5 dBFS with approximately -14.32 dBFS RMS. Music is optional and never affects scoring.

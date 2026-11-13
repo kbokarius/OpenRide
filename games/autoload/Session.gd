@@ -148,7 +148,8 @@ func neon_control(action: String, processed_ms: int = 0, duration_ms: int = 0) -
 		InputBus._neon_local.control(action, processed_ms, duration_ms, Time.get_ticks_msec())
 
 
-func request_pause() -> void:
+func request_pause(system_recovery := false) -> void:
+	if not system_recovery and director.game and not director.game.allows_manual_pause(): return
 	print("OPENRIDE_GAMES -> request_pause")
 	if _bridge:
 		_bridge.request_pause()
@@ -398,7 +399,9 @@ func _notification(what: int) -> void:
 ## What Android back does now (also for tests and the desktop's Esc in the hub).
 func back() -> void:
 	if active:
-		if not paused:
+		if director.game and not director.game.allows_manual_pause():
+			director.pause_overlay.show_confirm()
+		elif not paused:
 			request_pause()
 	elif director.phase == SessionDirector.Phase.HUB:
 		var scene := get_tree().current_scene
@@ -415,6 +418,7 @@ func _input(event: InputEvent) -> void:
 		return
 	match event.keycode:
 		KEY_P:
+			if director.game and not director.game.allows_manual_pause(): return
 			if paused:
 				request_resume()
 			else:

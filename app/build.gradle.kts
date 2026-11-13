@@ -25,7 +25,7 @@ android {
         // API above 29 — see the audit note in docs/DEVICE.md.
         minSdk = 29
         targetSdk = 34
-        versionCode = 10
+        versionCode = 11
         versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -96,10 +96,10 @@ android {
         create("neonReal") {
             initWith(getByName("debugReal"))
             applicationIdSuffix = ".neon"
-            versionNameSuffix = "-neon-vector.2"
+            versionNameSuffix = "-lane-smash.3"
             isDebuggable = false
             signingConfig = signingConfigs.findByName("neon")
-            resValue("string", "app_name", "NEON VECTOR")
+            resValue("string", "app_name", "Lane Smash")
             buildConfigField("String", "UPDATE_APK_ASSET_INFIX", "\"neon\"")
             buildConfigField("String", "UPDATE_LATEST_RELEASE_URL", "\"https://api.github.com/repos/kbokarius/OpenRide/releases/latest\"")
             matchingFallbacks += listOf("debugReal", "debug")

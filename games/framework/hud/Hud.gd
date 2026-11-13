@@ -69,6 +69,8 @@ var _score_text := ""
 var _clock_squeezed := false  ## `_fit_clock`: the time and score at `HudTheme.MEDIUM`
 var _message_left := 0.0  ## seconds until a timed message hides (`show_message`); 0: it stays
 var _paused := false
+var text_interval := 0.0
+var _score_refresh_left := 0.0
 var _message_pop := false  ## a skin's `message_font`: the message pops in
 ## What `set_skin` overrode, to put back: [Control, kind, name, had_override, old value].
 var _skin_saved: Array = []
@@ -227,6 +229,12 @@ func clear_widgets() -> void:
 func set_skin(skin: Dictionary) -> void:
 	clear_skin()
 	_squeeze_clock(false)
+	if skin.has("manual_pause"):
+		_skin_set(pause_button, "property", "visible", bool(skin.manual_pause))
+		_skin_set(end_button, "property", "text", "End Ride")
+	text_interval = float(skin.get("text_interval", 0.0))
+	metrics.text_interval = text_interval
+	_score_refresh_left = 0.0
 	if skin.has("message_font"):
 		_skin_set(_message, "font", "font", skin.message_font)
 		_message_pop = true
@@ -268,7 +276,7 @@ func set_skin(skin: Dictionary) -> void:
 		if skin.has("outline_color"):
 			_skin_set(l, "color", "font_outline_color", skin.outline_color)
 		if skin.has("outline_size"):
-			_skin_set(l, "constant", "outline_size", maxi(int(skin.outline_size), l.get_theme_font_size("font_size") / 10))
+			_skin_set(l, "constant", "outline_size", maxi(0, int(skin.outline_size)))
 	if skin.has("panel"):
 		for panel in [ride_panel, clock_panel]:
 			_skin_set(panel, "stylebox", "panel", skin.panel)
@@ -297,6 +305,8 @@ func set_status_area(width: float, reserve_bottom: float) -> void:
 
 
 func clear_skin() -> void:
+	text_interval = 0.0
+	metrics.text_interval = 0.0
 	_squeeze_clock(false)
 	_message_pop = false
 	for i in range(_skin_saved.size() - 1, -1, -1):
@@ -416,6 +426,9 @@ func _process(delta: float) -> void:
 		_message_left -= delta
 		if _message_left <= 0.0:
 			hide_message()
+	_score_refresh_left -= delta
+	if _score_refresh_left > 0: return
+	_score_refresh_left = text_interval
 	var shown := str(Effort.whole_points(Effort.score))
 	if shown != _score_text:
 		_score_text = shown

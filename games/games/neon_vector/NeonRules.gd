@@ -4,13 +4,22 @@ extends RefCounted
 
 const UNIT := 100000
 const TICK := 10
-const TIERS := {"beginner": 20, "intermediate": 24, "advanced": 30, "expert": 34}
-const SCORING_VERSION := 2
+# Published Bike ranges. Historical keys remain immutable for saved ride comparison.
+const CURRENT_TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35}
+const TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35,
+	"beginner": 20, "intermediate": 24, "advanced": 30, "expert": 34}
+const SCORING_VERSION := 3
+const MAX_SPEED_MPS := 60.0 / 3.6
+const MAX_CADENCE := 140.0
+var distance_units := 0 # micrometres, integer integration independent of render rate
+var distance_based := false
+var speed_kph := 0.0
+var _distance_remainder := 0.0
 var scoring_version := 1
 const ENVELOPE_VERSION := 1
 
 var course: Dictionary = {}
-var tier := "intermediate"
+var tier := "challenging"
 var reference_power := 150.0
 var elapsed_ms := 0
 var score_units := 0
@@ -62,11 +71,18 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	tier = difficulty_id
 	reference_power = watts
 	elapsed_ms = 0
+	distance_units = 0
+	_distance_remainder = 0.0
+	speed_kph = 0
+	distance_based = bool(course.get("distanceBased", false))
 	score_units = 0
 	base_units = 0
-	scoring_version = 1 if int(course.courseVersion) == 1 else SCORING_VERSION
+	scoring_version = SCORING_VERSION if distance_based else (1 if int(course.courseVersion) == 1 else 2)
 	max_units = NeonCourse.maximum(course, false, reference_power)
 	max_base_units = NeonCourse.maximum(course, true, reference_power)
+	if distance_based:
+		max_units = 0
+		max_base_units = 0
 	selected_lane = -1
 	settled_lane = -1
 	pause_reason = ""
@@ -82,7 +98,7 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	ghost_trace.clear()
 	event_states.clear()
 	for event: Dictionary in course.events:
-		event_states.append({"eventId": event.eventId, "choice": -1, "scoreUnits": 0, "baseUnits": 0, "validMs": 0, "chargeIntegral": 0, "energyMilliJoules": 0, "hit": false})
+		event_states.append({"eventId": event.eventId, "choice": -1, "scoreUnits": 0, "baseUnits": 0, "validMs": 0, "chargeIntegral": 0, "energyMilliJoules": 0, "validTravelUnits": 0, "possibleTravelUnits": 0, "possibleMs": 0, "possibleBaseUnits": 0, "hit": false})
 	_configured = true
 	return errors
 
@@ -129,7 +145,7 @@ func advance(target_ms: int) -> void:
 		_tick()
 		elapsed_ms += TICK
 		if elapsed_ms % 100 == 0:
-			ghost_trace.append([elapsed_ms, selected_lane, score_units])
+			ghost_trace.append([elapsed_ms, selected_lane, score_units, distance_units / 1000] if distance_based else [elapsed_ms, selected_lane, score_units])
 		if not pause_reason.is_empty():
 			break
 	# Bound memory without changing sequence/timestamp validation.
@@ -181,17 +197,34 @@ func _tick() -> void:
 	if _power.size() > 100:
 		_power_sum -= _power.pop_front()
 	smoothed_power = _power_sum / _power.size()
-	if _stopped_ms >= 3000:
+	if _stopped_ms >= 3000 and not distance_based:
 		pause("pedalling")
 		return
-	while _event_cursor < course.events.size() and int(course.events[_event_cursor].endMs) <= elapsed_ms:
+	var travel_step := 0
+	if distance_based:
+		speed_kph = clampf(rpm / MAX_CADENCE * 60.0, 0, 60)
+		var exact_travel := speed_kph / 3.6 * TICK * 1000 + _distance_remainder
+		travel_step = floori(exact_travel)
+		_distance_remainder = exact_travel - travel_step
+		distance_units += travel_step
+	var position_ms := road_time_ms()
+	while _event_cursor < course.events.size() and int(course.events[_event_cursor].endMs) <= position_ms:
 		_event_cursor += 1
-	if _event_cursor >= course.events.size() or settled_lane < 0 or rpm < 20:
+	if _event_cursor >= course.events.size():
 		return
 	var event: Dictionary = course.events[_event_cursor]
-	if elapsed_ms < int(event.startMs):
+	if position_ms < int(event.startMs):
 		return
 	var state: Dictionary = event_states[_event_cursor]
+	if distance_based:
+		state.possibleTravelUnits += travel_step
+		state.possibleMs += TICK
+		var possible := roundi(reference_power) * int(state.possibleMs) * UNIT / 5000 if event.type == "burst" else NeonCourse.base_units(event, {"laneIndex": event.laneIndex}, reference_power) * int(state.possibleTravelUnits) / roundi((int(event.endMs) - int(event.startMs)) * MAX_SPEED_MPS * 1000)
+		max_base_units += possible - int(state.possibleBaseUnits)
+		state.possibleBaseUnits = possible
+		max_units = max_base_units
+	if settled_lane < 0 or rpm < 20:
+		return
 	var options := NeonCourse.choices(event)
 	if int(state.choice) < 0:
 		for i in options.size():
@@ -213,17 +246,17 @@ func _tick() -> void:
 			state.scoreUnits = base_max
 		"cruise":
 			state.validMs += TICK
-			state.baseUnits = base_max * int(state.validMs) / (int(event.endMs) - int(event.startMs))
+			state.baseUnits = _section_credit(state, event, base_max, travel_step)
 			state.scoreUnits = state.baseUnits
 		"burst":
 			state.validMs += TICK
 			state.energyMilliJoules += roundi(float(latest.power)) * TICK
 			state.scoreUnits = int(state.energyMilliJoules) * UNIT / 5000 * int(choice.get("rewardPercent", 100)) / 100
-			state.baseUnits = mini(base_max, int(state.scoreUnits))
+			state.baseUnits = mini(roundi(reference_power) * int(state.validMs) * UNIT / 5000 if distance_based else base_max, int(state.scoreUnits))
 		"hold":
 			if rpm >= float(event.cadenceMin) and rpm <= float(event.cadenceMax):
 				state.validMs += TICK
-				state.baseUnits = base_max * int(state.validMs) / (int(event.endMs) - int(event.startMs))
+				state.baseUnits = _section_credit(state, event, base_max, travel_step)
 				state.scoreUnits = state.baseUnits
 		"charge":
 			if rpm <= 120:
@@ -251,9 +284,26 @@ func result(status: String = "completed") -> Dictionary:
 			if base_units * 100 >= max_base_units * threshold:
 				stars += 1
 	return {"status": "completed" if complete else ("ended" if status == "completed" else status),
-		"activeDurationMs": elapsed_ms, "scoreUnits": score_units, "maxScoreUnits": max_units,
+		"activeDurationMs": elapsed_ms, "distanceMm": distance_units / 1000, "scoreUnits": score_units, "maxScoreUnits": max_units,
 		"baseUnits": base_units, "maxBaseUnits": max_base_units, "stars": stars,
 		"events": event_states.duplicate(true), "courseId": course.get("courseId", ""),
 		"courseVersion": course.get("courseVersion", 1), "courseHash": NeonCourse.fingerprint(course),
 		"difficulty": tier, "referencePower": reference_power, "scoringVersion": scoring_version,
 		"envelopeVersion": ENVELOPE_VERSION, "laneBands": range(6).map(func(lane: int): var limits := band(lane, tier); return [limits.x, limits.y]), "title": course.get("title", "")}
+
+
+func road_time_ms() -> int:
+	return floori(distance_units / (MAX_SPEED_MPS * 1000.0)) if distance_based else elapsed_ms
+
+func road_distance() -> float:
+	return distance_units / 1000000.0 if distance_based else elapsed_ms / 1000.0 * 18.0
+
+func road_speed_scale() -> float:
+	return MAX_SPEED_MPS if distance_based else 18.0
+
+func _section_credit(state: Dictionary, event: Dictionary, maximum: int, travel_step: int) -> int:
+	if not distance_based:
+		return maximum * int(state.validMs) / (int(event.endMs) - int(event.startMs))
+	state.validTravelUnits += travel_step
+	var length_units := roundi((int(event.endMs) - int(event.startMs)) * MAX_SPEED_MPS * 1000)
+	return mini(maximum, maximum * int(state.validTravelUnits) / length_units)

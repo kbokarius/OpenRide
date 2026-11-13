@@ -186,7 +186,7 @@ func test_a_card_falls_back_to_its_label() -> void:
 	assert_dict(GameInfo.card_for(spec, "b")).is_equal({"value": "b", "title": "Bee", "subtitle": "", "image": "", "accent": null})
 
 
-func test_neon_options_persist_and_worlds_require_completed_rides() -> void:
+func test_lane_smash_options_persist_without_cosmetic_unlocks() -> void:
 	hub.nav.push(HubNav.GAME, {"game_id": "neon_vector"})
 	await _settle()
 	var screen := hub.screen as NeonSetup
@@ -203,14 +203,7 @@ func test_neon_options_persist_and_worlds_require_completed_rides() -> void:
 	var info := GameRegistry.info("neon_vector")
 	assert_str(GameOptions.get_value(info, "ghost", rider)).is_equal("off")
 	assert_str(GameOptions.get_value(info, "motion", rider)).is_equal("reduced")
-	assert_bool((screen._panel.find_child("world_orbit", true, false) as Button).disabled).is_true()
-	screen._progress.completions = 3
-	screen._open_extras()
-	await _settle()
-	var orbit := screen._panel.find_child("world_orbit", true, false) as Button
-	assert_bool(orbit.disabled).is_false()
-	orbit.pressed.emit()
-	assert_str(GameOptions.get_value(info, "world", rider)).is_equal("orbit")
-	assert_bool((screen._panel.find_child("trail_comet", true, false) as Button).disabled).is_true()
+	assert_object(screen._panel.find_child("world_orbit", true, false)).is_null()
+	assert_object(screen._panel.find_child("trail_comet", true, false)).is_null()
 	screen._close_panel()
 	hub.nav.pop()

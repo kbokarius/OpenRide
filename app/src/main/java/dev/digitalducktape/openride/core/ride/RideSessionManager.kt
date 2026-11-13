@@ -87,6 +87,14 @@ class RideSessionManager(
      * manual pause stays paused until [resume]. Lets the UI label the two differently while
      * both still report [RideSessionState.Paused].
      */
+    private var freewheelPauseEnabled = true
+
+    /** A timed game can opt out of freewheel pause without changing the rider's settings. */
+    fun setFreewheelPauseEnabled(enabled: Boolean) {
+        freewheelPauseEnabled = enabled
+        zeroCadenceStreak = 0
+    }
+
     private val _autoPaused = MutableStateFlow(false)
     val autoPaused: StateFlow<Boolean> = _autoPaused.asStateFlow()
 
@@ -329,7 +337,7 @@ class RideSessionManager(
                     zeroCadenceStreak = 0
                 } else if (hasPedaledThisStretch) {
                     zeroCadenceStreak++
-                    if (autoPauseThresholdSec > 0 && zeroCadenceStreak >= autoPauseThresholdSec) {
+                    if (freewheelPauseEnabled && autoPauseThresholdSec > 0 && zeroCadenceStreak >= autoPauseThresholdSec) {
                         autoPause()
                         return@launch
                     }

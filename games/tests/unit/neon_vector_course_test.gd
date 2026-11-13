@@ -54,12 +54,13 @@ func test_comparison_identity_separates_course_tier_targets_and_riders() -> void
 			rules.configure(course, tier, power)
 			for rider in ["a", "b"]:
 				keys[rules.comparison_key(rider)] = true
-	assert_int(keys.size()).is_equal(16)
+	assert_int(keys.size()).is_equal(NeonRules.TIERS.size() * 4)
 	var r := NeonRules.new()
 	r.configure(course, "intermediate", 150)
 	var old := r.comparison_key("a")
 	course.courseVersion = 3
-	r.configure(course, "intermediate", 150)
+	for event in course.events: event.erase("alternatives")
+	assert_array(r.configure(course, "intermediate", 150)).is_empty()
 	assert_str(r.comparison_key("a")).is_not_equal(old)
 
 

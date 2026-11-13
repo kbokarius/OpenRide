@@ -194,3 +194,11 @@ func set_resume_status(reason: String, message := "Tap Resume to carry on.") -> 
 	label.text = reason if not reason.is_empty() else message
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.custom_minimum_size.x = 800
+
+
+## No Pause/Resume controls in uninterrupted games; only failed saves need a retry.
+func set_recovery_mode(enabled: bool, retry_save := false) -> void:
+	_resume_button.visible = not enabled or retry_save
+	_resume_button.text = "Retry save" if enabled else "Resume"
+	_options_button.visible = not enabled and not _options.is_empty()
+	(_paused_box.get_child(0) as Label).text = "Ride interrupted" if enabled else "Paused"

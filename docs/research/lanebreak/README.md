@@ -1,6 +1,8 @@
 # Lanebreak alternative: research report
 
-Research date: **November 13, 2026 (America/Los_Angeles)**. Status: **research only; no implementation or bike installation**.
+Research date: **November 13, 2026 (America/Los_Angeles)**. This is the original pre-build research snapshot.
+
+**Implementation follow-up:** [Lane Smash guide](../../LANE_SMASH.md), [revision 3 specification](../../specs/lane-smash-v3.md), [validation](../../specs/lane-smash-v3-validation.md), and [updated difficulty ranges](06-difficulty-ranges.md). Software is built; physical Bike installation/testing remains outstanding.
 
 Follow-up: the requested pre-build specification is now in [structured Markdown](../../specs/lane-ride-v1.md) and [PDF](../../specs/lane-ride-v1.pdf). It incorporates the owner's clarification that difficulty determines the resistance endpoints across the lanes. [Five optional improvement ideas](../../specs/lane-ride-enhancements.md) are kept outside the baseline scope.
 

@@ -61,6 +61,7 @@ var panel_edge: Color
 var skew := 0.0
 ## Whether the display face leans too (badges and banners); buttons and numbers stay upright.
 var italic := false
+var clean := false
 
 static var _fonts := {}
 static var _gradient_shader: Shader
@@ -68,12 +69,13 @@ static var _house: GameTheme
 var _hero_materials := {}
 
 
-func _init(accent_color: Color, ink_color: Color, badge_skew := 0.0, italic_face := false) -> void:
+func _init(accent_color: Color, ink_color: Color, badge_skew := 0.0, italic_face := false, clean_style := false) -> void:
+	clean = clean_style
 	accent = accent_color
 	ink = Color(ink_color, 1.0)
 	accent_top = accent_color.lerp(Color.WHITE, 0.55)
 	accent_bottom = accent_color.darkened(0.12)
-	panel = Color(ink.lerp(accent, 0.12), 0.86)
+	panel = Color(ink.lerp(accent, 0.06 if clean else 0.12), 0.96 if clean else 0.86)
 	panel_edge = Color(accent, 0.9)
 	skew = badge_skew
 	italic = italic_face
@@ -85,7 +87,7 @@ func _init(accent_color: Color, ink_color: Color, badge_skew := 0.0, italic_face
 ## and far from every meaning colour.
 static func house() -> GameTheme:
 	if _house == null:
-		_house = GameTheme.new(Color("7a7cff"), Color("17143a"), 0.12)
+		_house = GameTheme.new(Color("6db6d9"), Color("0b1019"), 0.0, false, true)
 	return _house
 
 
@@ -110,6 +112,14 @@ static func display_font(upright := true) -> Font:
 
 ## This game's face: leaning when the theme is `italic`, unless `upright`.
 func font(upright := false) -> Font:
+	if clean:
+		if not _fonts.has("clean"):
+			var face := FontVariation.new()
+			face.base_font = load("res://assets/fonts/Rajdhani-SemiBold.ttf")
+			face.spacing_top = -4
+			face.spacing_bottom = -4
+			_fonts["clean"] = face
+		return _fonts["clean"]
 	return display_font(upright or not italic)
 
 
@@ -132,8 +142,8 @@ func style_label(l: Label, size := 0, color = null, upright := false) -> void:
 	if color != null:
 		l.add_theme_color_override("font_color", color)
 	l.add_theme_color_override("font_outline_color", ink)
-	l.add_theme_constant_override("outline_size", outline_for(s))
-	if s >= 70:
+	l.add_theme_constant_override("outline_size", 0 if clean else outline_for(s))
+	if s >= 70 and not clean:
 		l.add_theme_color_override("font_shadow_color", Color(ink, 0.55))
 		l.add_theme_constant_override("shadow_offset_x", maxi(2, s / 24))
 		l.add_theme_constant_override("shadow_offset_y", maxi(3, s / 16))
@@ -159,7 +169,7 @@ func hero(text: String, size: int, gradient: Array = [], upright := false) -> La
 ## Gives a label this theme's gradient fill (or `gradient`), or takes it off with `[]` on a
 ## label that has one and `clear` true. Labels of one size and gradient share one material.
 func set_gradient(l: Label, gradient: Array = [], clear := false) -> void:
-	if clear:
+	if clear or clean:
 		l.material = null
 		return
 	var top: Color = gradient[0] if gradient.size() == 2 else accent_top
@@ -197,7 +207,7 @@ func panel_style(fill = null, lean := 0.0, radius := 22) -> StyleBoxFlat:
 	s.content_margin_top = 8
 	s.content_margin_bottom = 10
 	s.anti_aliasing = true
-	return s
+	return _finish_style(s)
 
 
 ## A slanted badge (a chip, a banner, a callout) in `fill` (default: the accent). `slim` trims
@@ -211,7 +221,7 @@ func badge_style(fill = null, slim := false) -> StyleBoxFlat:
 		s.content_margin_top = 1
 		s.content_margin_bottom = 3
 		s.border_width_bottom = 4
-	return s
+	return _finish_style(s)
 
 
 ## The big card behind the intro and pause screens.
@@ -223,7 +233,7 @@ func card_style() -> StyleBoxFlat:
 	s.content_margin_right = 40
 	s.content_margin_top = 24
 	s.content_margin_bottom = 28
-	return s
+	return _finish_style(s)
 
 
 ## A pill's style for a button kind (PRIMARY, SECONDARY, GO, DANGER); `pressed` lightens it.
@@ -248,7 +258,7 @@ func button_style(kind := PRIMARY, pressed := false) -> StyleBoxFlat:
 	s.border_width_bottom = 7
 	s.content_margin_left = 28
 	s.content_margin_right = 28
-	return s
+	return _finish_style(s)
 
 
 ## A touch button: at least 300 x HudTheme.BUTTON_HEIGHT, no focus (Space is the simulator's
@@ -268,7 +278,7 @@ func style_button(b: Button, kind := PRIMARY) -> void:
 	b.add_theme_font_override("font", font(true))
 	b.add_theme_font_size_override("font_size", maxi(b.get_theme_font_size("font_size"), HudTheme.BUTTON_FONT))
 	b.add_theme_color_override("font_outline_color", ink)
-	b.add_theme_constant_override("outline_size", 6)
+	b.add_theme_constant_override("outline_size", 0 if clean else 6)
 	for state in ["normal", "hover", "disabled", "focus"]:
 		b.add_theme_stylebox_override(state, button_style(kind))
 	b.add_theme_stylebox_override("pressed", button_style(kind, true))
@@ -279,7 +289,7 @@ func style_button(b: Button, kind := PRIMARY) -> void:
 func hud_skin() -> Dictionary:
 	var hud_panel := panel_style()
 	hud_panel.content_margin_top = 6
-	return {"font": font(true), "outline_color": ink, "outline_size": 8, "panel": hud_panel,
+	return {"font": font(true), "outline_color": ink, "outline_size": 0 if clean else 8, "panel": hud_panel,
 		"button": button_style(PRIMARY), "button_pressed": button_style(PRIMARY, true),
 		"end_button": button_style(DANGER), "recalibrate_button": button_style(SECONDARY),
 		"message_font": font(), "message_outline_color": ink}
@@ -369,3 +379,14 @@ static func _kill(c: Object, key: StringName) -> void:
 		if old and old.is_valid():
 			old.kill()
 		c.remove_meta(key)
+
+
+func _finish_style(s: StyleBoxFlat) -> StyleBoxFlat:
+	if clean:
+		s.set_corner_radius_all(8)
+		s.set_border_width_all(1)
+		s.border_color = Color(accent, 0.35)
+		s.shadow_size = 0
+		s.shadow_offset = Vector2.ZERO
+		s.skew = Vector2.ZERO
+	return s

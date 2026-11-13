@@ -41,8 +41,8 @@ func build() -> void:
 	header.set_state(state)
 	_column = VBoxContainer.new()
 	_column.name = "Column"
-	_column.position = Vector2(HubTheme.MARGIN, HubTheme.HEADER_H)
-	_column.size = Vector2(HubTheme.W - 2 * HubTheme.MARGIN, HubTheme.H - HubTheme.HEADER_H - 40)
+	_column.position = Vector2(HubTheme.MARGIN, HubTheme.HEADER_H + HubTheme.GAP)
+	_column.size = Vector2(HubTheme.W - 2 * HubTheme.MARGIN, HubTheme.H - HubTheme.HEADER_H - HubTheme.GAP - 40)
 	_column.add_theme_constant_override("separation", 14)
 	_column.alignment = BoxContainer.ALIGNMENT_CENTER  # without the nudge, the rows sit mid-screen
 	_column.mouse_filter = Control.MOUSE_FILTER_IGNORE

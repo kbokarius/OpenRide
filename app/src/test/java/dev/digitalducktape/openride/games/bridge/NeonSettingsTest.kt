@@ -7,10 +7,11 @@ import org.junit.Test
 
 class NeonSettingsTest {
     @Test fun `all library choices produce a locked plan without effort scaling`() {
-        val ids = listOf("tutorial", "daily_2026-11-13_g1", "daily_2026-11-13_g2") +
+        val ids = listOf(10, 15, 20, 30).flatMap { m -> (1..25).map { "ls_${m}_${it.toString().padStart(2, '0')}" } } +
+            listOf("ls_r_15_1", "ls_r_30_2147483646") + listOf("tutorial", "daily_2026-11-13_g1", "daily_2026-11-13_g2") +
             listOf("steady_flow", "intervals", "rolling_climb").flatMap { f -> listOf(10, 20, 30).map { "${f}_$it" } }
         val identities = mutableSetOf<String>()
-        for (id in ids) for (tier in listOf("beginner", "intermediate", "advanced", "expert")) {
+        for (id in ids) for (tier in listOf("light", "moderate", "hard", "challenging", "extreme", "beginner", "intermediate", "advanced", "expert")) {
             val settings = NeonSettings(id, tier, 150)
             assertTrue(settings.valid())
             val request = SessionRequest.JustRide("neon_vector", JustRideMode.Timed(settings.minutes), Difficulty.HARD, settings)
@@ -23,16 +24,20 @@ class NeonSettingsTest {
             assertEquals(settings.params(), plan.segments.single().params)
             identities += plan.planId
         }
-        assertEquals(ids.size * 4, identities.size)
+        assertEquals(ids.size * 9, identities.size)
     }
 
     @Test fun `bad dates unknown tiers and invalid targets are rejected`() {
         for (settings in listOf(
             NeonSettings("daily_2026-02-30_g1", "beginner", 150),
             NeonSettings("steady_flow_15", "beginner", 150),
-            NeonSettings("steady_flow_20", "hard", 150),
+            NeonSettings("steady_flow_20", "unknown", 150),
             NeonSettings("tutorial", "expert", 0),
             NeonSettings("tutorial", "expert", 2001),
+            NeonSettings("ls_15_00", "beginner", 150),
+            NeonSettings("ls_15_26", "beginner", 150),
+            NeonSettings("ls_r_15_2147483647", "beginner", 150),
+            NeonSettings("ls_15_01", "beginner", 175),
         )) assertFalse(settings.valid())
         for (target in listOf("150.1", "\"150\"", "null")) {
             assertNull(NeonSettings.parse(Json.parseToJsonElement("""{"course_id":"tutorial","lane_difficulty":"beginner","reference_power":$target}""")))

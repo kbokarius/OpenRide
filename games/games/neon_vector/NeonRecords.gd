@@ -11,7 +11,7 @@ static func request(data: Dictionary, rider_id: String) -> Dictionary:
 		var bridge := Engine.get_singleton("OpenRideBridge")
 		# Android plugin methods live in JNISingleton's Java method table.
 		if not bridge.has_java_method("neon_records_request"):
-			return failure("This app version cannot save NEON VECTOR rides.")
+			return failure("This app version cannot save Lane Smash rides.")
 		var ticket: int = bridge.neon_records_request(JSON.stringify(data, "", true, true))
 		if ticket < 0:
 			return failure("Ride storage is busy. Please retry.")
@@ -82,12 +82,20 @@ static func local_request(data: Dictionary, rider_id: String) -> Dictionary:
 				rows.append(record)
 			if data.action == "best":
 				return {"ok": true, "record": best}
-			rows.sort_custom(func(a: Dictionary, b: Dictionary): return int(a.get("updatedMs", 0)) > int(b.get("updatedMs", 0)))
+			rows.sort_custom(func(a: Dictionary, b: Dictionary): return str(a.attemptId) > str(b.attemptId) if int(a.get("updatedMs", 0)) == int(b.get("updatedMs", 0)) else int(a.get("updatedMs", 0)) > int(b.get("updatedMs", 0)))
+			var track_stats := {}
+			for row in rows:
+				if row.result.status == "pending": continue
+				var key := str(row.comparisonKey)
+				if not track_stats.has(key):
+					track_stats[key] = {"lastScoreUnits": row.result.scoreUnits, "lastStatus": row.result.status, "bestScoreUnits": -1}
+				if row.result.status == "completed":
+					track_stats[key].bestScoreUnits = maxi(int(track_stats[key].bestScoreUnits), int(row.result.scoreUnits))
 			rows = rows.slice(0, 50)
 			for row in rows:
 				row.erase("ghost")
 				row.erase("course")
-			return {"ok": true, "completions": completions, "history": rows}
+			return {"ok": true, "completions": completions, "history": rows, "trackStats": track_stats}
 	return failure("Unknown ride storage request.")
 
 
@@ -118,14 +126,19 @@ static func valid_record(record: Dictionary) -> bool:
 		return false
 	var last_time := -1
 	var last_score := 0
+	var last_distance := 0
 	for tick in ghost:
-		if not tick is Array or tick.size() != 3:
+		if not tick is Array or tick.size() not in [3, 4]:
 			return false
 		for value in tick:
 			if not (value is int or value is float) or not is_finite(float(value)) or float(value) != floorf(float(value)):
 				return false
 		if int(tick[0]) <= last_time or int(tick[0]) > elapsed or int(tick[1]) < -1 or int(tick[1]) > 5 or int(tick[2]) < last_score or int(tick[2]) > score:
 			return false
+		if tick.size() == 4:
+			if int(tick[3]) < last_distance or int(tick[3]) > ceili(float(tick[0]) * NeonRules.MAX_SPEED_MPS) + 2:
+				return false
+			last_distance = int(tick[3])
 		last_time = int(tick[0])
 		last_score = int(tick[2])
 	return true

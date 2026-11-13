@@ -1,4 +1,4 @@
-"""Render Vector Drive: an original 138 bpm instrumental, 64-bar seamless loop.
+"""Render Night Drive: an original 128 bpm dark techno instrumental, 64-bar seamless loop.
 All oscillators and percussion are synthesized here; no samples or third-party music.
 Run with numpy/scipy + ffmpeg. Intermediate WAV stays in the supplied work directory.
 """
@@ -9,7 +9,7 @@ import numpy as np
 from scipy.signal import butter, sosfilt
 from scipy.io.wavfile import write
 
-SR, BPM, BARS = 44100, 138, 64
+SR, BPM, BARS = 44100, 128, 64
 BEAT = 60 / BPM
 N = round(BARS * 4 * BEAT * SR)
 rng = np.random.default_rng(20261113)
@@ -55,43 +55,41 @@ snare *= np.minimum(t/.001, 1)
 t = np.arange(round(.15*SR))/SR
 hat = sosfilt(butter(2, 7000, 'highpass', fs=SR, output='sos'), rng.normal(size=len(t))) * np.exp(-t*55)
 
-roots = [42, 38, 45, 40] # F# minor / D / A / E
-melody = [12, 7, 10, 14, 12, 7, 3, 7, 12, 15, 14, 10, 7, 10, 14, 7]
+# Restrained minor harmony, deep syncopated bass and slowly opening acid texture.
+# No upper-octave arcade hook; energy comes from drums and groove.
+roots = [38, 38, 36, 33]  # D minor / C / A pedal tones
 for bar in range(BARS):
-    root = roots[(bar//4) % 4]
-    section = (bar//8) % 4
+    root = roots[(bar // 8) % 4]
+    section = (bar // 8) % 4
     for beat in range(4):
-        at = bar*4+beat
-        add(drums, kick, at, .84)
-        if beat in (1,3):
-            add(drums, snare, at, .32)
-            add(drums, snare, at+.028, .10, .25)
-        add(drums, hat, at+.5, .20, .25 if beat%2 else -.25)
-        if section != 2 or bar%8 >= 4:
-            for sub in (.25,.75):
-                add(drums, hat, at+sub, .055, -.35 if sub==.25 else .35)
-    # Alternating octaves and off-beat bass keep the groove moving.
-    for eighth in range(8):
-        pitch = root - 12 + (12 if eighth in (3,7) else 0)
-        add(music, tone(pitch, BEAT*.46, 9, 8), bar*4+eighth*.5+.08, .19)
-    # Pulsed, wide harmonic bed.
-    third = 3 if (bar//4)%4 == 0 else 4
-    for off in (0,1.5,2.5):
-        for n, interval in enumerate([0,third,7,12]):
-            add(music, tone(root+12+interval, BEAT*1.4, 6, 2.5), bar*4+off, .025, (n-1.5)*.35)
-    # Main hook varies every 16 bars; a lighter middle eight keeps the loop from tiring.
-    if section != 2 or bar%8 >= 4:
-        for eighth in range(8):
-            midi = root + melody[(bar%2)*8+eighth] + (12 if section==3 else 0)
-            add(music, tone(midi, BEAT*.75, 7, 7), bar*4+eighth*.5, .065, np.sin(eighth*1.7)*.35)
+        at = bar * 4 + beat
+        add(drums, kick, at, .92)
+        if beat in (1, 3):
+            add(drums, snare, at, .19)
+            add(drums, snare, at + .035, .065, .25)
+        add(drums, hat, at + .5, .15, .18)
+        for sub, gain in [(.25, .035), (.75, .055)]:
+            add(drums, hat, at + sub + (.016 if sub == .75 else 0), gain, -.3)
+    for step, octave, gain in [(0.75,0,.24),(1.5,0,.22),(2.25,0,.27),(2.75,12,.11),(3.5,0,.25)]:
+        add(music, tone(root - 12 + octave, BEAT * .52, 5, 7), bar * 4 + step, gain)
+    # Metallic, off-grid percussion, kept below the main kick and hats.
+    for step in [1.75, 3.25]:
+        add(drums, tone(root + 31, BEAT * .15, 3, 60), bar * 4 + step, .045, -.4 if step < 2 else .4)
+    # Dark suspended pad with long overlapping tails, changes only every two bars.
+    if bar % 2 == 0:
+        for n, interval in enumerate([0, 7, 10]):
+            pad = tone(root + 12 + interval, BEAT * 9, 3, .42)
+            attack = np.minimum(np.arange(len(pad)) / (SR * .28), 1)
+            add(music, pad * attack, bar * 4, .018, (n - 1) * .65)
+    # Restrained resonant pulse: filter/harmonic density evolves across eight bars.
+    if section != 2 or bar % 8 >= 4:
+        pattern = [(0.5,0), (1.25,0), (2.5,7), (3.25,3)]
+        for step, interval in pattern:
+            acid = tone(root + 12 + interval, BEAT * .55, 3 + bar % 8, 12)
+            add(music, acid, bar * 4 + step, .035, np.sin(bar * .4) * .35)
     if bar % 8 == 7:
-        for j in range(6):
-            add(drums, snare, bar*4+3+j/6, .07+j*.016, (j%2-.5)*.4)
-    if bar % 16 == 15:
-        t = np.arange(round(2*BEAT*SR))/SR
-        rise = sosfilt(butter(2, 4000, 'highpass', fs=SR, output='sos'), rng.normal(size=len(t)))
-        rise *= (t/t[-1])**2*.055
-        add(music, rise, bar*4+2, 1, .1)
+        for j in range(3):
+            add(drums, snare, bar * 4 + 3.5 + j / 6, .035 + j * .01, (j % 2 - .5) * .4)
 
 # Tempo-synced stereo echoes wrap around the loop, including their tails.
 wet = music.copy()
@@ -107,4 +105,4 @@ wav = work/'vector_drive.wav'
 write(wav, SR, (wave*32767).astype(np.int16))
 out = Path(__file__).resolve().parents[1]/'games/neon_vector/audio/vector_drive.ogg'
 subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(wav),'-c:a','libvorbis','-q:a','6',str(out)],check=True)
-print(f'{out.name}: {N/SR:.3f}s, 138 bpm, peak {20*np.log10(np.max(np.abs(wave))):.2f} dBFS, RMS {20*np.log10(np.sqrt(np.mean(wave**2))):.2f} dBFS')
+print(f'{out.name}: {N/SR:.3f}s, {BPM} bpm, peak {20*np.log10(np.max(np.abs(wave))):.2f} dBFS, RMS {20*np.log10(np.sqrt(np.mean(wave**2))):.2f} dBFS')

@@ -11,12 +11,18 @@ const WHITE := Color("f0f4ff")
 const MUTED := Color("b8c6e0")
 
 var rules: NeonRules
-var world_id := "city"
+var world_id := "arctic"
 var trail_id := "ion"
 var visual_lane := 2.0
 var ghost_lane := -1.0
 var ghost_delta := 0
+var ghost_distance := -1.0
+var ghost_gap := 0.0
+var ghost_cadence := 80.0
 var ghost_visible := false
+var _text_second := -1
+var _speed_text := ""
+var _ghost_text := ""
 var motion := 0.0
 var reduced_motion := false
 var preview_time := -1
@@ -33,7 +39,7 @@ var _intro_alpha := 0.0:
 
 
 func _ready() -> void:
-	_font = GameTheme.display_font()
+	_font = GameTheme.house().font()
 	view = SubViewport.new()
 	view.name = "SpaceViewport"
 	view.size = Vector2i(1600, 900)
@@ -63,9 +69,17 @@ func update_view(delta: float) -> void:
 		var lane := clampf(floorf((raw - NeonRules.TIERS[rules.tier]) / 7.0), 0.0, 5.0)
 		visual_lane = lerpf(visual_lane, lane, 1.0 - exp(-delta * 12.0)) if delta > 0 else lane
 		motion = rules.elapsed_ms / 1000.0
+		space.ghost_distance = ghost_distance
+		space.ghost_cadence = ghost_cadence
 		space.reduced_motion = reduced_motion
 		space.set_world(world_id)
 		space.update_view(rules, delta, visual_lane, ghost_lane, ghost_visible, trail_id)
+		var second := rules.elapsed_ms / 1000
+		if second != _text_second:
+			_text_second = second
+			_speed_text = "%.1f mph   /   %.2f mi" % [rules.speed_kph / 1.609344, rules.road_distance() / 1609.344]
+			var position_text := "%.0f ft ahead" % (ghost_gap * 3.28084) if ghost_gap > 1.4 else ("%.0f ft behind" % (-ghost_gap * 3.28084) if ghost_gap < -1.4 else "alongside")
+			_ghost_text = "BEST RIDE  %s  ·  %+d PTS" % [position_text, ghost_delta] if ghost_visible else "TURN RESISTANCE TO CHANGE LANES"
 	queue_redraw()
 
 
@@ -74,24 +88,28 @@ func _draw() -> void:
 		return
 	var world := NeonWorlds.world(world_id)
 	var accent := Color(world.accent)
-	# A quiet bottom dock gives the lane numbers breathing room below the crossing line.
+	# A quiet bottom dock gives the lane numbers breathing room below the road.
 	for i in 14:
 		draw_rect(Rect2(0, 890 + i * 14, 1920, 15), Color(0.025, 0.035, 0.08, minf(0.9, i * 0.065)))
 	_bands(accent)
-	_text("NEON VECTOR", Vector2(52, 306), 34, Color(WHITE, _intro_alpha))
-	_text(str(world.title).to_upper(), Vector2(52, 350), 30, Color(MUTED, _intro_alpha))
-	_tutorial_help(accent)
+	_text("Lane Smash", Vector2(52, 306), 34, Color(WHITE, _intro_alpha))
+	_text(str(rules.course.get("title", world.title)), Vector2(52, 350), 30, Color(MUTED, _intro_alpha))
+	if rules.distance_based:
+		_text(_speed_text, Vector2(52, 395), 32, MUTED)
+
 	if rules.course.is_empty():
 		return
 	var progress := clampf(float(rules.elapsed_ms) / float(rules.course.durationMs), 0.0, 1.0)
 	draw_line(Vector2(52, 1055), Vector2(1868, 1055), Color(accent, 0.15), 5.0)
 	draw_line(Vector2(52, 1055), Vector2(52 + 1816 * progress, 1055), accent, 5.0)
-	for phase: Dictionary in rules.course.phases:
-		if rules.elapsed_ms >= int(phase.startMs) and rules.elapsed_ms < int(phase.endMs):
-			_text(str(phase.name).to_upper(), Vector2(52, 1040), 28, MUTED)
-			break
-	var label := "GHOST  %+d" % ghost_delta if ghost_visible else "TURN RESISTANCE TO CHANGE LANES"
-	_text(label, Vector2(1190, 1040), 28, WHITE if ghost_visible else MUTED)
+	if rules.distance_based:
+		_text("RIDE PROGRESS", Vector2(52, 1040), 28, MUTED)
+	else:
+		for phase: Dictionary in rules.course.phases:
+			if rules.elapsed_ms >= int(phase.startMs) and rules.elapsed_ms < int(phase.endMs):
+				_text(str(phase.name).to_upper(), Vector2(52, 1040), 28, MUTED)
+				break
+	_text(_ghost_text, Vector2(1160, 1040), 28, WHITE if ghost_visible else MUTED)
 
 
 func _bands(accent: Color) -> void:
@@ -103,7 +121,7 @@ func _bands(accent: Color) -> void:
 			style.bg_color = Color(accent, 0.18) if selected else Color("101a32")
 			style.border_color = Color(accent, 0.8) if selected else Color(accent, 0.2)
 			style.set_border_width_all(2)
-			style.set_corner_radius_all(14)
+			style.set_corner_radius_all(6)
 			_band_styles.append(style)
 	for lane in 6:
 		var band := NeonRules.band(lane, rules.tier)
@@ -116,7 +134,6 @@ func _bands(accent: Color) -> void:
 
 
 func _text(value: String, at: Vector2, size: int, color: Color) -> void:
-	draw_string_outline(_font, at, value, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 7, Color(Color("0a1022"), color.a))
 	draw_string(_font, at, value, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
 
 

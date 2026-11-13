@@ -51,6 +51,8 @@ var _cadence := 0.0
 var _power := 0.0
 var _power_source := Callable()  ## () -> float: the watts to show instead of the raw reading
 var _shown := {}
+var text_interval := 0.0
+var _refresh_left := 0.0
 
 
 ## `framed`: false inside a shared panel (the HUD's ride panel).
@@ -127,7 +129,10 @@ func cadence_color(cadence: float) -> Color:
 	return HudTheme.GOOD
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_refresh_left -= delta
+	if _refresh_left > 0: return
+	_refresh_left = text_interval
 	refresh(InputBus.cadence, shown_power(), InputBus.resistance, InputBus.heart_rate)
 
 

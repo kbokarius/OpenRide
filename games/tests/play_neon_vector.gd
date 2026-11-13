@@ -1,5 +1,5 @@
 extends SceneTree
-## Real hub -> setup -> intro -> live timestamped input -> pause -> resume -> loss -> end.
+## Real hub -> setup -> intro -> live input -> manual-pause rejection -> sensor loss/recovery -> end.
 ## Runs with a window for visual review, or headlessly for lifecycle checks.
 
 var failures: Array[String] = []
@@ -11,6 +11,9 @@ var storage_path := ""
 
 
 func _initialize() -> void:
+	if "--hidden" in OS.get_cmdline_user_args():
+		root.set_flag(ClassDB.class_get_integer_constant("Window", "FLAG_NO_FOCUS"), true)
+		root.hide()
 	_run.call_deferred()
 
 
@@ -38,13 +41,17 @@ func _run() -> void:
 	await create_timer(0.5).timeout
 	_check(hub.screen.get_script().resource_path.ends_with("NeonSetup.gd"), "dedicated setup appears")
 	await _shot("setup")
-	hub.screen._open_power()
-	await _shot("power")
-	hub.screen._close_panel()
+	_check(hub.screen.track_buttons.size() == 25, "25 tracks are listed")
+	hub.screen.length_picker.pick("15")
+	_check(int(hub.screen.course.durationMs) == 900000, "15 minute duration selects matching track")
+	hub.screen._random_track()
+	_check(hub.screen.course.family == "random", "random track is generated")
+	hub.screen._pick_track(0)
 	hub.screen._open_extras()
 	await _shot("style")
 	hub.screen._close_panel()
 	_seed_ghost(hub.screen)
+	root.get_node("InputBus")._sim_resistance = NeonRules.band(int(hub.screen.course.events[0].laneIndex), hub.screen.tier).x + 3
 	hub.screen.start_button.pressed.emit()
 	await _until(func(): return director.phase_name() == "PLAYING", 15, "game starts")
 	if director.game == null:
@@ -66,32 +73,29 @@ func _run() -> void:
 	await create_timer(0.8).timeout
 	_check(root.get_node("AudioDirector").music_enabled, "music can resume")
 	await _shot("riding")
-	session.request_pause()
-	await process_frame
+	_check(not director.hud.pause_button.visible, "Pause is absent")
+	_check(director.hud.end_button.text == "End Ride", "End Ride stays available")
 	var elapsed: int = game.rules.elapsed_ms
-	var score: int = game.rules.score_units
+	session.request_pause()
 	await create_timer(0.5).timeout
-	_check(game.rules.elapsed_ms == elapsed and game.rules.score_units == score, "manual pause freezes clock and score")
-	await _shot("paused")
-	session.request_resume()
-	await create_timer(2).timeout
-	_check(game.rules.elapsed_ms == elapsed, "resume countdown is unscored")
-	await create_timer(2).timeout
-	_check(game.rules.elapsed_ms > elapsed, "resume restarts course after countdown")
+	_check(not session.paused and game.rules.elapsed_ms > elapsed, "manual pause cannot stop an uninterrupted ride")
+	director.pause_overlay.show_confirm()
+	elapsed = game.rules.elapsed_ms
+	await create_timer(0.5).timeout
+	_check(game.rules.elapsed_ms > elapsed, "end confirmation does not pause the ride")
+	director.pause_overlay.hide_confirm()
 	root.get_node("InputBus")._sim_neon_sensors = false
 	await create_timer(1.8).timeout
-	_check(session.paused, "sensor silence pauses the shared session")
+	_check(session.paused, "sensor silence freezes scoring")
+	_check(not director.pause_overlay._resume_button.visible, "sensor recovery offers no manual Resume")
 	await _shot("sensor-loss")
-	session.request_resume()
-	await process_frame
-	_check(session.paused, "stale sensors block Resume")
+	elapsed = game.rules.elapsed_ms
 	root.get_node("InputBus")._sim_neon_sensors = true
 	await create_timer(0.3).timeout
-	session.request_resume()
-	await process_frame
-	_check(session.paused, "a single fresh frame does not bypass recovery gate")
-	await create_timer(1.0).timeout
-	_check(game.resume_block_reason().is_empty(), "one second of fresh data enables Resume")
+	_check(session.paused, "a single fresh frame cannot bypass recovery gate")
+	await create_timer(5).timeout
+	_check(not session.paused and game.rules.elapsed_ms > elapsed, "healthy sensor data automatically resumes after countdown")
+
 	session.request_end()
 	await _until(func(): return director.summary_screen.visible, 5, "ended result appears")
 	_check(int(director.results[0].stars) == 0, "incomplete ride earns no stars")
@@ -102,7 +106,7 @@ func _run() -> void:
 	for failure in failures:
 		printerr("FAIL ", failure)
 	var saved := NeonRecords.local_request({"action": "state"}, str(session.plan.get("rider_id", "guest")).trim_suffix(".0"))
-	_check(saved.history.size() == 2 and saved.completions == 1, "partial history is saved without a completion or unlock")
+	_check(saved.history.size() == 2 and saved.completions == 1, "partial history is saved without a completion")
 	print("NEON PLAY %s checks=%d failures=%d" % ["PASS" if failures.is_empty() else "FAIL", checks, failures.size()])
 	for file in DirAccess.get_files_at(storage_path):
 		DirAccess.remove_absolute(storage_path.path_join(file))
@@ -139,11 +143,8 @@ func _seed_ghost(setup: Node) -> void:
 	var record := {"version": 1, "attemptId": id, "riderId": rider, "comparisonKey": rules.comparison_key(rider),
 		"course": rules.course.duplicate(true), "result": rules.result("pending"), "ghost": []}
 	_check(NeonRecords.local_request({"action": "save", "record": record}, rider).ok, "ghost attempt begins durably")
-	var event_index := 0
 	for time in range(0, int(rules.course.durationMs), 50):
-		while event_index < rules.course.events.size() - 1 and int(rules.course.events[event_index].endMs) <= time:
-			event_index += 1
-		var lane := int(NeonCourse.choices(rules.course.events[event_index])[-1].laneIndex)
+		var lane := int(rules.current_event().get("laneIndex", 0))
 		rules.push_sample({"t": time, "seq": time + 1, "cadence": 80, "power": setup.reference_power, "resistance": NeonRules.band(lane, setup.tier).x + 3})
 		rules.advance(time + 50)
 	record.result = rules.result()

@@ -1,25 +1,25 @@
 class_name NeonSetup
 extends HubScreen
-## Full-course setup within the existing hub. Shared buttons, typography and Back behavior.
-
-const FAMILIES := {"steady_flow": ["Steady Flow", "Steady points. Smooth lane changes."], "intervals": ["Intervals", "Power bursts. Room to recover."], "rolling_climb": ["Rolling Climb", "Climb gradually across six lanes."], "tutorial": ["First Contact", "Learn the controls in 5 minutes."]}
-var family := "steady_flow"
+## Scrollable track library; primary ride controls stay fixed and no scrollbar is shown.
 var minutes := 20
-var tier := "intermediate"
+var tier := "challenging"
 var reference_power := 150
-var daily_date := ""
-var look := GameTheme.new(Color("67d8ff"), Color("0b132b"))
+var selected_index := 0
+var random_seed := 0
+var look := GameTheme.new(Color("79b8d5"), Color("0b1019"), 0.0, false, true)
 var course: Dictionary = {}
-var family_buttons: Dictionary = {}
 var tier_buttons: Dictionary = {}
+var track_buttons: Array[Button] = []
+var _track_keys := {}
+var _track_rows: Array[Dictionary] = []
 var length_picker: Segmented
 var length_label: Label
-var power_label: Button
-var targets_label: Label
 var range_label: Label
 var course_label: Label
 var start_button: Button
 var sensor_label: Label
+var track_list: VBoxContainer
+var track_scroll: ScrollContainer
 var _waiting := false
 var _loading_records := true
 var _progress: Dictionary = {}
@@ -27,154 +27,156 @@ var _panel: Control
 var _replay_id := ""
 var _replay_course: Dictionary = {}
 
-
 func build() -> void:
-	reference_power = clampi(int(state.rider.get("ftp_watts", 150)), 1, 2000)
-	daily_date = Time.get_date_string_from_system()
-	var bar := top_bar("NEON VECTOR", look)
-	var bar_spacer := Control.new()
-	bar_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.add_child(bar_spacer)
-	var extras := look.button("Style & history", _open_extras, GameTheme.SECONDARY)
+	var background := ColorRect.new()
+	background.color = Color("090f18")
+	background.size = size
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(background)
+	var bar := top_bar("Lane Smash", look)
+	bar.get_node("Title").text = "Lane Smash"
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.add_child(spacer)
+	var extras := look.button("Settings & history", _open_extras, GameTheme.SECONDARY)
 	extras.custom_minimum_size = Vector2(380, 120)
-	extras.add_theme_font_size_override("font_size", 40)
 	bar.add_child(extras)
-	var left := VBoxContainer.new()
-	left.custom_minimum_size = Vector2(1040, 0)
-	left.add_theme_constant_override("separation", 24)
-	left.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var left_scroll := ScrollContainer.new()
-	left_scroll.position = Vector2(50, 170)
-	left_scroll.size = Vector2(1080, 860)
-	left_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	left_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	left_scroll.follow_focus = true
-	add_child(left_scroll)
-	left_scroll.add_child(left)
-	left.add_child(look.label("CHOOSE YOUR SIGNAL", 34, GameTheme.MUTED))
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 24)
-	grid.add_theme_constant_override("v_separation", 24)
-	left.add_child(grid)
-	for id: String in FAMILIES:
-		var button := look.button("%s\n%s" % FAMILIES[id], func(): _pick_family(id), GameTheme.SECONDARY)
-		button.custom_minimum_size = Vector2(510, 170)
-		button.add_theme_font_size_override("font_size", 34)
-		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		grid.add_child(button)
-		family_buttons[id] = button
-	var daily := look.button("DAILY SIGNAL · %s\n20 minutes · a new course, saved for replay" % daily_date, func(): _pick_family("daily"), GameTheme.SECONDARY)
-	daily.custom_minimum_size = Vector2(1040, 150)
-	daily.add_theme_font_size_override("font_size", 34)
-	left.add_child(daily)
-	family_buttons["daily"] = daily
-	course_label = look.label("", 34, GameTheme.MUTED)
-	course_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	left.add_child(course_label)
+	var label := look.label("TRACK LIBRARY", 34, GameTheme.MUTED)
+	label.position = Vector2(56, 170)
+	add_child(label)
+	var count := look.label("25 tracks · scroll to explore", 34, GameTheme.MUTED)
+	count.position = Vector2(590, 170)
+	add_child(count)
+	track_scroll = ScrollContainer.new()
+	track_scroll.position = Vector2(56, 234)
+	track_scroll.size = Vector2(1040, 810)
+	track_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	track_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	track_scroll.follow_focus = true
+	add_child(track_scroll)
+	track_list = VBoxContainer.new()
+	track_list.custom_minimum_size = Vector2(1016, 0)
+	track_list.add_theme_constant_override("separation", 24)
+	track_scroll.add_child(track_list)
 	var right := VBoxContainer.new()
-	right.custom_minimum_size = Vector2(708, 0)
-	right.add_theme_constant_override("separation", 8)
-	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var right_scroll := ScrollContainer.new()
-	right_scroll.position = Vector2(1150, 150)
-	right_scroll.size = Vector2(720, 710)
-	right_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	right_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	right_scroll.follow_focus = true
-	add_child(right_scroll)
-	right_scroll.add_child(right)
-	length_label = look.label("RIDE LENGTH", 34, GameTheme.MUTED)
+	right.position = Vector2(1150, 170)
+	right.custom_minimum_size = Vector2(714, 0)
+	right.add_theme_constant_override("separation", 12)
+	add_child(right)
+	length_label = look.label("DURATION", 34, GameTheme.MUTED)
 	right.add_child(length_label)
-	length_picker = Segmented.new(["10", "20", "30"], ["10 min", "20 min", "30 min"], str(minutes), look, 220)
-	length_picker.changed.connect(func(value: String): minutes = int(value); _refresh_course())
+	length_picker = Segmented.new(["10", "15", "20", "30"], ["10 min", "15 min", "20 min", "30 min"], str(minutes), look, 160)
+	for button in length_picker.buttons:
+		button.add_theme_font_size_override("font_size", 34)
+	length_picker.changed.connect(func(value: String):
+		minutes = int(value)
+		reference_power = 150
+		random_seed = 0
+		_replay_id = ""
+		_replay_course = {}
+		_rebuild_tracks()
+		_refresh_course())
 	right.add_child(length_picker)
-	right.add_child(look.label("RESISTANCE DIFFICULTY", 34, GameTheme.MUTED))
+	right.add_child(look.label("RESISTANCE", 34, GameTheme.MUTED))
 	var tiers := GridContainer.new()
-	tiers.columns = 2
+	tiers.columns = 3
 	tiers.add_theme_constant_override("h_separation", 24)
 	tiers.add_theme_constant_override("v_separation", 24)
 	right.add_child(tiers)
-	for id: String in NeonRules.TIERS:
+	for id: String in NeonRules.CURRENT_TIERS:
 		var button := look.button(id.capitalize(), func(): _pick_tier(id), GameTheme.SECONDARY)
-		button.custom_minimum_size = Vector2(342, 120)
-		button.add_theme_font_size_override("font_size", 40)
+		button.custom_minimum_size = Vector2(222, 120)
+		button.add_theme_font_size_override("font_size", 34)
 		tiers.add_child(button)
 		tier_buttons[id] = button
 	range_label = look.label("", 34, GameTheme.MUTED)
 	right.add_child(range_label)
-	power_label = look.button("", _open_power, GameTheme.SECONDARY)
-	power_label.custom_minimum_size = Vector2(708, 120)
-	power_label.add_theme_font_size_override("font_size", 40)
-	right.add_child(power_label)
-	targets_label = look.label("", 34, GameTheme.MUTED)
-	right.add_child(targets_label)
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	right.add_child(spacer)
+	course_label = look.label("", 38)
+	course_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	course_label.custom_minimum_size = Vector2(714, 0)
+	right.add_child(course_label)
 	sensor_label = look.label("", 34, GameTheme.MUTED)
-	sensor_label.position = Vector2(1150, 865)
+	sensor_label.position = Vector2(1150, 864)
 	add_child(sensor_label)
-	start_button = look.button("Enter the circuit", _start, GameTheme.GO)
+	start_button = look.button("Start ride", _start, GameTheme.PRIMARY)
 	start_button.name = "Start"
-	start_button.custom_minimum_size = Vector2(720, 120)
 	start_button.position = Vector2(1150, 925)
+	start_button.custom_minimum_size = Vector2(714, 120)
 	add_child(start_button)
 	InputBus.frame_updated.connect(_refresh_sensors)
+	_rebuild_tracks()
 	_refresh_course()
 	_load_progress.call_deferred()
 
+func _rebuild_tracks() -> void:
+	for child in track_list.get_children():
+		track_list.remove_child(child)
+		child.queue_free()
+	track_buttons.clear()
+	_track_keys.clear()
+	_track_rows = LaneSmashCatalog.tracks(minutes)
+	var random_button := look.button("Generate random track  ↻", _random_track, GameTheme.SECONDARY)
+	random_button.custom_minimum_size = Vector2(1016, 120)
+	track_list.add_child(random_button)
+	for item in _track_rows:
+		var index := track_buttons.size()
+		var button := look.button("%02d    %s\n         %s" % [index + 1, item.title, item.description], func(): _pick_track(index), GameTheme.SECONDARY)
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.custom_minimum_size = Vector2(1016, 170)
+		button.add_theme_font_size_override("font_size", 34)
+		track_list.add_child(button)
+		track_buttons.append(button)
+	track_scroll.scroll_vertical = 0
 
-func _pick_family(id: String) -> void:
-	family = id
+func _pick_track(index: int) -> void:
+	selected_index = index
+	random_seed = 0
 	_replay_id = ""
 	_replay_course = {}
+	reference_power = 150
 	_refresh_course()
 
+func _random_track() -> void:
+	random_seed = randi_range(1, 2147483646)
+	_replay_id = ""
+	_replay_course = {}
+	reference_power = 150
+	_refresh_course()
 
 func _pick_tier(id: String) -> void:
 	tier = id
 	_refresh_course()
 
-
 func _refresh_course() -> void:
-	var id := "tutorial" if family == "tutorial" else "%s_%d" % [family, minutes]
-	course = _replay_course.duplicate(true) if not _replay_course.is_empty() else (NeonCourse.daily(daily_date) if family == "daily" else NeonCourse.load_course(id))
-	for key in family_buttons:
-		look.style_button(family_buttons[key], GameTheme.PRIMARY if key == family else GameTheme.SECONDARY)
+	var id := LaneSmashCatalog.random_id(minutes, random_seed) if random_seed > 0 else "ls_%d_%02d" % [minutes, selected_index + 1]
+	course = _replay_course.duplicate(true) if not _replay_course.is_empty() else NeonCourse.load_course(id)
+	for i in track_buttons.size():
+		var row: Dictionary = _track_rows[i]
+		track_buttons[i].text = "%02d    %s  /  %s\n         %s\n         %s" % [i + 1, row.title, LaneSmashEnvironment.TITLES[row.background], row.description, _score_text(row.id)]
+		look.style_button(track_buttons[i], GameTheme.PRIMARY if i == selected_index and random_seed == 0 and _replay_id.is_empty() else GameTheme.SECONDARY)
 	for key in tier_buttons:
 		look.style_button(tier_buttons[key], GameTheme.PRIMARY if key == tier else GameTheme.SECONDARY)
-	length_picker.visible = family not in ["daily", "tutorial"] and _replay_id.is_empty()
-	length_label.text = "RIDE LENGTH" if length_picker.visible else "RIDE LENGTH · %d MIN" % (int(course.get("durationMs", 0)) / 60000)
+		tier_buttons[key].add_theme_font_size_override("font_size", 34)
+	length_picker.visible = _replay_id.is_empty()
+	length_label.text = "DURATION" if _replay_id.is_empty() else "SAVED RIDE · %d MIN" % minutes
 	var lo: int = NeonRules.TIERS[tier]
-	range_label.text = "%d–%d across six lanes · same course" % [lo, lo + 41]
-	power_label.text = "Reference power: %d W  ›" % reference_power
-	var legacy := int(course.get("courseVersion", 1)) == 1
-	targets_label.text = "Charge targets: %.0f W / %.0f W" % [reference_power * 0.6, reference_power] if legacy else "Burst target: %d W · score grows with output" % reference_power
-	var default_note := "150 W is a starting default. Adjust it to suit your rides." if bool(state.rider.get("ftp_is_default", false)) else "Starts from your saved FTP. Independent of resistance."
-	if legacy:
-		default_note = "Saved original course · original pickup and charge rules"
-	course_label.text = "%s · %d minutes\n%d target points · music optional\n%s" % [course.get("title", ""), int(course.get("durationMs", 0)) / 60000, NeonCourse.maximum(course, false, reference_power) / NeonRules.UNIT, default_note]
+	range_label.text = "%d–%d resistance across six lanes" % [lo, lo + 41]
+	var palette := NeonWorlds.world(str(course.get("theme", "arctic")))
+	course_label.text = "%s\n%s  ·  %s\n%s" % [course.get("title", ""), palette.title, LaneSmashEnvironment.TITLES.get(course.get("background", "orbital"), "Prismatic flow"), _score_text(str(course.get("courseId", "")))]
 	_refresh_sensors()
 
-
 func _refresh_sensors() -> void:
-	if not is_instance_valid(start_button):
-		return
+	if not is_instance_valid(start_button): return
 	var fresh := InputBus.sample_age_ms <= 1500
 	start_button.disabled = _waiting or _loading_records or not fresh or course.is_empty()
-	sensor_label.text = "Loading saved rides…" if _loading_records else ("Bike connected · ready to ride" if fresh else "Waiting for fresh bike sensor data")
-
+	sensor_label.text = "Loading saved rides…" if _loading_records else ("Bike connected · ready" if fresh else "Waiting for bike sensor data")
 
 func _start() -> void:
-	if start_button.disabled:
-		return
+	if start_button.disabled: return
 	_waiting = true
 	_refresh_sensors()
 	start.emit({"kind": "just_ride", "game_id": "neon_vector", "mode": "minutes", "length": int(course.durationMs) / 60000,
 		"difficulty": "standard", "neon": {"course_id": course.courseId, "lane_difficulty": tier, "reference_power": reference_power, "replay_attempt_id": _replay_id}})
-
 
 func start_answered() -> void:
 	_waiting = false
@@ -186,7 +188,7 @@ func _load_progress() -> void:
 	_loading_records = false
 	if not bool(_progress.get("ok", false)):
 		notice.emit(str(_progress.get("error", "Could not load saved rides.")))
-	_refresh_sensors()
+	_refresh_course()
 
 
 func _close_panel() -> void:
@@ -232,72 +234,21 @@ func _modal(title: String) -> VBoxContainer:
 	return content
 
 
-func _open_power() -> void:
-	var box := _modal("REFERENCE POWER")
-	var help := look.label("Power sets burst star targets, not a score cap. Difficulty controls the six resistance lanes.\nChoose a reference you can sustain for short efforts. You can change it before each ride.", 36, GameTheme.MUTED)
-	box.add_child(help)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 30)
-	box.add_child(row)
-	var value := look.label("%d W" % reference_power, 64)
-	value.custom_minimum_size = Vector2(400, 160)
-	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	for change in [-5, 5]:
-		var button := look.button("− 5 W" if change < 0 else "+ 5 W", func():
-			reference_power = clampi(reference_power + change, 1, 2000)
-			value.text = "%d W" % reference_power
-			_refresh_course(), GameTheme.SECONDARY)
-		button.custom_minimum_size = Vector2(330, 160)
-		row.add_child(button)
-		if change < 0:
-			row.add_child(value)
-	var reset := look.button("Use my profile's %d W" % int(state.rider.get("ftp_watts", 150)), func():
-		reference_power = clampi(int(state.rider.get("ftp_watts", 150)), 1, 2000)
-		value.text = "%d W" % reference_power
-		_refresh_course(), GameTheme.SECONDARY)
-	reset.custom_minimum_size = Vector2(700, 120)
-	reset.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	box.add_child(reset)
-	box.add_child(look.label("Ghosts and records are kept separately for each power target.\nNo resistance or power changes happen automatically on the Bike.", 36, GameTheme.MUTED))
-
-
 func _open_extras() -> void:
-	var box := _modal("YOUR SIGNAL")
-	var count := int(_progress.get("completions", 0))
-	box.add_child(look.label("%d completed rides · earn new worlds and trails by finishing courses" % count, 36, GameTheme.MUTED))
+	var box := _modal("SETTINGS & RIDE HISTORY")
 	var info := GameRegistry.info("neon_vector")
 	for key in ["ghost", "motion", "music"]:
 		var row := OptionRow.new(info.option_spec(key), GameOptions.get_value(info, key, rider_id), 1700, look)
 		row.changed.connect(func(k: String, v: String): GameOptions.set_value(info, k, v, rider_id))
 		box.add_child(row)
-	for kind in ["world", "trail"]:
-		box.add_child(look.label("WORLDS" if kind == "world" else "TRAILS", 40))
-		var grid := GridContainer.new()
-		grid.columns = 2
-		grid.add_theme_constant_override("h_separation", 24)
-		grid.add_theme_constant_override("v_separation", 24)
-		box.add_child(grid)
-		for item: Dictionary in NeonWorlds.WORLDS if kind == "world" else NeonWorlds.TRAILS:
-			var unlocked := count >= int(item.rides)
-			var chosen: bool = GameOptions.get_value(info, kind, rider_id) == item.id
-			var label := str(item.title) + (" · selected" if chosen else (" · %d rides" % item.rides if not unlocked else ""))
-			var button := look.button(label, func():
-				GameOptions.set_value(info, kind, str(item.id), rider_id)
-				_open_extras(), GameTheme.PRIMARY if chosen else GameTheme.SECONDARY)
-			button.custom_minimum_size = Vector2(830, 130)
-			button.add_theme_font_size_override("font_size", 36)
-			button.name = "%s_%s" % [kind, item.id]
-			button.disabled = not unlocked
-			grid.add_child(button)
 	box.add_child(look.label("RECENT RIDES · tap one to replay its saved course", 40))
 	var history: Array = _progress.get("history", [])
 	if history.is_empty():
-		box.add_child(look.label("Your rides appear here, including interrupted attempts.\nFinish First Contact to learn the controls; practice rides do not unlock cosmetics.", 36, GameTheme.MUTED))
+		box.add_child(look.label("Your rides appear here after you start a track.\nTap a saved ride to replay the same course.", 36, GameTheme.MUTED))
 	for record: Dictionary in history:
 		var result: Dictionary = record.result
 		var date := Time.get_date_string_from_unix_time(int(record.get("updatedMs", 0)) / 1000)
-		var text := "%s · %s · %s\n%s · %d points · %d stars · %s / %d W" % [date, result.get("title", result.courseId), str(result.status).capitalize(), HubTheme.clock(int(result.activeDurationMs) / 1000.0), int(result.scoreUnits) / NeonRules.UNIT, int(result.get("stars", 0)), str(result.difficulty).capitalize(), int(result.referencePower)]
+		var text := "%s · %s · %s\n%s · %d points · %d stars · %s" % [date, result.get("title", result.courseId), str(result.status).capitalize(), HubTheme.clock(int(result.activeDurationMs) / 1000.0), int(result.scoreUnits) / NeonRules.UNIT, int(result.get("stars", 0)), str(result.difficulty).capitalize()]
 		var replay := look.button(text, func(): _replay(str(record.attemptId)), GameTheme.SECONDARY)
 		replay.custom_minimum_size = Vector2(1700, 160)
 		replay.add_theme_font_size_override("font_size", 34)
@@ -318,7 +269,7 @@ func _replay(id: String) -> void:
 	_replay_course = record.course
 	tier = str(record.result.difficulty)
 	reference_power = int(record.result.referencePower)
-	family = str(record.course.get("family", "steady_flow"))
+	minutes = int(record.course.durationMs) / 60000
 	_close_panel()
 	_refresh_course()
 
@@ -335,3 +286,19 @@ func targets() -> Array[Control]:
 				return false
 			ancestor = ancestor.get_parent()
 		return true)
+
+
+func _score_text(id: String) -> String:
+	var cache_key := "%s:%s:%d" % [id, tier, reference_power]
+	if not _track_keys.has(cache_key):
+		var data := _replay_course if id == _replay_course.get("courseId", "") else NeonCourse.load_course(id)
+		if data.is_empty(): return "No previous ride"
+		var rules := NeonRules.new()
+		if not rules.configure(data, tier, reference_power).is_empty(): return "No previous ride"
+		_track_keys[cache_key] = rules.comparison_key(rider_id)
+	var stats: Dictionary = _progress.get("trackStats", {}).get(_track_keys[cache_key], {})
+	if stats.is_empty(): return "No previous ride at this difficulty"
+	var last := "Last: %d" % (int(stats.lastScoreUnits) / NeonRules.UNIT)
+	if stats.lastStatus != "completed": last += " (partial)"
+	var best := "Best: %d" % (int(stats.bestScoreUnits) / NeonRules.UNIT) if int(stats.bestScoreUnits) >= 0 else "No completed best"
+	return "%s  /  %s" % [last, best]

@@ -146,4 +146,31 @@ class NeonRecordsTest {
         assertEquals("completed", rows.getValue("c".repeat(32)).status)
         assertEquals(1, dao.completions(rider))
     }
+    @Test fun `distance ghosts validate monotonic bounded movement and legacy ghosts remain valid`() {
+        val source = Json.parseToJsonElement(record(status = "completed", elapsed = 600000, score = 100).payloadJson).jsonObject
+        fun decode(trace: String) = NeonRecords.decode(JsonObject(source.toMutableMap().apply { put("ghost", Json.parseToJsonElement(trace)) }), rider, 0)
+        assertNotNull(decode("[[100,0,0,1000],[200,1,20,2000]]"))
+        assertNotNull(decode("[[100,0,0],[200,1,20]]"))
+        assertThrows(IllegalArgumentException::class.java) { decode("[[100,0,0,1000],[200,1,20,900]]") }
+        assertThrows(IllegalArgumentException::class.java) { decode("[[100,0,0,2000]]") }
+    }
+
+    @Test fun `track stats retain last partial and completed best beyond the history limit`() = runTest {
+        dao.save(record(id = "a"))
+        dao.save(record(id = "a", status = "completed", elapsed = 600000, score = 800))
+        dao.save(record(id = "c"))
+        dao.save(record(id = "c", status = "ended", elapsed = 30000, score = 100).copy(updatedMs = 2000))
+        val stats = dao.trackStats(rider).single()
+        assertEquals(100L, stats.lastScoreUnits)
+        assertEquals("ended", stats.lastStatus)
+        assertEquals(800L, stats.bestScoreUnits)
+        assertTrue(dao.trackStats(other).isEmpty())
+        repeat(51) { index ->
+            val extra = record(id = "d", key = "e").copy(attemptId = index.toString(16).padStart(32, '0'), updatedMs = 3000L + index)
+            dao.save(extra)
+            dao.save(extra.copy(status = "ended"))
+        }
+        assertFalse(dao.history(rider).any { it.comparisonKey == stats.comparisonKey })
+        assertTrue(dao.trackStats(rider).any { it.comparisonKey == stats.comparisonKey && it.bestScoreUnits == 800L })
+    }
 }

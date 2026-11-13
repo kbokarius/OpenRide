@@ -264,7 +264,7 @@ func is_calibrating() -> bool:
 ## 2026-10-27), so changing a song costs no score. A ride already paused stays as it was.
 func _open_music_in_game() -> void:
 	music_panel.open()
-	if Session.active and not Session.paused:
+	if Session.active and not Session.paused and (not game or game.allows_manual_pause()):
 		_music_pause = true
 		Session.request_pause()
 	_sync_pause_screen()
@@ -282,6 +282,9 @@ func _on_music_closed() -> void:
 ## the music panel (its own pause: Done resumes).
 func _sync_pause_screen() -> void:
 	if game:
+		pause_overlay.set_recovery_mode(not game.allows_manual_pause(), game.recovery_retry_available())
+		if Session.paused and not game.allows_manual_pause() and game.automatic_resume_ready():
+			Session.request_resume()
 		pause_overlay.set_resume_status(game.resume_block_reason(), game.pause_message())
 	var calibrating := Session.paused and is_calibrating()
 	if calibrating:

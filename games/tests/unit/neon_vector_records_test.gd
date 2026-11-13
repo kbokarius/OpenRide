@@ -86,9 +86,9 @@ func test_tutorial_and_partial_rides_do_not_unlock_cosmetics() -> void:
 	assert_int(state.completions).is_zero()
 	assert_int(state.history.size()).is_equal(2)
 	for count in [0, 3, 7, 12]:
-		assert_bool(NeonWorlds.unlocked("city", count)).is_true()
-	assert_bool(NeonWorlds.unlocked("orbit", 2)).is_false()
-	assert_bool(NeonWorlds.unlocked("orbit", 3)).is_true()
+		assert_bool(NeonWorlds.unlocked("arctic", count)).is_true()
+	assert_bool(NeonWorlds.unlocked("cobalt", 0)).is_true()
+	assert_bool(NeonWorlds.unlocked("cobalt", 3)).is_true()
 	assert_bool(NeonWorlds.unlocked("comet", 9, true)).is_false()
 	assert_bool(NeonWorlds.unlocked("comet", 10, true)).is_true()
 

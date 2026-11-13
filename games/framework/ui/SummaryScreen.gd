@@ -289,7 +289,7 @@ func show_summary(summary: Dictionary, plan: Dictionary, looks: Dictionary = {})
 			_title.text = "Ride interrupted" if neon.get("status", "") == "interrupted" else "Ride ended early"
 			_stars_note.visible = true
 			_stars_note.text = "Partial ride saved. Complete a course to earn stars and records."
-		_kicker.text = "%s · %s · %d W" % [str(neon.get("title", "NEON VECTOR")), str(neon.get("difficulty", "")).capitalize(), int(neon.get("referencePower", 150))]
+		_kicker.text = "%s · %s" % [str(neon.get("title", "Lane Smash")), str(neon.get("difficulty", "")).capitalize()]
 		if neon.get("courseId", "") == "tutorial":
 			_kicker.text = "FIRST CONTACT · PRACTICE"
 	var extra := _stat_tiles(first_info, results) if single else []

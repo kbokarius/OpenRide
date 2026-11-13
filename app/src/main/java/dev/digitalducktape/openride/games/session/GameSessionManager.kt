@@ -111,6 +111,7 @@ class GameSessionManager(
         if (isRunning) return log("run ${plan.planId}: a plan is already running")
         this.plan = plan
         this.ride = ride
+        ride.setFreewheelPauseEnabled(plan.segments.none { it.gameId == "neon_vector" })
         this.onFinished = onFinished
         segment = null
         segmentStartSec = 0
@@ -309,6 +310,7 @@ class GameSessionManager(
     private fun finish() {
         val finishedPlan = plan ?: return
         phase = Phase.FINISHED
+        ride.setFreewheelPauseEnabled(true)
         segmentTimeLeftSec = -1.0
         planJob?.cancel()
         planJob = null

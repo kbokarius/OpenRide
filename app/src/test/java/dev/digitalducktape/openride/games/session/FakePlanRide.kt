@@ -15,6 +15,10 @@ class FakePlanRide(scope: CoroutineScope) : PlanRide {
     val calls = mutableListOf<String>()
     private val paused = MutableStateFlow(false)
     private var auto = false
+    var freewheelEnabled = true
+        private set
+
+    override fun setFreewheelPauseEnabled(enabled: Boolean) { freewheelEnabled = enabled }
 
     override var elapsedSec = 0
         private set
@@ -44,7 +48,7 @@ class FakePlanRide(scope: CoroutineScope) : PlanRide {
 
     /** The rider stopped pedalling. */
     fun autoPause() {
-        if (paused.value) return
+        if (paused.value || !freewheelEnabled) return
         auto = true
         paused.value = true
     }

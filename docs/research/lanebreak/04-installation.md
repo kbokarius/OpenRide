@@ -55,7 +55,7 @@ Open **Profile → App updates → Check for updates**, then **Download**, then 
 
 ## Installing the custom game build
 
-Implementation update: the fork now supplies a separate **NEON VECTOR** build. Use **Install local APK** in OpenPelo; see the current [game and installation guide](../../NEON_VECTOR.md). The implemented distribution design is:
+Implementation update: the fork now supplies a separate **Lane Smash** build. Use **Install local APK** in OpenPelo; see the current [game and installation guide](../../LANE_SMASH.md). The implemented distribution design is:
 
 1. A distinct application ID and visible name for the experimental fork, so it can coexist with upstream.
 2. A dedicated signing key kept outside Git and backed up securely. Reuse it for every update.

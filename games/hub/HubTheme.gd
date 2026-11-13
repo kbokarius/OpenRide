@@ -24,7 +24,7 @@ const SMALL := HudTheme.SMALL
 ## Game cards on the home screen (spec §8.3): five across.
 const GAME_CARD := Vector2(330, 300)
 const GAME_PICTURE := Vector2(330, 186)  ## 16:9 (hub_card.png is 512x288)
-const CIRCUIT_CARD := Vector2(330, 220)
+const CIRCUIT_CARD := Vector2(330, 242)
 const CARD_RADIUS := 24
 const PICTURE_INSET := 8
 
@@ -59,7 +59,7 @@ static func game_look(game_id: String) -> GameTheme:
 	if not LOOKS.has(game_id):
 		return look()
 	if not _looks.has(game_id):
-		_looks[game_id] = GameTheme.new(LOOKS[game_id][0], LOOKS[game_id][1], 0.12)
+		_looks[game_id] = GameTheme.new(LOOKS[game_id][0], LOOKS[game_id][1], 0.0, false, game_id == "neon_vector")
 	return _looks[game_id]
 
 
@@ -67,7 +67,7 @@ static func game_look(game_id: String) -> GameTheme:
 static func backdrop() -> TextureRect:
 	var t := look()
 	var g := Gradient.new()
-	g.colors = PackedColorArray([t.ink.lerp(t.accent, 0.3), t.ink.darkened(0.35)])
+	g.colors = PackedColorArray([t.ink.lerp(t.accent, 0.06), t.ink.darkened(0.35)])
 	g.offsets = PackedFloat32Array([0.0, 1.0])
 	var tex := GradientTexture2D.new()
 	tex.gradient = g
@@ -103,7 +103,7 @@ static func flatten(l: Label) -> Label:
 ## A section heading ("PLAY A GAME"): leaning, muted, in the display face.
 static func heading(text: String) -> Label:
 	var l := look().label(text.to_upper(), HEADING, GameTheme.MUTED, false)
-	l.add_theme_font_override("font", GameTheme.display_font(false))
+	l.add_theme_font_override("font", look().font())
 	return l
 
 

@@ -2,7 +2,7 @@ extends Game
 ## NEON VECTOR: an authored resistance-controlled ride, integrated with OpenRide's host.
 ## Rules never depend on render delta. The host's monotonic clock and delivery log drive them.
 
-static var look := GameTheme.new(Color("67d8ff"), Color("0b132b"))
+static var look := GameTheme.new(Color("79b8d5"), Color("0b1019"), 0.0, false, true)
 
 var rules := NeonRules.new()
 var track: NeonTrack
@@ -28,8 +28,8 @@ var _ghost_cursor := 0
 func info() -> GameInfo:
 	var i := GameInfo.new()
 	i.id = "neon_vector"
-	i.title = "NEON VECTOR"
-	i.how_to = "Turn resistance to change lanes. Collect markers, hold cadence and charge with power."
+	i.title = "Lane Smash"
+	i.how_to = "Turn resistance to change lanes. Collect points, match cadence targets and build power in the marked lane."
 	i.supports = ["minutes"]
 	i.min_sec = 300
 	i.max_sec = 1800
@@ -37,8 +37,6 @@ func info() -> GameInfo:
 	i.effort_in_just_ride = false
 	i.star_thresholds = {"easy": [25, 60, 90], "standard": [25, 60, 90], "hard": [25, 60, 90]}
 	i.options = [
-		{"key": "world", "label": "World", "choices": ["city", "orbit", "abyss", "canyon"], "labels": ["Midnight Circuit", "Orbital Drift", "Deep Signal", "Solar Frontier"], "default": "city", "where": "hub"},
-		{"key": "trail", "label": "Trail", "choices": ["ion", "prism", "comet"], "labels": ["Ion", "Prism", "Comet"], "default": "ion", "where": "hub"},
 		{"key": "ghost", "label": "Best-ride ghost", "choices": ["on", "off"], "labels": ["On", "Off"], "default": "on", "kind": "segmented"},
 		{"key": "music", "label": "Music", "choices": ["on", "off"], "labels": ["On", "Off"], "default": "on", "kind": "segmented"},
 		{"key": "motion", "label": "Background motion", "choices": ["full", "reduced"], "labels": ["Full", "Reduced"], "default": "full", "kind": "segmented"},
@@ -58,7 +56,7 @@ func ui_theme() -> GameTheme:
 func target_text(_seg: Dictionary) -> String:
 	if not _errors.is_empty():
 		return "Course unavailable: %s" % _errors[0]
-	return "%s · %s · %d–%d resistance · %.0f W burst target" % [rules.course.get("title", ""), rules.tier.capitalize(), NeonRules.TIERS[rules.tier], NeonRules.TIERS[rules.tier] + 41, rules.reference_power]
+	return "%s · %s · %d–%d resistance" % [rules.course.get("title", ""), rules.tier.capitalize(), NeonRules.TIERS[rules.tier], NeonRules.TIERS[rules.tier] + 41]
 
 
 func _ready() -> void:
@@ -69,9 +67,9 @@ func _ready() -> void:
 
 func _on_prepare(_seg: Dictionary) -> void:
 	Engine.max_fps = 60
-	var course_id := str(params.get("course_id", "tutorial"))
+	var course_id := str(params.get("course_id", "ls_20_01"))
 	var data := NeonCourse.daily(course_id.get_slice("_", 1)) if course_id.begins_with("daily_") else NeonCourse.load_course(course_id)
-	_errors = rules.configure(data, str(params.get("lane_difficulty", "intermediate")), float(params.get("reference_power", 150)))
+	_errors = rules.configure(data, str(params.get("lane_difficulty", "challenging")), float(params.get("reference_power", 150)))
 	_sequence = -1
 	_epoch = -1
 	_started_clock = false
@@ -87,9 +85,13 @@ func _on_prepare(_seg: Dictionary) -> void:
 	_ghost = []
 	_ghost_cursor = 0
 	variant = "nv%d:" % rules.scoring_version + rules.comparison_key(GameOptions.rider())
+	track.world_id = str(rules.course.get("theme", "arctic"))
 	track.rules = rules
 	track.reduced_motion = option("motion") == "reduced"
-	hud.set_skin(look.hud_skin())
+	var skin := look.hud_skin()
+	skin["manual_pause"] = false
+	skin["text_interval"] = 1.0
+	hud.set_skin(skin)
 	status = NeonStatus.new()
 	status.rules = rules
 	hud.add_widget(status)
@@ -109,9 +111,7 @@ func _begin_ride() -> void:
 	if not bool(progress.get("ok", false)):
 		_storage_failed(progress)
 		return
-	var count := int(progress.get("completions", 0))
-	track.world_id = option("world") if NeonWorlds.unlocked(option("world"), count) else "city"
-	track.trail_id = option("trail") if NeonWorlds.unlocked(option("trail"), count, true) else "ion"
+
 	var replay_id := str(params.get("replay_attempt_id", ""))
 	if not replay_id.is_empty():
 		var replay := await NeonRecords.request({"action": "get", "attemptId": replay_id}, _rider)
@@ -124,6 +124,7 @@ func _begin_ride() -> void:
 	if not _errors.is_empty():
 		_storage_failed(NeonRecords.failure("Course unavailable. End this ride and choose another."))
 		return
+	track.world_id = str(rules.course.get("theme", "arctic"))
 	var previous := await NeonRecords.request({"action": "best", "key": rules.comparison_key(_rider)}, _rider)
 	if not bool(previous.get("ok", false)):
 		_storage_failed(previous)
@@ -196,13 +197,24 @@ func _update_ghost() -> void:
 		_ghost_cursor += 1
 	var tick: Array = _ghost[_ghost_cursor]
 	track.ghost_lane = float(tick[1]) if int(tick[0]) <= rules.elapsed_ms else -1.0
+	var position := float(tick[3]) / 1000.0 if tick.size() == 4 else rules.road_distance() + 3.5
+	var ghost_lane := float(tick[1])
+	if tick.size() == 4 and _ghost_cursor + 1 < _ghost.size():
+		var following: Array = _ghost[_ghost_cursor + 1]
+		track.ghost_cadence = clampf(float(int(following[3]) - int(tick[3])) / maxi(1, int(following[0]) - int(tick[0])) / NeonRules.MAX_SPEED_MPS * NeonRules.MAX_CADENCE, 0, NeonRules.MAX_CADENCE)
+		var blend := clampf(float(rules.elapsed_ms - int(tick[0])) / maxi(1, int(following[0]) - int(tick[0])), 0, 1)
+		position = lerpf(position, float(following[3]) / 1000.0, blend)
+		if ghost_lane >= 0 and int(following[1]) >= 0: ghost_lane = lerpf(ghost_lane, float(following[1]), blend)
+	track.ghost_lane = ghost_lane
+	track.ghost_distance = position
+	track.ghost_gap = position - rules.road_distance()
 	track.ghost_delta = floori(float(rules.score_units - int(tick[2])) / NeonRules.UNIT)
 
 
 func _on_frame(delta: float) -> void:
 	played_sec = rules.elapsed_ms / 1000.0
 	if not _started_clock or _finalizing:
-		status.heading.text = "SAVING YOUR SIGNAL" if _finalizing else "PREPARING YOUR SIGNAL"
+		status.heading.text = "SAVING YOUR RIDE" if _finalizing else "PREPARING YOUR RIDE"
 		status.target.text = "Keeping your progress safe"
 		status.detail.text = "Course time and points are frozen"
 		return
@@ -258,7 +270,7 @@ func _pause(reason: String) -> void:
 	rules.pause(reason)
 	Session.neon_control("pause", rules.elapsed_ms)
 	status.refresh()
-	Session.request_pause()
+	Session.request_pause(true)
 
 
 func _on_pause() -> void:
@@ -291,21 +303,31 @@ func resume_block_reason() -> String:
 	if not _save_error.is_empty():
 		return ""  # Resume explicitly retries the save.
 	if not InputBus.neon_resume_ready():
-		return "Waiting for one second of fresh bike data"
+		return "Reconnecting to your bike…"
 	return ""
+
+
+func allows_manual_pause() -> bool:
+	return false
+
+func automatic_resume_ready() -> bool:
+	return _save_error.is_empty() and not _save_busy and not _finalizing and InputBus.neon_resume_ready()
+
+func recovery_retry_available() -> bool:
+	return not _save_error.is_empty() and not _save_busy
 
 
 func pause_message() -> String:
 	if not _save_error.is_empty():
-		return _save_error + " Tap Resume to retry."
+		return _save_error + " Tap Retry save or end this ride."
 	return {"sensor": "Bike data stopped. Your course is holding its place.",
 		"stall": "The display stalled. Your course is holding its place.",
-		"pedalling": "Pedalling stopped. Resume when you’re ready."}.get(rules.pause_reason, "Tap Resume for a three-second countdown.")
+		"pedalling": "Pedal to reconnect. Recovery starts automatically."}.get(rules.pause_reason, "The ride will continue automatically when ready.")
 
 
 func _apply_music() -> void:
 	AudioDirector.set_volumes(_host_music_on and option("music") == "on", AudioDirector.music_volume, AudioDirector.sfx_volume)
-	AudioDirector.play_music({"name": "neon_vector_drive", "stem_files": {"drive": "res://games/neon_vector/audio/vector_drive.ogg"}, "loop_from": 0.0}, 138.0)
+	AudioDirector.play_music({"name": "neon_vector_drive", "stem_files": {"drive": "res://games/neon_vector/audio/vector_drive.ogg"}, "loop_from": 0.0}, 128.0)
 
 
 func _on_option_changed(key: String, value: String) -> void:

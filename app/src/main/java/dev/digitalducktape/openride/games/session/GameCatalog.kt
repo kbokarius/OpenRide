@@ -510,7 +510,7 @@ class GameCatalog(games: List<GameDeclaration>) {
         private const val KART_BOTS = 7
 
         val NEON_VECTOR = GameDeclaration(
-            id = "neon_vector", title = "NEON VECTOR", supports = setOf(JustRideSupport.MINUTES),
+            id = "neon_vector", title = "Lane Smash", supports = setOf(JustRideSupport.MINUTES),
             minSec = 300, maxSec = 1800, timedEndMode = EndMode.GAME,
             // A complete authored ride. Never inserted into shuffled mini-game circuits.
             effortInJustRide = false,

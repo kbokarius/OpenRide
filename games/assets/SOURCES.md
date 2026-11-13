@@ -105,3 +105,7 @@ written for this repo). No samples, soundfonts or third-party material.
 | `games/ready_for_launch/music/*.ogg`, `music/sfx/*.ogg` and `LaunchMusic.gd` ("Moon Shot", 156 bpm in A minor, and the game's `rfl_*` effects, the countdown tones included: no speech; original melody and arrangement, synthesised, no samples) | Written for this repo (#82), `songs/ready_for_launch.py` | The OpenRide Authors | Apache-2.0, the repo's licence |
 | `games/ready_for_launch/earth_map.png` (2048x1024 day map and clouds: continent outlines typed by hand as rough coordinates, roughened and coloured with generated noise; no map data or imagery) | Written for this repo (#82), `tools/art/make_earth_map.py` | The OpenRide Authors | Apache-2.0, the repo's licence |
 | `games/ready_for_launch/shaders/*.gdshader` and everything drawn in `LaunchPlaces.gd`, `LaunchBackdrop.gd`, `LaunchPad.gd`, `LaunchRocket.gd`, `LaunchSky.gd` and `LaunchIntroVisual.gd` | Written for this repo (#82) | The OpenRide Authors | Apache-2.0, the repo's licence |
+
+- Rajdhani SemiBold: Indian Type Foundry, SIL OFL 1.1; [Google Fonts source](https://github.com/google/fonts/tree/main/ofl/rajdhani). License: `fonts/Rajdhani-OFL.txt`. Used by Lane Smash and the Games hub.
+
+- Lane Smash `LaneSmashCyclist.gd`, `psychedelic_sky.gdshader`, procedural courses and `audio/vector_drive.ogg` (**Night Drive**, 128 BPM): original code/meshes/synthesized audio for this fork, Apache-2.0. Audio generator: `tools/generate_neon_music.py`; no external samples.

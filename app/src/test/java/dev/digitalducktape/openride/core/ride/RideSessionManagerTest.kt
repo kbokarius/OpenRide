@@ -419,6 +419,26 @@ class RideSessionManagerTest {
     }
 
     @Test
+    fun `uninterrupted game keeps coasting time and restores ordinary freewheel pause`() = runTest {
+        val manager = RideSessionManager(fakeBikeDataSource, rideRepository, backgroundScope, autoPauseThresholdSec = 3) { 0L }
+        manager.start(profileId)
+        manager.setFreewheelPauseEnabled(false)
+        fakeBikeDataSource.setMetrics(cadenceRpm = 85, resistancePercent = 40, powerWatts = 150)
+        advanceTimeBy(2_000)
+        runCurrent()
+        fakeBikeDataSource.setMetrics(cadenceRpm = 0, resistancePercent = 40, powerWatts = 0)
+        advanceTimeBy(8_000)
+        runCurrent()
+        assertEquals(RideSessionState.Active, manager.state.value)
+        assertEquals(10, manager.elapsedSec.value)
+        manager.setFreewheelPauseEnabled(true)
+        advanceTimeBy(3_000)
+        runCurrent()
+        assertEquals(RideSessionState.Paused, manager.state.value)
+        assertTrue(manager.autoPaused.value)
+    }
+
+    @Test
     fun `does not auto-pause a ride whose cadence never left zero`() = runTest {
         val manager = RideSessionManager(
             fakeBikeDataSource, rideRepository, backgroundScope, autoPauseThresholdSec = 3,

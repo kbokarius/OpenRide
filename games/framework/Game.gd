@@ -115,6 +115,17 @@ func resume_block_reason() -> String:
 	return ""
 
 
+## Uninterrupted rides only offer End; sensor recovery remains automatic.
+func allows_manual_pause() -> bool:
+	return true
+
+func automatic_resume_ready() -> bool:
+	return false
+
+func recovery_retry_available() -> bool:
+	return false
+
+
 func pause_message() -> String:
 	return "Tap Resume to carry on."
 

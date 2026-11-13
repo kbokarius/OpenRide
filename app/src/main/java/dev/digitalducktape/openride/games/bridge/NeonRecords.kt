@@ -77,6 +77,12 @@ class NeonRecords(
             "state" -> buildJsonObject {
                 put("ok", true)
                 put("completions", dao.completions(profile))
+                put("trackStats", buildJsonObject { dao.trackStats(profile).forEach { row ->
+                    put(row.comparisonKey, buildJsonObject {
+                        put("lastScoreUnits", row.lastScoreUnits); put("lastStatus", row.lastStatus)
+                        put("bestScoreUnits", row.bestScoreUnits ?: -1)
+                    })
+                } })
                 put("history", buildJsonArray { dao.history(profile).forEach { add(payload(it, details = false)) } })
             }
             "best" -> buildJsonObject {
@@ -120,13 +126,19 @@ class NeonRecords(
             require(ghost.size <= 18_001)
             var last = -1L
             var lastScore = 0L
+            var lastDistance = 0L
             ghost.forEach {
                 val tick = it.jsonArray
-                require(tick.size == 3)
+                require(tick.size in 3..4)
                 val t = tick[0].jsonPrimitive.long
                 val lane = tick[1].jsonPrimitive.int
                 val points = tick[2].jsonPrimitive.long
                 require(t > last && t in 0..elapsed && lane in -1..5 && points in lastScore..score)
+                if (tick.size == 4) {
+                    val distance = tick[3].jsonPrimitive.long
+                    require(distance in lastDistance..(kotlin.math.ceil(t * 60.0 / 3.6).toLong() + 2))
+                    lastDistance = distance
+                }
                 last = t; lastScore = points
             }
             return NeonAttempt(id, profile, key, courseId, status, score, elapsed, now, record.toString())

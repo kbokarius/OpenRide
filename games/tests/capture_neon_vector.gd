@@ -4,6 +4,9 @@ extends SceneTree
 
 
 func _initialize() -> void:
+	if "--hidden" in OS.get_cmdline_user_args():
+		root.set_flag(ClassDB.class_get_integer_constant("Window", "FLAG_NO_FOCUS"), true)
+		root.hide()
 	_run.call_deferred()
 
 
@@ -11,13 +14,16 @@ func _run() -> void:
 	var out := "user://neon-captures"
 	var seconds := 135.0
 	var measure := false
-	var course_id := "steady_flow_20"
+	var world_filter := ""
+	var course_id := "ls_20_04"
 	var window := Vector2i(1920, 1080)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="):
 			out = arg.trim_prefix("--out=")
 		elif arg.begins_with("--time="):
 			seconds = float(arg.trim_prefix("--time="))
+		elif arg.begins_with("--world="):
+			world_filter = arg.trim_prefix("--world=")
 		elif arg == "--measure":
 			measure = true
 		elif arg.begins_with("--course="):
@@ -30,7 +36,7 @@ func _run() -> void:
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
 	DisplayServer.window_set_size(window)
 	var rules := NeonRules.new()
-	var errors := rules.configure(NeonCourse.load_course(course_id), "intermediate", 150)
+	var errors := rules.configure(NeonCourse.load_course(course_id), "challenging", 150)
 	if not errors.is_empty():
 		push_error(str(errors))
 		quit(1)
@@ -51,7 +57,7 @@ func _run() -> void:
 	root.add_child(hud)
 	var info = load("res://framework/GameInfo.gd").new()
 	info.id = "neon_vector"
-	info.title = "NEON VECTOR"
+	info.title = "Lane Smash"
 	info.how_to = "Turn resistance to change lanes"
 	hud.setup(info, {"duration_sec": 1200, "effort": false})
 	# This is a frozen rules snapshot, not a live SessionDirector session.
@@ -60,18 +66,25 @@ func _run() -> void:
 	hud.timer.set_caption("time left")
 	hud.timer.set_value("%d:%02d" % [int(1200 - seconds) / 60, int(1200 - seconds) % 60])
 	hud.score.set_value(str(rules.score_units / NeonRules.UNIT))
-	hud.set_skin(load("res://framework/ui/GameTheme.gd").new(Color("67d8ff"), Color("0b132b")).hud_skin())
+	var skin: Dictionary = load("res://framework/ui/GameTheme.gd").new(Color("79b8d5"), Color("0b1019"), 0.0, false, true).hud_skin()
+	skin["manual_pause"] = false
+	hud.set_skin(skin)
 	var status = load("res://games/neon_vector/NeonStatus.gd").new()
 	status.rules = rules
 	hud.add_widget(status)
 	root.get_node("InputBus")._sim_cadence = 80
 	root.get_node("InputBus")._sim_resistance = rules.latest.resistance
 	for world in NeonWorlds.WORLDS:
+		if not world_filter.is_empty() and world.id != world_filter: continue
 		track.world_id = world.id
 		track.update_view(0)
 		status.refresh()
 		for i in 60:
 			await process_frame
+		track.space._warming = false
+		track.ghost_distance = rules.road_distance() + 8
+		track.ghost_gap = 8
+		track.update_view(0)
 		await RenderingServer.frame_post_draw
 		var file := "%s/%s-%d-%dx%d.png" % [out, world.id, roundi(seconds), window.x, window.y]
 		root.get_texture().get_image().save_png(file)

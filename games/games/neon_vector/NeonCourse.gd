@@ -17,6 +17,8 @@ static func library() -> Array[Dictionary]:
 
 
 static func load_course(id: String) -> Dictionary:
+	if id.begins_with("ls_"):
+		return LaneSmashCatalog.load_track(id)
 	if not id.is_valid_filename():
 		return {}
 	var path := DIRECTORY + id + ".json"
@@ -90,6 +92,8 @@ static func validate(course: Dictionary) -> Array[String]:
 		if not event is Dictionary:
 			errors.append("Event must be an object")
 			continue
+		if int(course.courseVersion) >= 3 and event.has("alternatives"):
+			errors.append("Lane Smash tracks must have one target lane")
 		if not event.get("eventId") is String or str(event.get("eventId", "")).is_empty() or ids.has(event.get("eventId")):
 			errors.append("Missing or duplicate event ID")
 		ids[event.get("eventId", "")] = true

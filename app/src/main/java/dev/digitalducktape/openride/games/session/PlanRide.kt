@@ -27,6 +27,9 @@ interface PlanRide {
 
     /** Ends any pause, manual or automatic. */
     fun resume()
+
+    /** Scoped to the current plan; normal rides keep their usual freewheel behavior. */
+    fun setFreewheelPauseEnabled(enabled: Boolean) = Unit
 }
 
 /** A visit that isn't recording (no active rider, or another ride holds the recorder). */
@@ -45,4 +48,5 @@ class RideSessionPlanRide(private val rides: RideSessionManager) : PlanRide {
     override val pausedChanges: Flow<Boolean> = rides.state.map { it == RideSessionState.Paused }.distinctUntilChanged()
     override fun pause() = rides.pause()
     override fun resume() = rides.resume()
+    override fun setFreewheelPauseEnabled(enabled: Boolean) = rides.setFreewheelPauseEnabled(enabled)
 }

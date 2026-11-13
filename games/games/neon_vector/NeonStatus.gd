@@ -1,6 +1,6 @@
 class_name NeonStatus
 extends VBoxContainer
-## The game's top-centre widget; shared HUD keeps metrics, score, Pause and End.
+## The game's top-centre widget; shared HUD keeps metrics, score and End Ride.
 
 var rules: NeonRules
 var heading: Label
@@ -8,18 +8,18 @@ var target: Label
 var detail: Label
 var meter: ProgressBar
 var _event_id := ""
-var _transition: Tween
+var _last_refresh_second := -1
 var _meter_target := 0.0
-var _look := GameTheme.new(Color("67d8ff"), Color("0b132b"))
+var _look := GameTheme.new(Color("79b8d5"), Color("0b1019"), 0.0, false, true)
 
 
 func _init() -> void:
 	custom_minimum_size = Vector2(740, 166)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_theme_constant_override("separation", 4)
-	heading = _look.label("FIND YOUR LINE", 34, GameTheme.MUTED)
+	heading = _look.label("TARGET LANE", 34, GameTheme.MUTED)
 	target = _look.label("Turn resistance to steer", 44)
-	detail = _look.label("Six lanes. Your own rhythm.", 34, GameTheme.MUTED)
+	detail = _look.label("Follow the marked lane.", 34, GameTheme.MUTED)
 	for label in [heading, target, detail]:
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		add_child(label)
@@ -43,22 +43,19 @@ func _init() -> void:
 func refresh() -> void:
 	if rules == null:
 		return
-	meter.visible = false
 	if not rules.pause_reason.is_empty():
-		heading.text = "RIDE PAUSED"
-		target.text = {"sensor": "Waiting for fresh bike data", "pedalling": "Pedalling stopped", "stall": "Display paused to keep scoring fair"}.get(rules.pause_reason, "Ready when you are")
+		detail.visible = true
+		heading.text = "RIDE INTERRUPTED"
+		target.text = {"sensor": "Waiting for fresh bike data", "pedalling": "Pedalling stopped", "stall": "Waiting for the display to recover"}.get(rules.pause_reason, "Ready when you are")
 		detail.text = "Course time and points are frozen"
 		return
 	var event := rules.current_event()
 	var event_id := str(event.get("eventId", ""))
-	if event_id != _event_id:
-		_event_id = event_id
-		if _transition:
-			_transition.kill()
-		modulate.a = 0.25
-		if is_inside_tree():
-			_transition = create_tween()
-			_transition.tween_property(self, "modulate:a", 1.0, 0.3).set_trans(Tween.TRANS_SINE)
+	var second := rules.elapsed_ms / 1000
+	if second == _last_refresh_second and event_id == _event_id: return
+	_event_id = event_id
+	_last_refresh_second = second
+	meter.visible = false
 	var rpm := float(rules.latest.get("cadence", 0))
 	var res := float(rules.latest.get("resistance", NeonRules.TIERS[rules.tier]))
 	if rules.selected_lane < 0 and not rules.latest.is_empty():
@@ -67,15 +64,15 @@ func refresh() -> void:
 		detail.text = "Points resume inside a lane"
 		return
 	if event.is_empty():
-		heading.text = "FINISHING THE SIGNAL"
+		heading.text = "FINISHING"
 		target.text = "Easy pedals to the finish"
 		detail.text = "Stay inside your resistance range"
 		return
 	var band := NeonRules.band(int(event.laneIndex), rules.tier)
-	var ahead := maxi(0, int(event.startMs) - rules.elapsed_ms)
+	var ahead := maxi(0, int(event.startMs) - rules.road_time_ms())
 	var state: Dictionary = rules.event_states[rules._event_cursor]
 	var active := ahead == 0
-	var prefix := "NOW" if active else "IN %.1f s" % (ahead / 1000.0)
+	var prefix := "NOW" if active else ("IN %.0f ft" % (ahead / 1000.0 * rules.road_speed_scale() * 3.28084) if rules.distance_based else "IN %.1f s" % (ahead / 1000.0))
 	var choices := NeonCourse.choices(event)
 	var selected: int = int(state.choice)
 	if choices.size() > 1 and selected < 0:
@@ -86,32 +83,28 @@ func refresh() -> void:
 		return
 	if selected >= 0:
 		band = NeonRules.band(int(choices[selected].laneIndex), rules.tier)
-	var direction := "HOLD" if rules.settled_lane == int(choices[maxi(0, selected)].laneIndex) else ("TURN RIGHT" if res < band.x else "TURN LEFT")
-	heading.text = "%s · %s" % [prefix, {"cruise": "COLLECT", "hold": "CADENCE", "burst": "POWER BURST"}.get(event.type, str(event.type).to_upper())]
+	var direction := "STAY IN THIS LANE" if rules.settled_lane == int(choices[maxi(0, selected)].laneIndex) else ("INCREASE RESISTANCE" if res < band.x else "LOWER RESISTANCE")
+	heading.text = "%s · %s" % [prefix, {"cruise": "COLLECT", "hold": "PEDAL SPEED", "burst": "POWER BURST"}.get(event.type, str(event.type).to_upper())]
 	if active and event.type == "hold":
-		target.text = "%d–%d rpm · %s" % [event.cadenceMin, event.cadenceMax, "PEDAL UP" if rpm < event.cadenceMin else ("EASE CADENCE" if rpm > event.cadenceMax else "ON TARGET")]
+		target.text = "%d–%d rpm · %s" % [event.cadenceMin, event.cadenceMax, "PEDAL FASTER" if rpm < event.cadenceMin else ("PEDAL SLOWER" if rpm > event.cadenceMax else "KEEP THIS SPEED")]
 	elif active and event.type == "burst":
 		var joules := int(state.energyMilliJoules) / 1000.0
-		target.text = "BUILD POWER · %d points" % (int(state.scoreUnits) / NeonRules.UNIT)
+		target.text = "PEDAL FASTER · %d points" % (int(state.scoreUnits) / NeonRules.UNIT)
 		meter.visible = true
 		meter.max_value = 100
 		_meter_target = minf(100, joules / (rules.reference_power * (int(event.endMs) - int(event.startMs)) / 1000.0) * 100)
 	elif active and event.type == "charge":
 		var percent := int(state.chargeIntegral) / float(int(event.endMs) - int(event.startMs)) / NeonRules.UNIT * 100
-		target.text = "EASE CADENCE" if rpm > 120 else "CHARGE %d%% · %.0f / %.0f W" % [percent, rules.reference_power * 0.6, rules.reference_power]
+		target.text = "PEDAL SLOWER" if rpm > 120 else "CHARGE %d%% · %.0f / %.0f W" % [percent, rules.reference_power * 0.6, rules.reference_power]
 		meter.visible = true
 		meter.max_value = 200
 		_meter_target = percent
 	else:
-		target.text = "%s · %d–%d resistance" % [direction, band.x, band.y]
-	if rpm < 20 and active:
-		detail.text = "Pedal to score · auto-pause after 3 s"
-	elif rules.settled_lane < 0 and rules.selected_lane >= 0:
-		detail.text = "Settling into lane %d…" % (rules.selected_lane + 1)
-	else:
-		detail.text = "Lane %d · %d–%d resistance" % [int(choices[maxi(0, selected)].laneIndex) + 1, band.x, band.y]
-		if active and event.type == "burst":
-			detail.text += " · %.1f kJ" % (int(state.energyMilliJoules) / 1000000.0)
+		target.text = direction
+	# Lane numbers/ranges are already shown in the dock; don't repeat them here.
+	detail.text = "Pedal to earn points" if rpm < 20 and active else ""
+	detail.visible = not detail.text.is_empty()
+
 
 
 func _process(delta: float) -> void:

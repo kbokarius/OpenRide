@@ -22,6 +22,10 @@ data class NeonAttempt(
     val payloadJson: String,
 )
 
+
+/** Compact selector data, independent of the 50-row history limit. */
+data class NeonTrackStat(val comparisonKey: String, val courseId: String, val lastScoreUnits: Long, val lastStatus: String, val bestScoreUnits: Long?)
+
 @Dao
 abstract class NeonAttemptDao {
     @Query("SELECT * FROM neon_attempts WHERE attemptId = :id")
@@ -58,6 +62,13 @@ abstract class NeonAttemptDao {
 
     @Query("SELECT * FROM neon_attempts WHERE profileId IS :profileId AND comparisonKey = :key AND status = 'completed' ORDER BY scoreUnits DESC, updatedMs ASC LIMIT 1")
     abstract suspend fun best(profileId: Long?, key: String): NeonAttempt?
+
+    @Query("""SELECT n.comparisonKey, n.courseId, n.scoreUnits AS lastScoreUnits, n.status AS lastStatus,
+        (SELECT MAX(b.scoreUnits) FROM neon_attempts b WHERE b.profileId IS :profileId AND b.comparisonKey = n.comparisonKey AND b.status = 'completed') AS bestScoreUnits
+        FROM neon_attempts n WHERE n.profileId IS :profileId AND n.status != 'pending'
+        AND NOT EXISTS (SELECT 1 FROM neon_attempts newer WHERE newer.profileId IS :profileId AND newer.comparisonKey = n.comparisonKey AND newer.status != 'pending'
+        AND (newer.updatedMs > n.updatedMs OR (newer.updatedMs = n.updatedMs AND newer.attemptId > n.attemptId)))""")
+    abstract suspend fun trackStats(profileId: Long?): List<NeonTrackStat>
 
     @Query("SELECT COUNT(*) FROM neon_attempts WHERE profileId IS :profileId AND status = 'completed' AND courseId != 'tutorial'")
     abstract suspend fun completions(profileId: Long?): Int

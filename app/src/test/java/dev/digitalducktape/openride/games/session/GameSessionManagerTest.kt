@@ -81,6 +81,21 @@ class GameSessionManagerTest {
     private fun JsonObject.str(key: String) = this[key]!!.jsonPrimitive.content
     private fun pauseSignals() = signals.names.filter { it == "session_paused" || it == "session_resumed" }
 
+    @Test
+    fun `Lane Smash disables freewheel pause only for its active plan`() {
+        val request = SessionRequest.JustRide("neon_vector", JustRideMode.Timed(10), neon = dev.digitalducktape.openride.games.bridge.NeonSettings("ls_10_01", "challenging", 150))
+        val plan = requireNotNull(SessionPlans.forRequest(request, FtpBasis.of(200), GameCatalog.DEFAULT))
+        val manager = runner()
+        manager.run(plan, ride, PlanStart(riderId = 3, riderName = "Ed")) { outcomes += it }
+        scope.runCurrent()
+        assertFalse(ride.freewheelEnabled)
+        ride.autoPause()
+        assertFalse(ride.isPaused)
+        manager.finishNow()
+        scope.runCurrent()
+        assertTrue(ride.freewheelEnabled)
+    }
+
     // --- Starting ---------------------------------------------------------------------------
 
     @Test
