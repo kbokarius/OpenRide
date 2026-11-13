@@ -45,21 +45,36 @@ func test_cyclist_crank_tracks_actual_cadence() -> void:
 	assert_float(bike.crank_phase).is_equal(stopped)
 	bike.free()
 
-func test_road_grade_tracks_target_lane() -> void:
+func test_road_loops_and_rolls_are_independent_of_target_resistance() -> void:
+	var coaster := LaneSmashCoaster.new()
+	coaster.build(2200, 113, false)
+	var upside_down := 0
+	var steep_up := 0
+	var steep_down := 0
+	for s in range(0, 2160, 2):
+		var pose := coaster.at(s)
+		var next := coaster.at(s + 2)
+		assert_float(pose.basis.determinant()).is_equal_approx(1, 0.001)
+		assert_float(pose.origin.distance_to(next.origin)).is_equal_approx(2, 0.001)
+		assert_float(pose.basis.y.dot(next.basis.y)).is_greater(0.99)
+		if pose.basis.y.y < -0.9: upside_down += 1
+		if -pose.basis.z.y > 0.9: steep_up += 1
+		if -pose.basis.z.y < -0.9: steep_down += 1
+	assert_int(upside_down).is_greater(30)
+	assert_int(steep_up).is_greater(10)
+	assert_int(steep_down).is_greater(10)
 	var course := NeonCourse.load_course("ls_10_01")
 	var space := NeonSpace.new()
 	add_child(space)
-	var low := course.duplicate(true)
-	var high := course.duplicate(true)
-	low.courseId = "low"
-	high.courseId = "high"
-	for event in low.events: event.laneIndex = 0
-	for event in high.events: event.laneIndex = 5
-	space.prepare_terrain(low)
-	var low_grade := space.path(900).y - space.path(882).y
-	space.prepare_terrain(high)
-	var high_grade := space.path(900).y - space.path(882).y
-	assert_float(high_grade).is_greater(low_grade + 5)
+	space.prepare_terrain(course)
+	var before := space.pose(250, 0, 0)
+	course.courseId = "different-lanes"
+	for event in course.events: event.laneIndex = 5
+	space.prepare_terrain(course)
+	assert_vector(space.pose(250, 0, 0).origin).is_equal(before.origin)
+	space.reduced_motion = true
+	space.prepare_terrain(course)
+	assert_float(space.road_basis(250).y.y).is_greater(0.98)
 	space.free()
 
 
@@ -124,7 +139,7 @@ func test_ghost_has_real_distance_and_stays_out_of_view_when_far_away() -> void:
 
 
 func test_front_wheel_shatters_all_marker_types_once_without_awarding_invalid_points() -> void:
-	for kind in ["cruise", "hold", "burst"]:
+	for kind in ["cruise", "hold"]:
 		for correct_lane in [true, false]:
 			var course := NeonCourse.load_course("ls_10_03")
 			var event_index := 0
@@ -135,14 +150,15 @@ func test_front_wheel_shatters_all_marker_types_once_without_awarding_invalid_po
 			rules._event_cursor = event_index
 			var space := NeonSpace.new()
 			add_child(space)
-			var anchor := int(event.startMs) / 1000.0 * NeonRules.MAX_SPEED_MPS
+			var first_ms := int(event.startMs) + (600 if event_index > 0 and int(course.events[event_index - 1].endMs) == int(event.startMs) else 0)
+			var anchor := first_ms / 1000.0 * NeonRules.MAX_SPEED_MPS
 			var lane := float(event.laneIndex) if correct_lane else fmod(float(event.laneIndex) + 2, 6)
-			# Start in front of the tire-contact plane, then move only 0.8m.
+			# Start in front of the tire-contact plane, then cross the curved tire-contact boundary.
 			# The axle/body remains well behind the marker when it must disappear.
 			rules.distance_units = roundi((anchor - 2.5) * 1000000)
 			space.update_view(rules, 0, lane, -1, false, "")
 			assert_int(space.impact_count).is_zero()
-			rules.distance_units = roundi((anchor - 1.7) * 1000000)
+			rules.distance_units = roundi((anchor - 1.4) * 1000000)
 			space.update_view(rules, 0.05, lane, -1, false, "")
 			assert_int(space.impact_count).is_equal(1 if correct_lane else 0)
 			space.update_view(rules, 0, lane, -1, false, "")
@@ -212,3 +228,121 @@ func test_all_tracks_change_lanes_frequently_with_short_holds_and_equal_effort_b
 			assert_int(first_types.size()).is_equal(3)
 			if expected.is_empty(): expected = budgets
 			assert_array(budgets).override_failure_message(id).is_equal(expected)
+
+
+func test_power_zone_builds_from_output_and_finishes_at_its_gate() -> void:
+	var rules := NeonRules.new()
+	rules.configure(NeonCourse.load_course("ls_10_01"), "challenging", 150)
+	var i := 0
+	while rules.course.events[i].type != "burst": i += 1
+	var event: Dictionary = rules.course.events[i]
+	rules._event_cursor = i
+	var space := NeonSpace.new()
+	add_child(space)
+	rules.distance_units = roundi((int(event.startMs) + 2000) * NeonRules.MAX_SPEED_MPS * 1000)
+	rules.event_states[i].energyMilliJoules = 450000
+	rules.latest.power = 300
+	space.update_view(rules, 1, int(event.laneIndex), -1, false, "")
+	var zone: Dictionary = space.sections.zones[event.eventId]
+	assert_float(float(zone.charge)).is_equal_approx(0.5, 0.001)
+	assert_float(float(zone.intensity)).is_greater(1.9)
+	assert_bool(zone.hit).is_false()
+	var vertices: PackedVector3Array = zone.root.get_child(0).mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var anchor := vertices[0]
+	rules.distance_units = roundi(int(event.endMs) * NeonRules.MAX_SPEED_MPS * 1000)
+	space.update_view(rules, 0.05, int(event.laneIndex), -1, false, "")
+	assert_bool(zone.hit).is_true()
+	assert_bool(zone.gate.visible).is_false()
+	assert_vector(zone.root.get_child(0).mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX][0]).is_equal(anchor)
+	assert_int(rules.score_units).is_zero()
+	space.free()
+
+
+func test_final_marker_contacts_at_the_scoring_boundary() -> void:
+	for kind in ["cruise", "hold"]:
+		var rules := NeonRules.new()
+		rules.configure(NeonCourse.load_course("ls_10_03"), "challenging", 150)
+		var i := 0
+		while rules.course.events[i].type != kind: i += 1
+		var event: Dictionary = rules.course.events[i]
+		rules._event_cursor = i
+		var last := ceili(float(int(event.endMs) - int(event.startMs)) / 600.0) - 1
+		var key := "%s:0:%d" % [event.eventId, last]
+		var space := NeonSpace.new()
+		add_child(space)
+		var end := int(event.endMs) / 1000.0 * NeonRules.MAX_SPEED_MPS
+		rules.distance_units = roundi((end - 0.2) * 1000000)
+		space.update_view(rules, 0, int(event.laneIndex), -1, false, "")
+		assert_bool(space._collected.has(key)).is_false()
+		rules.distance_units = roundi((end + 0.01) * 1000000)
+		space.update_view(rules, 0.02, int(event.laneIndex), -1, false, "")
+		assert_bool(space._collected.has(key)).is_true()
+		assert_int(rules.score_units).is_zero()
+		space.free()
+
+func test_visible_road_tip_remains_in_the_tunnel_through_a_complete_route() -> void:
+	var rules := NeonRules.new()
+	rules.configure(NeonCourse.load_course("ls_10_01"), "challenging", 150)
+	var space := NeonSpace.new()
+	add_child(space)
+	for s in range(0, 3600, 10):
+		rules.distance_units = s * 1000000
+		space.update_view(rules, 0, 0, -1, false, "")
+		var tip := space.camera.to_local(space.path(space.portal_distance))
+		var center: Vector2 = space._structures.material.get_shader_parameter("portal_center")
+		assert_vector(center).is_equal(Vector2(tip.x, tip.y) / maxf(0.2, -tip.z) * 0.7)
+		var screen := space.camera.unproject_position(space.path(space.portal_distance)) / space.get_viewport().get_visible_rect().size
+		assert_float(screen.x).is_between(0.08, 0.92)
+		assert_float(screen.y).is_between(0.21, 0.62)
+		assert_float(space.portal_distance - s).is_greater(20.0)
+	space.free()
+
+
+func test_adjacent_targets_are_separated_and_rest_on_the_road() -> void:
+	var rules := NeonRules.new()
+	rules.configure(NeonCourse.load_course("ls_10_01"), "challenging", 150)
+	var pairs := {}
+	for i in range(1, rules.course.events.size()):
+		var before: Dictionary = rules.course.events[i - 1]
+		var after: Dictionary = rules.course.events[i]
+		var pair := str(before.type) + ":" + str(after.type)
+		if pairs.has(pair) or before.endMs != after.startMs: continue
+		pairs[pair] = true
+		var space := NeonSpace.new()
+		add_child(space)
+		rules._event_cursor = i - 1
+		var boundary := int(before.endMs) / 1000.0 * NeonRules.MAX_SPEED_MPS
+		rules.distance_units = roundi((boundary - 0.1) * 1000000)
+		space.update_view(rules, 0, int(after.laneIndex), -1, false, "")
+		var finish := space.finish_distance(str(before.type), int(before.endMs))
+		if after.type in ["cruise", "hold"]:
+			var next_at := (int(after.startMs) + 600) / 1000.0 * NeonRules.MAX_SPEED_MPS
+			assert_float(next_at - finish).is_greater(6.0)
+			var pool := space._bars if after.type == "cruise" else space._arrows
+			var expected := space.pose(next_at, (int(after.laneIndex) - 2.5) * NeonSpace.LANE_WIDTH, NeonSpace.marker_height(str(after.type))).origin
+			var found := false
+			for n in pool.multimesh.visible_instance_count:
+				if pool.multimesh.get_instance_transform(n).origin.distance_to(expected) < 0.01: found = true
+			if DisplayServer.get_name() != "headless": assert_bool(found).is_true()
+			assert_int(pool.multimesh.visible_instance_count).is_greater(1)
+			rules.distance_units = roundi((boundary + 0.01) * 1000000)
+			space.update_view(rules, 0.02, int(after.laneIndex), -1, false, "")
+			assert_bool(space._collected.has(str(after.eventId) + ":0:0")).is_false()
+			var half_height := 0.08 if after.type == "cruise" else 0.0
+			assert_float(NeonSpace.marker_height(str(after.type)) - half_height).is_equal_approx(0.05, 0.001)
+		space.free()
+	assert_int(pairs.size()).is_equal(3)
+
+func test_horizon_moves_continuously_without_discrete_cutovers() -> void:
+	var space := NeonSpace.new()
+	add_child(space)
+	space.prepare_terrain(NeonCourse.load_course("ls_10_01"))
+	var previous := space._horizon_ahead()
+	var largest_change := 0.0
+	for step in range(1, 14401):
+		space.distance = step * 0.25
+		var next := space._horizon_ahead()
+		largest_change = maxf(largest_change, absf(next - previous))
+		previous = next
+	assert_float(largest_change).override_failure_message("Largest horizon change per quarter metre: %s" % largest_change).is_less(1.0)
+	space.free()

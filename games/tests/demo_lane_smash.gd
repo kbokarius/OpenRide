@@ -9,6 +9,10 @@ var frame_index := 0
 var next_capture := 0
 var timestamps: Array[int] = []
 var seen := {}
+var upside_down_frames := 0
+var portal_error := 0.0
+var previous_portal := Vector2.ZERO
+var max_portal_step := 0.0
 
 func _initialize() -> void:
 	_run.call_deferred()
@@ -48,6 +52,14 @@ func _run() -> void:
 	var game: Node = session.director.game
 	while is_instance_valid(game) and session.director.game == game:
 		var t: int = game.rules.elapsed_ms
+		var space: NeonSpace = game.track.space
+		if space.road_basis(space.distance).y.y < -0.9: upside_down_frames += 1
+		var tip := space.camera.to_local(space.path(space.portal_distance))
+		var expected := Vector2(tip.x, tip.y) / maxf(0.2, -tip.z) * 0.7
+		var actual: Vector2 = space._structures.material.get_shader_parameter("portal_center")
+		portal_error = maxf(portal_error, expected.distance_to(actual))
+		if t > 1000: max_portal_step = maxf(max_portal_step, previous_portal.distance_to(actual))
+		previous_portal = actual
 		var event: Dictionary = game.rules.current_event()
 		var kind := str(event.get("type", "cruise"))
 		var rpm := 85.0 if t < 17000 else 125.0
@@ -72,6 +84,14 @@ func _run() -> void:
 			if not seen.has("screenshot") and game.track.space.ghost.visible and t > 10000:
 				seen.screenshot = true
 				picture.save_png(out.path_join("ghost.png"))
+			if space.road_basis(space.distance).y.y < -0.9 and not seen.has("inverted"):
+				seen.inverted = true
+				picture.save_png(out.path_join("inverted.png"))
+			if kind == "burst" and space.sections.zones.has(event.eventId):
+				var charge: float = space.sections.zones[event.eventId].charge
+				if charge > 0.6 and not seen.has("power_charged"):
+					seen.power_charged = true
+					picture.save_png(out.path_join("power_charged.png"))
 			if game.track._completion_age < 0.3 and game.track._completion_age > 0.15:
 				var key: String = game.track._completion_kind + "_complete"
 				if not seen.has(key):
@@ -82,7 +102,8 @@ func _run() -> void:
 				var timing := FileAccess.open(out.path_join("timestamps.json"), FileAccess.WRITE)
 				timing.store_string(JSON.stringify(timestamps))
 				timing.close()
-			print("LANE SMASH DEMO capture complete frames=", frame_index, " impacts=", game.track.space.impact_count, " sections=", game.track.completed_sections)
+			print("LANE SMASH DEMO capture complete frames=", frame_index, " impacts=", game.track.space.impact_count, " sections=", game.track.completed_sections, " inverted_frames=", upside_down_frames, " portal_error=", portal_error, " largest_portal_step=", max_portal_step)
+			assert(upside_down_frames > 30 and portal_error < 0.00001)
 			assert(game.track.completed_sections.cruise > 0 and game.track.completed_sections.hold > 0 and game.track.completed_sections.burst > 0)
 			session.request_end()
 			break

@@ -20,17 +20,17 @@ Every track has one scoring lane at a time. Turn the physical knob to reach it. 
 | Challenging (default) | 30–36 | 37–43 | 44–50 | 51–57 | 58–64 | 65–71 |
 | Extreme | 35–41 | 42–48 | 49–55 | 56–62 | 63–69 | 70–76 |
 
-The five overall ranges match the published Lanebreak Bike update; the equal seven-value lane subdivisions are our design. See [range research](research/lanebreak/06-difficulty-ranges.md). Values outside the chosen range do not score. A lane must settle for 150 ms. The app never turns the physical resistance knob for you; hills are visual.
+The five overall ranges match the published Lanebreak Bike update; the equal seven-value lane subdivisions are our design. See [range research](research/lanebreak/06-difficulty-ranges.md). Values outside the chosen range do not score. A lane must settle for 150 ms. The app never turns the physical resistance knob for you; the roller-coaster route is visual and independent of resistance.
 
 ## Points and movement
 
 - **Gold bars:** pedal in the target lane. Points accumulate with distance through the marked section.
-- **Mint arrows:** stay in the target lane and between the displayed minimum and maximum rpm. Both endpoints count.
-- **Violet power sections:** accumulate output in the target lane. One point is awarded per five joules: ten valid seconds at 150 W earns 300 points. There is no maximum-cadence target or power-score ceiling.
-- Gold bars, arrows and power crystals shatter when the front wheel touches them. The visual collision does not award points by itself: the correct lane, cadence and output rules still apply. Objects in other lanes remain intact.
+- **Mint arrows:** stay in the target lane and between the displayed minimum and maximum rpm. Both endpoints count. A soft mint gradient stays attached to the section beneath the raised arrows.
+- **Violet power sections:** accumulate output in the target lane. The floor charges and brightens as energy builds, with faster pulses at higher cadence and a growing triangular finish gate. One point is awarded per five joules: ten valid seconds at 150 W earns 300 points. There is no maximum-cadence target or power-score ceiling.
+- Bars and arrows sit on the road without hovering; adjacent sections leave a clear space between the final target and the next section’s first target. Gold bars, arrows and the power section’s finish gate shatter when the front wheel touches them. The visual collision does not award points by itself: the correct lane, cadence and output rules still apply. Objects in other lanes remain intact.
 - Stars rate how well you met the targets encountered during your ride. Complete the full selected duration and reach 25%, 60% or 90% for one, two or three stars. Extra burst output cannot replace missed lane/cadence targets.
 
-Sections now alternate low effort, climbing, easing back and recovery. Lane targets change every 20–47 seconds at 60–140 rpm (about 35 seconds at 80 rpm); cadence sections last 6–14 seconds. Every track has the same target-effort budget per road minute, with different ordering and target placement. Actual output depends on the rider. Completed sections explode and show their earned points without adding a second bonus.
+Sections now alternate low effort, climbing, easing back and recovery. Lane targets change every 20–47 seconds at 60–140 rpm (about 35 seconds at 80 rpm); cadence sections last 6–14 seconds. Every track has the same target-effort budget per road minute, with different ordering and target placement. Actual output depends on the rider. Each section’s final target explodes at its scoring endpoint and shows the earned +points at that spot. The number floats, fades and travels behind you with that point on the road; it does not add a second bonus.
 
 The rider sits on a streamlined fighter-inspired bicycle with a smooth matte suit and no rear thrusters. The cyclist's legs follow measured cadence. Faster pedalling moves farther down the track. Game speed reaches its **37.3 mph maximum at 140 rpm**; higher cadence cannot overrun the course. This is a game-speed scale, not a road-bike speed estimate. The 10/15/20/30-minute roads cover 6.40/9.51/12.61/18.83 miles, including a buffer beyond the maximum reachable distance. Each ride still ends at the selected active time.
 
@@ -44,7 +44,7 @@ The ghost is your highest-scoring completed ride on the same exact course and re
 
 Eight immediately available palettes are assigned to named tracks: **Arctic, Cobalt, Copper, Titanium, Petrol, Amber, Ember and Glacier**. Four flowing psychedelic backgrounds replace the floating scenery: **Prismatic flow, Kaleidoscope, Liquid aurora and Vortex**. Cadence controls flow speed; resistance smoothly changes the pattern and colors. Random generation varies both palette and environment; saved replays retain the exact combination. There are no cosmetic unlocks or rider trails.
 
-The optional original **Night Drive** soundtrack is a 128 BPM dark electronic loop. Switch it off in **Settings & history** before starting. All gameplay instructions remain visual. **Reduced** background motion slows and dims the effect and softens road curves.
+The optional original **Night Drive** soundtrack is a 128 BPM dark electronic loop. Switch it off in **Settings & history** before starting. All gameplay instructions remain visual. **Reduced** background motion slows and dims the effect and uses gentle curves without inversions. Normal motion includes vertical loops, full rolls and twisting climbs, independent of lane resistance. The visible road narrows into the background’s hole, which follows its endpoint through every turn.
 
 ## Uninterrupted rides and saved data
 
@@ -65,13 +65,13 @@ This is an app installation, not a replacement operating system. The original Bi
 1. On the Bike, check **Settings → Device Settings → About tablet** for the model, Android version and build. Firmware may arrange these labels differently. Do not start a firmware update just to inspect them.
 2. On the Mac, open [OpenPelo](https://github.com/doudar/Openpelo/releases). Follow its **Developer Mode Guide** for that tablet, enable **USB debugging**, and connect a USB data cable to the tablet's data port. Leave the Bike's sensor cable connected.
 3. Accept **Allow USB debugging** on the tablet. In OpenPelo, choose the Bike under **Target Device**; use **Refresh Devices** if needed.
-4. Choose **Install local APK**, then select the signed `openride-neon-12.apk` supplied with this fork. The normal **Compatible applications → OpenRide** catalog entry installs upstream, not this game build.
+4. Choose **Install local APK**, then select the signed `openride-neon-13.apk` supplied with this fork. The normal **Compatible applications → OpenRide** catalog entry installs upstream, not this game build.
 5. Open **Lane Smash** on the Bike. It opens directly into the track selector and reuses or creates a local rider automatically. Pedal and turn the knob to verify live cadence, power and resistance before starting a 10-minute Light ride.
 6. Complete a 10-minute ride, then reopen the app to confirm its saved score and ghost. Test End Ride on a separate attempt. Follow with a full ride before relying on it for daily use.
 
 The fork package is `dev.digitalducktape.openride.neon`, with real sensors enabled, a dedicated signing key and a `kbokarius/OpenRide` update channel. It can coexist with upstream OpenRide. This task does not reset the tablet, disable Peloton apps, change the home app, install onto the Bike, or cancel a membership.
 
-For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**. The former Profile and App updates controls are removed. This revision uses version code 12 and keeps the same package/signing identity. No fork release is automatically published by a local build.
+For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**. The former Profile and App updates controls are removed. This revision uses version code 13 and keeps the same package/signing identity. No fork release is automatically published by a local build.
 
 Update this fork in place: do not uninstall it or clear its app data, since that can remove locally stored history. Automatic backups remain enabled, but the former manual Profile controls are removed. Do not uninstall upstream to resolve a signature mismatch. The dedicated fork avoids that conflict. More firmware-specific context and sources: [installation research](research/lanebreak/04-installation.md).
 
@@ -87,4 +87,4 @@ Update this fork in place: do not uninstall it or clear its app data, since that
 - `LaneSmashCatalog.gd` defines the named/seeded courses. Legacy JSON remains exported for saved replays. Keep the generator version and course hash stable unless deliberately versioning content.
 - `godot --path games -s res://tests/demo_lane_smash.gd` opens an automated desktop ride with an isolated completed ghost. It uses simulated sensor values and separate demonstration history.
 
-Lane Smash is the only selectable game; other game assets are excluded from the APK. See [revision 4 specification](specs/lane-smash-v4.md) and [validation](specs/lane-smash-v4-validation.md).
+Lane Smash is the only selectable game; other game assets are excluded from the APK. See [revision 5 specification](specs/lane-smash-v5.md) and [validation](specs/lane-smash-v5-validation.md).

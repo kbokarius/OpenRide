@@ -34,6 +34,8 @@ var _font: Font
 var _completion_cursor := 0
 var _completion_age := 10.0
 var _completion_text := ""
+var _completion_anchor := Vector3.ZERO
+var _completion_up := Vector3.UP
 var _completion_kind := "cruise"
 var completed_sections := {"cruise": 0, "hold": 0, "burst": 0}
 var _intro_alpha := 0.0:
@@ -105,13 +107,16 @@ func _draw() -> void:
 
 	if rules.course.is_empty():
 		return
-	if _completion_age < 2.0:
-		var alpha := smoothstep(0.0, 0.12, _completion_age) * (1.0 - smoothstep(1.2, 2.0, _completion_age))
-		var color := GOLD if _completion_kind == "cruise" else (HOLD if _completion_kind == "hold" else CHARGE)
-		var width := _font.get_string_size(_completion_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 40).x
-		var y := 410.0 - minf(_completion_age, 1.5) * 20.0
-		draw_rect(Rect2(960 - width / 2 - 24, y - 46, width + 48, 66), Color(0.025, 0.035, 0.06, 0.8 * alpha))
-		_text(_completion_text, Vector2(960 - width / 2, y), 40, Color(color, alpha))
+	if _completion_age < 1.4:
+		var position_3d := _completion_anchor + _completion_up * minf(_completion_age, 1.0) * 1.2
+		if not space.camera.is_position_behind(position_3d):
+			var screen := space.camera.unproject_position(position_3d) * Vector2(1920, 1080) / Vector2(view.size)
+			var alpha := smoothstep(0.0, 0.08, _completion_age) * (1.0 - smoothstep(0.65, 1.4, _completion_age))
+			var color := GOLD if _completion_kind == "cruise" else (HOLD if _completion_kind == "hold" else CHARGE)
+			var width := _font.get_string_size(_completion_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 46).x
+			var at := screen - Vector2(width / 2, 0)
+			draw_string_outline(_font, at, _completion_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 46, 7, Color(0.015, 0.025, 0.05, alpha))
+			_text(_completion_text, at, 46, Color(color, alpha))
 	var progress := clampf(float(rules.elapsed_ms) / float(rules.course.durationMs), 0.0, 1.0)
 	draw_line(Vector2(52, 1055), Vector2(1868, 1055), Color(accent, 0.15), 5.0)
 	draw_line(Vector2(52, 1055), Vector2(52 + 1816 * progress, 1055), accent, 5.0)
@@ -177,7 +182,8 @@ func _update_completions(delta: float) -> void:
 		_completion_cursor += 1
 		if points <= 0: continue
 		_completion_kind = str(event.type)
-		_completion_text = "%s  +%d" % [{"cruise": "SECTION COMPLETE", "hold": "CADENCE COMPLETE", "burst": "POWER BURST COMPLETE"}.get(_completion_kind, "SECTION COMPLETE"), points]
+		_completion_text = "+%d" % points
 		_completion_age = 0.0
 		completed_sections[_completion_kind] = int(completed_sections.get(_completion_kind, 0)) + 1
-		space.section_completed(_completion_kind, int(event.laneIndex))
+		_completion_anchor = space.section_completed(_completion_kind, int(event.laneIndex), int(event.endMs))
+		_completion_up = space.road_basis(int(event.endMs) / 1000.0 * space._unit_speed).y

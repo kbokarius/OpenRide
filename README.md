@@ -2,7 +2,7 @@
 
 This personal fork opens directly into **Lane Smash**, a resistance-controlled cycling game with 100 named tracks, seeded random rides, best-ride ghosts, and reactive 3D scenery. Other games and the original workout/profile controls are unavailable.
 
-Start with the [Lane Smash guide](docs/LANE_SMASH.md), [revision 4 specification](docs/specs/lane-smash-v4.md), and [validation](docs/specs/lane-smash-v4-validation.md). The original Bike still needs physical compatibility testing.
+Start with the [Lane Smash guide](docs/LANE_SMASH.md), [revision 5 specification](docs/specs/lane-smash-v5.md), and [validation](docs/specs/lane-smash-v5-validation.md). The original Bike still needs physical compatibility testing.
 
 ---
 

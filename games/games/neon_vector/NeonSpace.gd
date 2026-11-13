@@ -18,7 +18,7 @@ var ghost: LaneSmashCyclist
 var world_id := ""
 var reduced_motion := false
 var distance := 0.0
-var _curve := 1.0
+var coaster := LaneSmashCoaster.new()
 var _road: MeshInstance3D
 var _rails: MeshInstance3D
 var _bars: MultiMeshInstance3D
@@ -30,15 +30,17 @@ var _collected := {}
 var _previous_distance := -1.0
 var _previous_ms := -1
 var _terrain_id := ""
-var _heights := PackedFloat32Array()
-var _lanes := PackedFloat32Array()
-var _terrain_step := 9.0
 var _unit_speed := SPEED
 var ghost_distance := -1.0
 var ghost_cadence := 80.0
 var _rim_light: DirectionalLight3D
 var environment_id := ""
 var _structures: LaneSmashEnvironment
+var sections: LaneSmashSections
+var portal_distance := 250.0
+var _portal_ahead := -1.0
+var _road_material: ShaderMaterial
+var _line_material: ShaderMaterial
 var impact_count := 0
 var _env: Environment
 var _accent := Color("67d8ff")
@@ -86,11 +88,12 @@ func _ready() -> void:
 	camera.make_current()
 	var box := BoxMesh.new()
 	box.size = Vector3.ONE
-	_road = _mesh(ArrayMesh.new(), _material(Color.WHITE, 0.06, false, true))
-	_road.material_override.roughness = 1.0
-	_road.material_override.metallic = 0.0
-	_road.material_override.metallic_specular = 0.0
-	_rails = _mesh(ArrayMesh.new(), _material(Color.WHITE, 0.65, false, true))
+	_road_material = ShaderMaterial.new()
+	_road_material.shader = preload("res://games/neon_vector/coaster_road.gdshader")
+	_line_material = _road_material.duplicate()
+	_line_material.set_shader_parameter("glow", 0.65)
+	_road = _mesh(ArrayMesh.new(), _road_material)
+	_rails = _mesh(ArrayMesh.new(), _line_material)
 	_bars = _instances(box, MARKERS, _material(Color.WHITE, 0.8, true, true))
 	_arrows = _instances(_chevron(), MARKERS, _material(Color.WHITE, 0.6, true, true))
 	var crystal := PrismMesh.new()
@@ -111,6 +114,9 @@ func _ready() -> void:
 	_structures = LaneSmashEnvironment.new()
 	add_child(_structures)
 	_structures.configure(_env)
+	sections = LaneSmashSections.new()
+	sections.space = self
+	add_child(sections)
 	set_world("arctic")
 	# Exercise every material during the host's three-second intro. Mobile GL can
 	# otherwise compile the first ghost/arrow/crystal shader during scored gameplay.
@@ -135,48 +141,18 @@ func set_world(id: String) -> void:
 
 
 func prepare_terrain(course: Dictionary) -> void:
-	var id := "%s:%s" % [course.get("courseId", ""), course.get("courseVersion", 0)]
+	var id := "%s:%s:%s" % [course.get("courseId", ""), course.get("courseVersion", 0), reduced_motion]
 	if id == _terrain_id: return
 	_terrain_id = id
-	_heights.clear()
-	_lanes.clear()
-	var height := 0.0
-	var slope := 0.0
-	var target_lane := 0.0
-	var cursor := 0
-	var events: Array = course.get("events", [])
-	var count := int(course.get("durationMs", 0)) / 500 + 80
-	for i in count:
-		var time := i * 500
-		while cursor + 1 < events.size() and int(events[cursor].endMs) < time: cursor += 1
-		var target := float(events[cursor].laneIndex) if not events.is_empty() else 0.0
-		target_lane = lerpf(target_lane, target, 0.16)
-		# Higher scoring lanes form visibly steeper climbs. A gentle descent recovers height.
-		var grade: float = [-0.12, -0.03, 0.07, 0.18, 0.31, 0.46][clampi(roundi(target), 0, 5)]
-		slope = lerpf(slope, grade, 0.12)
-		height += slope * _terrain_step
-		_heights.append(height)
-		_lanes.append(target_lane)
+	_portal_ahead = -1.0
+	coaster.build(float(course.get("roadLengthMeters", int(course.get("durationMs", 0)) / 1000.0 * _unit_speed)), int(course.get("seed", 17)), reduced_motion)
 	_road_index = -999999
 
 func path(s: float) -> Vector3:
-	var h := 0.0
-	var lane := 0.0
-	if _heights.size() > 1:
-		var f := clampf(s / _terrain_step, 0, _heights.size() - 1.001)
-		var i := floori(f)
-		h = _spline(_heights, i, f - i)
-		lane = _spline(_lanes, i, f - i)
-	return Vector3((18 * sin(s / 92.0) + 7 * sin(s / 41.0) + lane * 3.5) * _curve,
-		(h + 2.0 * sin(s / 63.0)) * _curve, -s)
-
+	return coaster.at(s).origin
 
 func road_basis(s: float) -> Basis:
-	var forward := (path(s + 0.2) - path(s - 0.2)).normalized()
-	var right := forward.cross(Vector3.UP).normalized()
-	var up := right.cross(forward).normalized()
-	var bank := (sin(s / 92.0) * 0.09 + sin(s / 41.0) * 0.045) * _curve
-	return Basis(right, up, -forward).rotated(forward, bank)
+	return coaster.at(s).basis
 
 
 func pose(s: float, lateral: float, height: float, size := Vector3.ONE) -> Transform3D:
@@ -188,25 +164,23 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 	if camera == null:
 		return
 	_unit_speed = rules.road_speed_scale()
-	_terrain_step = _unit_speed * 0.5
 	prepare_terrain(rules.course)
 	distance = rules.road_distance()
 	var resistance_fraction: float = (float(rules.latest.get("resistance", NeonRules.TIERS[rules.tier])) - NeonRules.TIERS[rules.tier]) / 41.0
 	_structures.update_environment(str(rules.course.get("background", "orbital")), _accent, float(rules.latest.get("cadence", 0)), resistance_fraction, delta, reduced_motion)
-	var desired_curve := 0.25 if reduced_motion else 1.0
-	if absf(_curve - desired_curve) > 0.001:
-		_curve = lerpf(_curve, desired_curve, 1.0 - exp(-delta * 2))
-		_road_index = -999999
 	var basis := road_basis(distance)
-	# Follow the local tangent so hills/banking move the scenery while the rider
+	# Follow the full orientation, including upside-down loops and rolls; the rider
 	# retains its padding above the fixed lane-number dock.
 	camera.position = path(distance) + basis.z * 12 + basis.y * 6.0
 	camera.look_at(path(distance) - basis.z * 34 + basis.y * 1.6, basis.y)
 	_structures.material.set_shader_parameter("camera_basis", camera.basis)
+	_update_horizon(delta)
 	var index := floori(distance / STEP)
 	if index != _road_index:
 		_road_index = index
 		_road_geometry(index)
+	var portal := camera.to_local(path(portal_distance))
+	_structures.material.set_shader_parameter("portal_center", Vector2(portal.x, portal.y) / maxf(0.2, -portal.z) * 0.7)
 	var target := pose(distance, (lane - 2.5) * LANE_WIDTH, 0.05)
 	rider.transform = target
 	rider.animate(float(rules.latest.get("cadence", 0)), delta)
@@ -217,12 +191,13 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 	_rim_material.emission_energy_multiplier = 1.1 + _pulse * 0.7
 	var ghost_at := ghost_distance if ghost_distance >= 0 else distance + 3.5
 	var ghost_gap := ghost_at - distance
-	ghost.visible = (show_ghost and ghost_lane >= 0 and ghost_gap > -5 and ghost_gap < 85 and absf(ghost_gap) > 1.4) or _warming
+	ghost.visible = (show_ghost and ghost_lane >= 0 and ghost_gap > -5 and ghost_gap < minf(85.0, portal_distance - distance - 24.0) and absf(ghost_gap) > 1.4) or _warming
 	if ghost.visible:
-		ghost.set_opacity(smoothstep(-5.0, -1.5, ghost_gap) * (1.0 - smoothstep(50.0, 85.0, ghost_gap)) * smoothstep(1.4, 4.5, absf(ghost_gap)))
+		ghost.set_opacity(smoothstep(-5.0, -1.5, ghost_gap) * (1.0 - smoothstep(50.0, 85.0, ghost_gap)) * smoothstep(1.4, 4.5, absf(ghost_gap)) * (1.0 - smoothstep(portal_distance - 48.0, portal_distance - 24.0, ghost_at)))
 		ghost.transform = pose(distance + 3.5 if _warming else ghost_at, ((2.5 if _warming else ghost_lane) - 2.5) * LANE_WIDTH, 0.05)
 		ghost.animate(ghost_cadence, delta)
 	_events(rules, lane)
+	sections.update_view(rules, delta, lane)
 	_animate_impacts(delta)
 
 
@@ -238,19 +213,46 @@ func _road_geometry(index: int) -> void:
 	var strips: Array = []
 	for lane in 6:
 		strips.append([float(lane - 3) * LANE_WIDTH, float(lane - 2) * LANE_WIDTH, -0.015, Color("121a32").lerp(_accent, 0.035 if lane % 2 else 0.07)])
-	_road.mesh = _continuous_mesh(centers, bases, strips)
+	_road.mesh = _continuous_mesh(centers, bases, strips, (index - 16) * STEP)
 	strips.clear()
 	for edge in 7:
 		var center := (edge - 3) * LANE_WIDTH
 		var width := 0.06 if edge in [0, 6] else 0.025
 		strips.append([center - width, center + width, 0.025, _accent if edge in [0, 6] else _accent.darkened(0.65)])
-	_rails.mesh = _continuous_mesh(centers, bases, strips)
+	_rails.mesh = _continuous_mesh(centers, bases, strips, (index - 16) * STEP)
 
 
-static func _continuous_mesh(centers: PackedVector3Array, bases: Array[Basis], strips: Array) -> ArrayMesh:
+func _horizon_ahead() -> float:
+	# A continuous distance + curvature budget cannot jump between disconnected
+	# visible spans when a loop crosses a screen boundary.
+	var previous := road_basis(distance).z
+	var cost := 0.0
+	for step in range(1, 61):
+		var forward := road_basis(distance + step * 4.0).z
+		var next_cost := cost + 4.0 / 240.0 + previous.angle_to(forward) / 0.98
+		if next_cost >= 1.0:
+			return (step - 1) * 4.0 + 4.0 * (1.0 - cost) / (next_cost - cost)
+		cost = next_cost
+		previous = forward
+	return 240.0
+
+
+func _update_horizon(delta: float) -> void:
+	var target := _horizon_ahead()
+	_portal_ahead = target if _portal_ahead < 0 or delta <= 0 else lerpf(_portal_ahead, target, 1.0 - exp(-delta * 5.0))
+	portal_distance = distance + _portal_ahead
+	var point := path(portal_distance)
+	for material in [_road_material, _line_material]:
+		material.set_shader_parameter("road_end", portal_distance)
+		material.set_shader_parameter("portal_point", point)
+
+
+static func _continuous_mesh(centers: PackedVector3Array, bases: Array[Basis], strips: Array, start: float) -> ArrayMesh:
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
+	var uvs := PackedVector2Array()
+	var tangents := PackedFloat32Array()
 	var indices := PackedInt32Array()
 	for strip: Array in strips:
 		var offset := vertices.size()
@@ -259,6 +261,9 @@ static func _continuous_mesh(centers: PackedVector3Array, bases: Array[Basis], s
 				vertices.append(centers[i] + bases[i].x * float(strip[side]) + bases[i].y * float(strip[2]))
 				normals.append(bases[i].y)
 				colors.append(strip[3])
+				uvs.append(Vector2(start + i * STEP, float(strip[side])))
+				var right := bases[i].x
+				tangents.append_array(PackedFloat32Array([right.x, right.y, right.z, 1.0]))
 			if i > 0:
 				var a := offset + (i - 1) * 2
 				indices.append_array(PackedInt32Array([a, a + 1, a + 2, a + 1, a + 3, a + 2]))
@@ -267,16 +272,36 @@ static func _continuous_mesh(centers: PackedVector3Array, bases: Array[Basis], s
 	arrays[Mesh.ARRAY_VERTEX] = vertices
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_TANGENT] = tangents
 	arrays[Mesh.ARRAY_INDEX] = indices
 	var result := ArrayMesh.new()
 	result.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return result
 
 
-func section_completed(kind: String, lane: int) -> void:
+static func marker_height(kind: String) -> float:
+	return 0.13 if kind == "cruise" else (0.05 if kind == "hold" else 0.65)
+
+
+static func wheel_contact_reach(kind: String) -> float:
+	# At ground height the curved tire reaches slightly less far than at its axle.
+	var top := 0.21 if kind == "cruise" else (0.41 if kind == "hold" else 0.72)
+	var below_axle := maxf(0, 0.72 - top)
+	return 1.05 + sqrt(maxf(0, pow(LaneSmashCyclist.WHEEL_RADIUS, 2) - below_axle * below_axle))
+
+
+func finish_distance(kind: String, end_ms: int) -> float:
+	var extent := 0.6325 if kind == "hold" else (0.16 if kind == "cruise" else 0.05)
+	return end_ms / 1000.0 * _unit_speed + wheel_contact_reach(kind) + extent
+
+
+func section_completed(kind: String, lane: int, at_ms: int) -> Vector3:
 	var color := GOLD if kind == "cruise" else (GREEN if kind == "hold" else VIOLET)
-	var at := pose(distance + LaneSmashCyclist.FRONT_REACH, (lane - 2.5) * LANE_WIDTH, 0.8).origin
+	var finish := finish_distance(kind, at_ms)
+	var at := pose(finish, (lane - 2.5) * LANE_WIDTH, 0.8).origin
 	_explode(at, color, 36, 1.8)
+	return pose(finish, (lane - 2.5) * LANE_WIDTH, 2.2).origin
 
 
 func _events(rules: NeonRules, visual_lane: float) -> void:
@@ -295,6 +320,7 @@ func _events(rules: NeonRules, visual_lane: float) -> void:
 		if int(event.endMs) < now - 1000:
 			continue
 		var kind := str(event.type)
+		if kind == "burst": continue # a growing floor zone and finish gate replace crystal rows
 		var bucket := "cruise" if kind == "pickup" else ("charge" if kind == "burst" else kind)
 		var pool := _bars if bucket == "cruise" else (_arrows if bucket == "hold" else _crystals)
 		var color := GOLD if bucket == "cruise" else (GREEN if bucket == "hold" else VIOLET)
@@ -309,31 +335,39 @@ func _events(rules: NeonRules, visual_lane: float) -> void:
 			# Anchors never depend on the visible near edge: arrows keep travelling after entry.
 			var spacing := 600 if bucket != "charge" else 850
 			var tick := maxi(0, ceili(float(now - 950 - start) / spacing))
-			while start + tick * spacing < end and int(counts[bucket]) < MARKERS:
-				var at := start + tick * spacing
+			var total := ceili(float(end - start) / spacing)
+			# The preceding section owns the shared boundary. Its finish target must
+			# clear before this section's first target, rather than stacking both there.
+			if kind != "pickup" and i > 0 and int(rules.course.events[i - 1].endMs) == start and int(rules.course.events[i - 1].laneIndex) == lane:
+				tick = maxi(tick, mini(1, total - 1))
+			while tick < total and int(counts[bucket]) < MARKERS:
+				var final_item := tick == total - 1 and kind != "pickup"
+				var at := end if final_item else start + tick * spacing
 				var key := "%s:%d:%d" % [event.eventId, c, tick]
 				# Physical contact is independent of scoring eligibility: even an off-target
 				# cadence arrow shatters, while the rules still award zero for that interval.
 				var anchor := at / 1000.0 * _unit_speed
 				var angle := now * 0.0018 + tick
 				var back_extent := 0.16 if bucket == "cruise" else (0.6325 if bucket == "hold" else absf(sin(angle)) * 0.575 + absf(cos(angle)) * 0.4025)
+				if final_item: anchor = finish_distance(kind, at)
+				if anchor > portal_distance - 18.0: break
 				var front_extent := 0.92 if bucket == "hold" else back_extent
-				var contact := anchor - LaneSmashCyclist.FRONT_REACH - back_extent
+				var contact := anchor - wheel_contact_reach(bucket) - back_extent
 				if not _collected.has(key) and _previous_distance >= 0 and now - _previous_ms <= 250 and _previous_distance + 0.38 <= anchor + front_extent and distance >= contact and absf(visual_lane - lane) < 0.38:
 					_collected[key] = at
 					_explode(pose(anchor, lateral, 0.65).origin, color)
 				if _collected.has(key):
 					tick += 1
 					continue
-				var ahead := (at - now) / 1000.0 * _unit_speed
+				var ahead := anchor - distance
 				if ahead > 250:
 					break
-				var fade := smoothstep(-16.0, -2.0, ahead) * (1.0 - smoothstep(205.0, 250.0, ahead))
+				var fade := smoothstep(-16.0, -2.0, ahead) * (1.0 - smoothstep(portal_distance - 50.0, portal_distance - 18.0, anchor))
 				var tint := color
 				tint.a = fade * (0.18 if muted else 1.0)
 				var n: int = counts[bucket]
 				var size := Vector3(2.25, 0.16, 0.32) if bucket == "cruise" else Vector3(1.15, 1.5, 1.15)
-				var transform := pose(at / 1000.0 * _unit_speed, lateral, 0.65 + sin(now * 0.003 + tick) * 0.05, size)
+				var transform := pose(anchor, lateral, marker_height(bucket), size)
 				if bucket == "charge":
 					transform.basis = transform.basis.rotated(transform.basis.y.normalized(), now * 0.0018 + tick)
 					transform.origin += transform.basis.y * 0.35
@@ -359,8 +393,9 @@ func _explode(at: Vector3, color: Color, count := 12, force := 1.0) -> void:
 	impact_count += 1
 	for i in count:
 		if _impacts.size() >= 192: _impacts.pop_front()
-		var angle := i * TAU / float(count) + impact_count * 0.8
-		_impacts.append({"origin": at, "velocity": Vector3(cos(angle) * 3.0, 1.5 + (i % 4) * 0.9, sin(angle) * 3.0) * force, "age": 0.0, "color": color})
+		var angle := i * TAU / float(count) + impact_count * 0.8 + sin(i * 4.13) * 0.3
+		var spread := 2.0 + fposmod(sin(i * 12.9898 + impact_count) * 43758.5453, 1.0) * 3.0
+		_impacts.append({"origin": at, "velocity": road_basis(distance) * Vector3(cos(angle) * spread, 1.5 + fposmod(sin(i * 17.13) * 3758.2, 1.0) * 3.6, sin(angle) * spread) * force, "gravity": -road_basis(distance).y * 3.0, "age": 0.0, "color": color})
 
 func _animate_impacts(delta: float) -> void:
 	for i in range(_impacts.size() - 1, -1, -1):
@@ -369,7 +404,7 @@ func _animate_impacts(delta: float) -> void:
 	for i in _impacts.size():
 		var particle: Dictionary = _impacts[i]
 		var age := float(particle.age)
-		var pos: Vector3 = particle.origin + particle.velocity * age + Vector3.DOWN * age * age * 3.0
+		var pos: Vector3 = particle.origin + particle.velocity * age + Vector3(particle.gravity) * age * age
 		var tint: Color = particle.color
 		tint.a = pow(1.0 - age / 0.65, 1.4)
 		var size := 0.18 * (1.0 - age / 0.8)
