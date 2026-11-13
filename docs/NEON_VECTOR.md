@@ -1,6 +1,6 @@
 # NEON VECTOR
 
-A silent, resistance-controlled cycling game for the original Peloton Bike, built inside OpenRide. It uses original code, graphics and courses. No Peloton subscription, music track, camera, cloud account or network connection is used by the game itself.
+A resistance-controlled 3D cycling game for the original Peloton Bike, built inside OpenRide. It uses original code, graphics and courses. Original electronic music is included and can be muted. The game itself needs no Peloton subscription, camera, cloud account or network connection.
 
 ## Choose a ride
 
@@ -10,7 +10,7 @@ Open **Games → NEON VECTOR**. Choose a course family, length, resistance diffi
 |---|---|---|
 | First Contact | 5 minutes | Guided practice; its records are separate and it does not unlock cosmetics. |
 | Steady Flow | 10 / 20 / 30 minutes | Longer cadence holds and smooth changes. |
-| Intervals | 10 / 20 / 30 minutes | Short power charges with recovery. |
+| Intervals | 10 / 20 / 30 minutes | Short power bursts with recovery. |
 | Rolling Climb | 10 / 20 / 30 minutes | Gradual movement toward higher resistance. |
 | Daily Signal | 20 minutes | Reproducible offline course for the selected local date. |
 
@@ -27,17 +27,21 @@ Turn the physical resistance knob to move between lanes. Values outside the chos
 
 ## Points, targets and stars
 
-- **Gold diamonds:** be in the indicated lane at the hit line, within ±250 ms. Each scores once: 100 points in lane 1, increasing by 20 per lane.
-- **Green ribbons:** remain in the lane and within the displayed cadence band. Valid time earns 10 points per second before any branch bonus.
-- **Violet charges:** remain in the lane and build the meter with power. A one-second trailing power average is used. The reference power setting is independent of resistance difficulty: 60% of it fills at the 100% rate; the full reference fills at the 200% rate. The extra half of the meter adds up to a 50% point bonus. Cadence above 120 rpm adds no charge but does not erase previously earned points.
-- **Split routes:** choose the lower Flow lane or the higher Surge lane. Surge offers 25% more points. The first settled eligible lane locks the choice; switching afterward cannot collect both. The maximum counts the better route once.
-- **Stars:** finish the whole course and achieve 25%, 60% or 90% of its reachable base points for one, two or three stars. Charge overfill does not inflate star completion. Partial attempts earn no stars and cannot replace personal bests.
+- **Gold bars:** stay in the target lane and keep pedalling to earn 10 points per second.
+- **Mint arrows:** stay in the lane and between the displayed minimum and maximum cadence. Valid time earns 10 points per second.
+- **Violet power bursts:** pedal harder in the target lane. Points equal the total output accumulated during that section, at one point per five joules. Ten seconds at 150 W earns 300 points; 300 W earns 600. Reference power sets the star target, not a score ceiling. There is no maximum cadence target in these sections.
+- **Split routes:** choose the lower Flow lane or higher Surge lane. Surge offers 25% more points. The first settled eligible lane locks the choice; switching afterward cannot collect both.
+- **Stars:** finish the whole course and achieve 25%, 60% or 90% of its base targets for one, two or three stars. Extra burst output cannot replace missed lane/cadence targets. Partial attempts earn no stars and cannot replace personal bests.
 
-Pedalling below 20 rpm earns nothing. Three seconds below that threshold pauses the course. Eight seconds of upcoming track are visible. All cues are visual; the game registers no music or sound effects.
+Pedalling below 20 rpm earns nothing; three seconds below that threshold pauses the course. Scoring is available for 85% of the course, with three-second gaps for lane changes. About 14 seconds of track are visible ahead. The track curves and climbs through space; raised objects move past the rider and fade at the edges of view.
+
+**Music** in **Style & history** or **Pause** switches the original 138 bpm soundtrack on/off. It also respects OpenRide's global music setting and external audio policy. Every gameplay cue remains visual. There are no visible scrollbars; swipe, wheel or keyboard focus reaches longer lists.
+
+Saved revision-1 rides replay their original pickup/charge rules and keep their original comparison identity. Newly selected courses use revision 2.
 
 ## Ghost, worlds and daily courses
 
-**Style & history** contains the ghost and motion options, cosmetic choices and the latest 50 attempts. Tap a saved attempt to replay its exact saved course; the date changing or a later generator revision does not replace that content.
+**Style & history** contains the ghost, motion and music options, cosmetic choices and the latest 50 attempts. Tap a saved attempt to replay its exact saved course; the date changing or a later generator revision does not replace that content.
 
 The optional ghost uses your highest completed score for the same rider, exact course hash, difficulty, scoring/envelope versions and reference power. Its translucent rider shows the previous lane and the live points difference. Cosmetics are excluded from that identity.
 
@@ -71,13 +75,13 @@ This is an app installation, not a replacement operating system. The original Bi
 1. On the Bike, check **Settings → Device Settings → About tablet** for the model, Android version and build. Firmware may arrange these labels differently. Do not start a firmware update just to inspect them.
 2. On the Mac, open [OpenPelo](https://github.com/doudar/Openpelo/releases). Follow its **Developer Mode Guide** for that tablet, enable **USB debugging**, and connect a USB data cable to the tablet's data port. Leave the Bike's sensor cable connected.
 3. Accept **Allow USB debugging** on the tablet. In OpenPelo, choose the Bike under **Target Device**; use **Refresh Devices** if needed.
-4. Choose **Install local APK**, then select the signed `openride-neon-9.apk` supplied with this fork. The normal **Compatible applications → OpenRide** catalog entry installs upstream, not this game build.
+4. Choose **Install local APK**, then select the signed `openride-neon-10.apk` supplied with this fork. The normal **Compatible applications → OpenRide** catalog entry installs upstream, not this game build.
 5. Open **NEON VECTOR** on the Bike, create/select a rider, then open **Games → NEON VECTOR**. Pedal and turn the knob to verify live cadence, power and resistance before starting First Contact.
 6. Complete the practice ride, pause/resume, then end and reopen the app to confirm history. Follow with a full ride before relying on it for daily use.
 
 The fork package is `dev.digitalducktape.openride.neon`, with real sensors enabled, a dedicated signing key and a `kbokarius/OpenRide` update channel. It can coexist with upstream OpenRide. This task does not reset the tablet, disable Peloton apps, change the home app, install onto the Bike, or cancel a membership.
 
-For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**, or use **Profile → App updates** after a release has been published to the fork. The updater expects assets named `openride-neon-<versionCode>.apk`; the first build uses version code 9. No fork release is automatically published by a local build.
+For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**, or use **Profile → App updates** after a release has been published to the fork. The updater expects assets named `openride-neon-<versionCode>.apk`; this revision uses version code 10. No fork release is automatically published by a local build.
 
 Before replacing or removing an installed app, use **Profile → Backup & restore** to export a backup off the tablet. Do not uninstall upstream to resolve a signature mismatch. The dedicated fork avoids that conflict. More firmware-specific context and sources: [installation research](research/lanebreak/04-installation.md).
 

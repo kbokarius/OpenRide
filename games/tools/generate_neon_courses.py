@@ -1,4 +1,4 @@
-"""Reproduce the reviewed NEON VECTOR v1 library (runtime reads the committed JSON).
+"""Reproduce the reviewed NEON VECTOR v2 library (runtime reads the committed JSON).
 
 Explicit family patterns and duration-specific phase plans; no runtime random truncation.
 Generated files are deliberately readable and can be authored further by hand/version bump.
@@ -8,8 +8,8 @@ import json
 
 OUT = Path(__file__).resolve().parents[1] / "games/neon_vector/courses"
 PATTERNS = {
-    "steady_flow": [1, 2, 2, 3, 2, 1, 2, 3, 3, 2],
-    "intervals": [1, 2, 1, 3, 1, 4, 2, 3, 1, 2],
+    "steady_flow": [1, 2, 3, 2, 1, 2, 3, 4, 3, 2],
+    "intervals": [1, 2, 3, 2, 1, 2, 3, 2, 1, 2],
     "rolling_climb": [0, 1, 2, 3, 4, 5, 4, 3, 2, 1],
     "tutorial": [0, 1, 2, 3, 0],
 }
@@ -26,13 +26,14 @@ PHASES = {
 
 def build(family: str, minutes: int) -> dict:
     course = dict(schemaVersion=1, courseId="tutorial" if family == "tutorial" else f"{family}_{minutes}",
-                  courseVersion=1, title="First contact" if family == "tutorial" else family.replace("_", " ").title(),
+                  courseVersion=2, title="First contact" if family == "tutorial" else family.replace("_", " ").title(),
                   family=family, durationMs=minutes * 60000, phases=[], events=[])
     start = 0
     for name, role, length in PHASES[minutes]:
         course["phases"].append(dict(name=name, role=role, startMs=start, endMs=start + length * 60000))
         start += length * 60000
     assert start == course["durationMs"]
+    previous_lane = 0
     for minute in range(minutes):
         offset = minute * 60000
         phase = next(p for p in course["phases"] if p["startMs"] <= offset < p["endMs"])
@@ -40,24 +41,28 @@ def build(family: str, minutes: int) -> dict:
         lane = PATTERNS[family][minute % len(PATTERNS[family])]
         if role != "work":
             lane = min(lane, 1)
+        lane = max(previous_lane - 1, min(previous_lane + 1, lane))
+        previous_lane = lane
         charge = role == "work" and (minute % (2 if family == "intervals" else 4) == 1 or family == "tutorial" and minute == 3)
         if family == "tutorial" and minute < 3:
             charge = False
         prefix = f"m{minute + 1:02d}"
 
-        def pickup(suffix: str, second: int) -> dict:
-            return dict(eventId=f"{prefix}-{suffix}", type="pickup", startMs=offset + second * 1000,
-                        endMs=offset + second * 1000 + 510, hitMs=offset + second * 1000 + 250, laneIndex=lane)
+        def event(suffix, kind, start, end):
+            return dict(eventId=f"{prefix}-{suffix}", type=kind, startMs=offset + start * 1000,
+                        endMs=offset + end * 1000, laneIndex=lane)
 
-        event = dict(eventId=f"{prefix}-b", type="charge" if charge else "hold", startMs=offset + 16000,
-                     endMs=offset + (26000 if charge else 34000), laneIndex=lane)
-        if charge:
-            event.update(ratio100=0.6, ratio200=1.0)
-        else:
-            event.update(cadenceMin=60 if role != "work" else 70, cadenceMax=85 if role != "work" else 90)
-            if role == "work" and family != "tutorial" and minute % 3 == 2 and lane < 5:
-                event["alternatives"] = [dict(laneIndex=lane, rewardPercent=100), dict(laneIndex=lane + 1, rewardPercent=125)]
-        course["events"].extend([pickup("a", 8), event, pickup("c", 44), pickup("d", 48), pickup("e", 52)])
+        def hold(suffix, start, end):
+            e = event(suffix, "hold", start, end)
+            e.update(cadenceMin=60 if role != "work" else 70, cadenceMax=85 if role != "work" else 90)
+            return e
+
+        main = event("b", "burst", 16, 30) if charge else hold("b", 16, 30)
+        choice = hold("d", 39, 51)
+        if role == "work" and family != "tutorial" and minute % 3 == 2 and lane < 5:
+            choice["alternatives"] = [dict(laneIndex=lane, rewardPercent=100), dict(laneIndex=lane + 1, rewardPercent=125)]
+        course["events"].extend([event("a", "cruise", 3, 16), main,
+                                 event("c", "cruise", 30, 36), choice, event("e", "cruise", 54, 60)])
     return course
 
 

@@ -106,3 +106,37 @@ func test_branch_locks_once_and_maximum_does_not_sum_alternatives() -> void:
 	assert_int(r.max_units).is_equal(1250000)
 	assert_int(r.score_units).is_equal(500000)
 	assert_int(r.event_states[0].choice).is_zero()
+
+
+func test_v2_burst_integrates_energy_without_cadence_or_score_ceiling() -> void:
+	for watts in [0, 150, 300]:
+		for fps in [30, 60, 120]:
+			var data := _course([_event("burst", 1000, 11000)])
+			data.courseVersion = 2
+			var r := NeonRules.new()
+			assert_array(r.configure(data, "intermediate", 150)).is_empty()
+			_run(r, 11500, 130, watts, 41, fps)
+			assert_int(r.score_units).is_equal(watts * 2 * NeonRules.UNIT)
+			assert_int(r.event_states[0].energyMilliJoules).is_equal(watts * 10000)
+			assert_int(r.base_units).is_equal(mini(watts, 150) * 2 * NeonRules.UNIT)
+			assert_int(r.max_units).is_equal(300 * NeonRules.UNIT)
+
+
+func test_v2_cruise_and_burst_only_reward_valid_lane_and_pedalling() -> void:
+	for kind in ["cruise", "burst"]:
+		for pair in [[19, 41], [80, 34], [80, 41]]:
+			var data := _course([_event(kind, 1000, 11000)])
+			data.courseVersion = 2
+			var r := NeonRules.new()
+			r.configure(data, "intermediate", 150)
+			_run(r, 11500, pair[0], 150, pair[1])
+			assert_int(r.score_units).is_equal((100 if kind == "cruise" else 300) * NeonRules.UNIT if pair == [80, 41] else 0)
+
+
+func test_v1_comparison_identity_is_preserved_after_scoring_upgrade() -> void:
+	var data := _course([_event("charge", 1000, 11000)])
+	var r := NeonRules.new()
+	r.configure(data, "intermediate", 150)
+	var original := JSON.stringify(["rider", NeonCourse.fingerprint(data), "intermediate", 1, 1, 150.0], "", true, true).sha256_text()
+	assert_str(r.comparison_key("rider")).is_equal(original)
+	assert_int(r.scoring_version).is_equal(1)

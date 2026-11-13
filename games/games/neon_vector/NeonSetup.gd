@@ -2,7 +2,7 @@ class_name NeonSetup
 extends HubScreen
 ## Full-course setup within the existing hub. Shared buttons, typography and Back behavior.
 
-const FAMILIES := {"steady_flow": ["Steady Flow", "Long holds. Smooth lane changes."], "intervals": ["Intervals", "Power charges. Room to recover."], "rolling_climb": ["Rolling Climb", "Climb gradually across six lanes."], "tutorial": ["First Contact", "Learn the controls in 5 minutes."]}
+const FAMILIES := {"steady_flow": ["Steady Flow", "Steady points. Smooth lane changes."], "intervals": ["Intervals", "Power bursts. Room to recover."], "rolling_climb": ["Rolling Climb", "Climb gradually across six lanes."], "tutorial": ["First Contact", "Learn the controls in 5 minutes."]}
 var family := "steady_flow"
 var minutes := 20
 var tier := "intermediate"
@@ -47,6 +47,8 @@ func build() -> void:
 	left_scroll.position = Vector2(50, 170)
 	left_scroll.size = Vector2(1080, 860)
 	left_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	left_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	left_scroll.follow_focus = true
 	add_child(left_scroll)
 	left_scroll.add_child(left)
 	left.add_child(look.label("CHOOSE YOUR SIGNAL", 34, GameTheme.MUTED))
@@ -78,6 +80,8 @@ func build() -> void:
 	right_scroll.position = Vector2(1150, 150)
 	right_scroll.size = Vector2(720, 710)
 	right_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	right_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	right_scroll.follow_focus = true
 	add_child(right_scroll)
 	right_scroll.add_child(right)
 	length_label = look.label("RIDE LENGTH", 34, GameTheme.MUTED)
@@ -146,9 +150,12 @@ func _refresh_course() -> void:
 	var lo: int = NeonRules.TIERS[tier]
 	range_label.text = "%d–%d across six lanes · same course" % [lo, lo + 41]
 	power_label.text = "Reference power: %d W  ›" % reference_power
-	targets_label.text = "Charge targets: %.0f W / %.0f W" % [reference_power * 0.6, reference_power]
+	var legacy := int(course.get("courseVersion", 1)) == 1
+	targets_label.text = "Charge targets: %.0f W / %.0f W" % [reference_power * 0.6, reference_power] if legacy else "Burst target: %d W · score grows with output" % reference_power
 	var default_note := "150 W is a starting default. Adjust it to suit your rides." if bool(state.rider.get("ftp_is_default", false)) else "Starts from your saved FTP. Independent of resistance."
-	course_label.text = "%s · %d minutes\n%d possible points · silent by design\n%s" % [course.get("title", ""), int(course.get("durationMs", 0)) / 60000, NeonCourse.maximum(course) / NeonRules.UNIT, default_note]
+	if legacy:
+		default_note = "Saved original course · original pickup and charge rules"
+	course_label.text = "%s · %d minutes\n%d target points · music optional\n%s" % [course.get("title", ""), int(course.get("durationMs", 0)) / 60000, NeonCourse.maximum(course, false, reference_power) / NeonRules.UNIT, default_note]
 	_refresh_sensors()
 
 
@@ -215,6 +222,8 @@ func _modal(title: String) -> VBoxContainer:
 	scroll.position = Vector2(80, 180)
 	scroll.size = Vector2(1760, 850)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	scroll.follow_focus = true
 	_panel.add_child(scroll)
 	var content := VBoxContainer.new()
 	content.custom_minimum_size = Vector2(1730, 0)
@@ -225,7 +234,7 @@ func _modal(title: String) -> VBoxContainer:
 
 func _open_power() -> void:
 	var box := _modal("REFERENCE POWER")
-	var help := look.label("Power controls charge targets. Difficulty controls the six resistance lanes.\nChoose a reference you can sustain for short efforts. You can change it before each ride.", 36, GameTheme.MUTED)
+	var help := look.label("Power sets burst star targets, not a score cap. Difficulty controls the six resistance lanes.\nChoose a reference you can sustain for short efforts. You can change it before each ride.", 36, GameTheme.MUTED)
 	box.add_child(help)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 30)
@@ -258,7 +267,7 @@ func _open_extras() -> void:
 	var count := int(_progress.get("completions", 0))
 	box.add_child(look.label("%d completed rides · earn new worlds and trails by finishing courses" % count, 36, GameTheme.MUTED))
 	var info := GameRegistry.info("neon_vector")
-	for key in ["ghost", "motion"]:
+	for key in ["ghost", "motion", "music"]:
 		var row := OptionRow.new(info.option_spec(key), GameOptions.get_value(info, key, rider_id), 1700, look)
 		row.changed.connect(func(k: String, v: String): GameOptions.set_value(info, k, v, rider_id))
 		box.add_child(row)

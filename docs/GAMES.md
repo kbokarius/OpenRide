@@ -2484,7 +2484,7 @@ audio or trademarks.
 
 ## NEON VECTOR (fork)
 
-See [the game guide](NEON_VECTOR.md), [approved rules spec](specs/lane-ride-v1.md) and [implementation ledger](specs/neon-vector-implementation.md). Game ID: `neon_vector`; one complete authored/daily course is one `end_mode: game` segment. The legacy 1.5× timer does not end this mode; its independent monotonic clock does. It has no camera roles, music registration or generic effort multiplier and is excluded from custom circuits.
+See [the game guide](NEON_VECTOR.md), [current revision spec](specs/neon-vector-v2.md) and [implementation ledger](specs/neon-vector-implementation.md). Game ID: `neon_vector`; one complete authored/daily course is one `end_mode: game` segment. The legacy 1.5× timer does not end this mode; its independent monotonic clock does. It has no camera roles or generic effort multiplier and is excluded from custom circuits.
 
 ### Appended input fields and timestamped batches
 
@@ -2506,4 +2506,4 @@ A version-1 payload contains `attemptId`, `riderId`, `comparisonKey`, exact `cou
 
 Native `sessionFinished` also queues pending-attempt interruption. This covers the existing OpenRide behavior where opening the main app ends a live Games visit without a Godot result. A completed/ended attempt remains immutable. Returning directly to the Games task through Android Recents retains a paused live course; opening the main app instead ends it.
 
-The renderer (`NeonTrack`) cannot award points. `NeonCourse` validates content, `NeonRules` scores pure timestamped input, `NeonRecords` handles persistence, and the `Game` subclass coordinates the shared host. All authored JSON is exported through `include_filter` in `export_presets.cfg`.
+The renderer (`NeonTrack`/`NeonSpace`) cannot award points. Revision 2 uses a SubViewport with bounded 3D MultiMeshes and absolute course-distance anchors; the HUD stays at full logical resolution. Its original Ogg loop is played through AudioDirector and respects global/external audio settings. New courseVersion 2 content adds cruise and energy-integrating burst events; version-1 snapshots retain their old scoring identity. Daily g1/g2 identifiers remain accepted for replay. `NeonCourse` validates content, `NeonRules` scores pure timestamped input, `NeonRecords` handles persistence, and the `Game` subclass coordinates the shared host. All authored JSON is exported through `include_filter` in `export_presets.cfg`.

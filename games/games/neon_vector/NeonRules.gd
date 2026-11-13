@@ -5,7 +5,8 @@ extends RefCounted
 const UNIT := 100000
 const TICK := 10
 const TIERS := {"beginner": 20, "intermediate": 24, "advanced": 30, "expert": 34}
-const SCORING_VERSION := 1
+const SCORING_VERSION := 2
+var scoring_version := 1
 const ENVELOPE_VERSION := 1
 
 var course: Dictionary = {}
@@ -63,8 +64,9 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	elapsed_ms = 0
 	score_units = 0
 	base_units = 0
-	max_units = NeonCourse.maximum(course)
-	max_base_units = NeonCourse.maximum(course, true)
+	scoring_version = 1 if int(course.courseVersion) == 1 else SCORING_VERSION
+	max_units = NeonCourse.maximum(course, false, reference_power)
+	max_base_units = NeonCourse.maximum(course, true, reference_power)
 	selected_lane = -1
 	settled_lane = -1
 	pause_reason = ""
@@ -80,14 +82,14 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	ghost_trace.clear()
 	event_states.clear()
 	for event: Dictionary in course.events:
-		event_states.append({"eventId": event.eventId, "choice": -1, "scoreUnits": 0, "baseUnits": 0, "validMs": 0, "chargeIntegral": 0, "hit": false})
+		event_states.append({"eventId": event.eventId, "choice": -1, "scoreUnits": 0, "baseUnits": 0, "validMs": 0, "chargeIntegral": 0, "energyMilliJoules": 0, "hit": false})
 	_configured = true
 	return errors
 
 
 func comparison_key(rider_id: String) -> String:
 	return JSON.stringify([rider_id, NeonCourse.fingerprint(course), tier, ENVELOPE_VERSION,
-		SCORING_VERSION, reference_power], "", true, true).sha256_text()
+		scoring_version, reference_power], "", true, true).sha256_text()
 
 
 func push_sample(sample: Dictionary) -> bool:
@@ -201,7 +203,7 @@ func _tick() -> void:
 	var choice: Dictionary = options[int(state.choice)]
 	if int(choice.laneIndex) != settled_lane:
 		return
-	var base_max := NeonCourse.base_units(event, choice)
+	var base_max := NeonCourse.base_units(event, choice, reference_power)
 	var old_score := int(state.scoreUnits)
 	var old_base := int(state.baseUnits)
 	match str(event.type):
@@ -209,6 +211,15 @@ func _tick() -> void:
 			state.hit = true
 			state.baseUnits = base_max
 			state.scoreUnits = base_max
+		"cruise":
+			state.validMs += TICK
+			state.baseUnits = base_max * int(state.validMs) / (int(event.endMs) - int(event.startMs))
+			state.scoreUnits = state.baseUnits
+		"burst":
+			state.validMs += TICK
+			state.energyMilliJoules += roundi(float(latest.power)) * TICK
+			state.scoreUnits = int(state.energyMilliJoules) * UNIT / 5000 * int(choice.get("rewardPercent", 100)) / 100
+			state.baseUnits = mini(base_max, int(state.scoreUnits))
 		"hold":
 			if rpm >= float(event.cadenceMin) and rpm <= float(event.cadenceMax):
 				state.validMs += TICK
@@ -244,5 +255,5 @@ func result(status: String = "completed") -> Dictionary:
 		"baseUnits": base_units, "maxBaseUnits": max_base_units, "stars": stars,
 		"events": event_states.duplicate(true), "courseId": course.get("courseId", ""),
 		"courseVersion": course.get("courseVersion", 1), "courseHash": NeonCourse.fingerprint(course),
-		"difficulty": tier, "referencePower": reference_power, "scoringVersion": SCORING_VERSION,
+		"difficulty": tier, "referencePower": reference_power, "scoringVersion": scoring_version,
 		"envelopeVersion": ENVELOPE_VERSION, "laneBands": range(6).map(func(lane: int): var limits := band(lane, tier); return [limits.x, limits.y]), "title": course.get("title", "")}

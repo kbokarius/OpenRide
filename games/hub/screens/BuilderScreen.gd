@@ -8,7 +8,7 @@ extends HubScreen
 ##   BuilderScreen
 ##   ├ TopBar: Back, "BUILD A CIRCUIT" | "MY CIRCUIT 2"
 ##   ├ Tiles (OptionCards, "ADD A GAME": one baked tile per game; a tap adds it)
-##   ├ List (ScrollContainer, drag or its bar to scroll) → VBox of SlotRow (or the empty note)
+##   ├ List (ScrollContainer, swipe or wheel to scroll) → VBox of SlotRow (or the empty note)
 ##   ├ Difficulty (OptionRow, segmented)
 ##   ├ Right (VBox): Summary (HubCard bake: the total, the lineup), best, why it can't start,
 ##   │   spacer, Save (+ Delete for a saved one), Start
@@ -26,7 +26,7 @@ const TILES_TOP := 150.0
 const BODY_BOTTOM := 1050.0
 const TILE_ASPECT := 0.32
 const TILE_COLUMNS_MAX := 6  ## more games wrap to a second row of tiles (#75: 11 games, 6 + 5)
-const SCROLLBAR_W := 44.0
+const LIST_INSET := 24.0
 const ROW_GAP := 24
 const SUMMARY_SIZE := Vector2(RIGHT_W, 330)
 const START_SIZE := Vector2(RIGHT_W, 170)
@@ -80,20 +80,20 @@ func build() -> void:
 	scroll.position = Vector2(HubTheme.MARGIN, list_top)
 	scroll.size = Vector2(LEFT_WIDTH, list_bottom - list_top)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	scroll.follow_focus = true
 	scroll.scroll_deadzone = 12
-	_style_scrollbar(scroll.get_v_scroll_bar())
 	add_child(scroll)
 	list = VBoxContainer.new()
 	list.name = "Rows"
 	list.add_theme_constant_override("separation", ROW_GAP)
-	list.custom_minimum_size = Vector2(LEFT_WIDTH - SCROLLBAR_W - 12, 0)
+	list.custom_minimum_size = Vector2(LEFT_WIDTH - LIST_INSET, 0)
 	list.mouse_filter = Control.MOUSE_FILTER_PASS
 	scroll.add_child(list)
 	empty_note = HubTheme.label("Tap a game above to add it. Up to 12 games, 90 minutes in all.", HudTheme.BODY, GameTheme.MUTED)
 	empty_note.name = "Empty"
 	empty_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	empty_note.custom_minimum_size = Vector2(LEFT_WIDTH - SCROLLBAR_W - 12, HubTheme.TARGET)
+	empty_note.custom_minimum_size = Vector2(LEFT_WIDTH - LIST_INSET, HubTheme.TARGET)
 
 	difficulty_row = OptionRow.new({"key": "difficulty", "label": "Difficulty", "kind": "segmented",
 		"choices": HubPrefs.DIFFICULTIES, "labels": ["Easy", "Standard", "Hard"]}, builder.difficulty, LEFT_WIDTH)
@@ -209,23 +209,6 @@ func _summary() -> Control:
 	return panel
 
 
-func _style_scrollbar(bar: VScrollBar) -> void:
-	# A thick bar: drag it, or drag the list where its names are (the buttons take their taps).
-	bar.custom_minimum_size = Vector2(SCROLLBAR_W, 0)
-	var track := StyleBoxFlat.new()
-	track.bg_color = Color(HubTheme.look().ink, 0.6)
-	track.set_corner_radius_all(int(SCROLLBAR_W / 2))
-	var grab := StyleBoxFlat.new()
-	grab.bg_color = Color(GameTheme.MUTED, 0.9)
-	grab.set_corner_radius_all(int(SCROLLBAR_W / 2))
-	grab.content_margin_left = SCROLLBAR_W / 2
-	grab.content_margin_right = SCROLLBAR_W / 2
-	bar.add_theme_stylebox_override("scroll", track)
-	bar.add_theme_stylebox_override("scroll_focus", track)
-	for st in ["grabber", "grabber_highlight", "grabber_pressed"]:
-		bar.add_theme_stylebox_override(st, grab)
-
-
 # --- Editing ---
 
 func add_game(game_id: String) -> void:
@@ -263,7 +246,7 @@ func _rebuild_rows() -> void:
 	for i in builder.size():
 		var s: Dictionary = builder.slots[i]
 		var row := SlotRow.new(i, str(s.game_id), builder.role(i), builder.lengths(i), int(s.duration_sec), builder.size(),
-			LEFT_WIDTH - SCROLLBAR_W - 12)
+			LEFT_WIDTH - LIST_INSET)
 		row.length_changed.connect(func(at: int, sec: int):
 			builder.set_length(at, sec)
 			_changed(false))

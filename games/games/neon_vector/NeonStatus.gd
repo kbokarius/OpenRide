@@ -7,11 +7,14 @@ var heading: Label
 var target: Label
 var detail: Label
 var meter: ProgressBar
+var _event_id := ""
+var _transition: Tween
+var _meter_target := 0.0
 var _look := GameTheme.new(Color("67d8ff"), Color("0b132b"))
 
 
 func _init() -> void:
-	custom_minimum_size = Vector2(740, 190)
+	custom_minimum_size = Vector2(740, 166)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_theme_constant_override("separation", 4)
 	heading = _look.label("FIND YOUR LINE", 34, GameTheme.MUTED)
@@ -47,6 +50,15 @@ func refresh() -> void:
 		detail.text = "Course time and points are frozen"
 		return
 	var event := rules.current_event()
+	var event_id := str(event.get("eventId", ""))
+	if event_id != _event_id:
+		_event_id = event_id
+		if _transition:
+			_transition.kill()
+		modulate.a = 0.25
+		if is_inside_tree():
+			_transition = create_tween()
+			_transition.tween_property(self, "modulate:a", 1.0, 0.3).set_trans(Tween.TRANS_SINE)
 	var rpm := float(rules.latest.get("cadence", 0))
 	var res := float(rules.latest.get("resistance", NeonRules.TIERS[rules.tier]))
 	if rules.selected_lane < 0 and not rules.latest.is_empty():
@@ -75,14 +87,21 @@ func refresh() -> void:
 	if selected >= 0:
 		band = NeonRules.band(int(choices[selected].laneIndex), rules.tier)
 	var direction := "HOLD" if rules.settled_lane == int(choices[maxi(0, selected)].laneIndex) else ("TURN RIGHT" if res < band.x else "TURN LEFT")
-	heading.text = "%s · %s" % [prefix, str(event.type).to_upper()]
+	heading.text = "%s · %s" % [prefix, {"cruise": "COLLECT", "hold": "CADENCE", "burst": "POWER BURST"}.get(event.type, str(event.type).to_upper())]
 	if active and event.type == "hold":
 		target.text = "%d–%d rpm · %s" % [event.cadenceMin, event.cadenceMax, "PEDAL UP" if rpm < event.cadenceMin else ("EASE CADENCE" if rpm > event.cadenceMax else "ON TARGET")]
+	elif active and event.type == "burst":
+		var joules := int(state.energyMilliJoules) / 1000.0
+		target.text = "BUILD POWER · %d points" % (int(state.scoreUnits) / NeonRules.UNIT)
+		meter.visible = true
+		meter.max_value = 100
+		_meter_target = minf(100, joules / (rules.reference_power * (int(event.endMs) - int(event.startMs)) / 1000.0) * 100)
 	elif active and event.type == "charge":
 		var percent := int(state.chargeIntegral) / float(int(event.endMs) - int(event.startMs)) / NeonRules.UNIT * 100
 		target.text = "EASE CADENCE" if rpm > 120 else "CHARGE %d%% · %.0f / %.0f W" % [percent, rules.reference_power * 0.6, rules.reference_power]
 		meter.visible = true
-		meter.value = percent
+		meter.max_value = 200
+		_meter_target = percent
 	else:
 		target.text = "%s · %d–%d resistance" % [direction, band.x, band.y]
 	if rpm < 20 and active:
@@ -91,3 +110,9 @@ func refresh() -> void:
 		detail.text = "Settling into lane %d…" % (rules.selected_lane + 1)
 	else:
 		detail.text = "Lane %d · %d–%d resistance" % [int(choices[maxi(0, selected)].laneIndex) + 1, band.x, band.y]
+		if active and event.type == "burst":
+			detail.text += " · %.1f kJ" % (int(state.energyMilliJoules) / 1000000.0)
+
+
+func _process(delta: float) -> void:
+	meter.value = lerpf(meter.value, _meter_target, 1.0 - exp(-delta * 9))

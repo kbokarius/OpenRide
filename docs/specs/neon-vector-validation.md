@@ -1,5 +1,7 @@
 # NEON VECTOR — local validation
 
+This report records **revision 1**, before the requested 3D/music/scoring revision. See [revision 2 validation](neon-vector-v2-validation.md) for the current build.
+
 Date: 2026-11-13. Branch: `feat/neon-vector`. Parent: `ea7e494`.
 
 ## Scope and conclusion
@@ -42,7 +44,7 @@ The packaged app loads the NEON card and all course JSON from the exported pack.
 
 The emulator exposed a method-discovery defect: `Object.has_method` does not query the Java methods on `JNISingleton`. The native checks now use `has_java_method`, matching [Godot's documented API](https://docs.godotengine.org/en/stable/classes/class_jnisingleton.html). It also exposed an interruption path through OpenRide's main Home screen; native plan completion now marks pending history interrupted immediately.
 
-Final completion, persisted-record inspection and signed real-sensor launch evidence are recorded below after the smoke run finishes.
+The mock APK completed First Contact through the actual bridge: 300,000 active ms, 79,460,000 score units (794.6 points), and 3,000 ghost samples. After force-stop, SQLite inspection confirmed a completed record and preserved an earlier interrupted attempt; `PRAGMA integrity_check` returned `ok`. The signed real-sensor APK installed successfully on this emulator. This does not validate physical Bike sensors.
 
 ## Visual and performance review
 

@@ -34,21 +34,23 @@ static func choices(event: Dictionary) -> Array:
 	return event.get("alternatives", [{"laneIndex": event.get("laneIndex", -1), "rewardPercent": 100}])
 
 
-static func base_units(event: Dictionary, choice: Dictionary) -> int:
+static func base_units(event: Dictionary, choice: Dictionary, reference_power: float = 150.0) -> int:
 	var base: int
 	if event.type == "pickup":
 		base = (100 + 20 * int(choice.laneIndex)) * 100000
+	elif event.type == "burst":
+		base = roundi(reference_power) * (int(event.endMs) - int(event.startMs)) * 100000 / 5000
 	else:
 		base = (int(event.endMs) - int(event.startMs)) * 1000
 	return base * int(choice.get("rewardPercent", 100)) / 100
 
 
-static func maximum(course: Dictionary, base_only: bool = false) -> int:
+static func maximum(course: Dictionary, base_only: bool = false, reference_power: float = 150.0) -> int:
 	var total: int = 0
 	for event: Dictionary in course.get("events", []):
 		var best: int = 0
 		for choice: Dictionary in choices(event):
-			var value := base_units(event, choice)
+			var value := base_units(event, choice, reference_power)
 			if event.type == "charge" and not base_only:
 				value = value * 3 / 2
 			best = maxi(best, value)
@@ -91,7 +93,7 @@ static func validate(course: Dictionary) -> Array[String]:
 		if not event.get("eventId") is String or str(event.get("eventId", "")).is_empty() or ids.has(event.get("eventId")):
 			errors.append("Missing or duplicate event ID")
 		ids[event.get("eventId", "")] = true
-		if event.get("type") not in ["pickup", "hold", "charge"]:
+		if event.get("type") not in ["pickup", "hold", "charge", "cruise", "burst"]:
 			errors.append("Unknown event type")
 			continue
 		if not _integer(event.get("startMs")) or not _integer(event.get("endMs")):
@@ -138,7 +140,7 @@ static func validate(course: Dictionary) -> Array[String]:
 					var distance := absi(int(a.laneIndex) - int(b.laneIndex))
 					if distance > 0 and gap < maxi(3000, 1500 * distance):
 						errors.append("Unreachable lane transition before %s" % event.eventId)
-		if event.type == "charge":
+		if event.type in ["charge", "burst"]:
 			if int(event.startMs) - charge_end < 30000 or int(event.endMs) - int(event.startMs) not in range(8000, 15001):
 				errors.append("Charge needs 8–15 s and 30 s recovery")
 			charge_end = int(event.endMs)
@@ -155,29 +157,23 @@ static func daily(date: String) -> Dictionary:
 	var seed_value := date.to_utf8_buffer().hex_encode().sha256_text().substr(0, 7).hex_to_int() + 1
 	var state := seed_value
 	var course := load_course("steady_flow_20").duplicate(true)
-	course.courseId = "daily_%s_g1" % date
+	course.courseId = "daily_%s_g2" % date
 	course.title = "Daily signal · %s" % date
 	course.family = "daily"
 	course["seed"] = seed_value
-	course["generatorVersion"] = 1
-	# Mirror entire blocks, preserving all internal/neighbor reachability: every block has
-	# generous 12+ second entry gaps. Branch directions mirror together with their lanes.
+	course["generatorVersion"] = 2
+	# Shift whole work blocks by at most one lane. Adjacent minutes differ by at most
+	# two lanes, which fits the authored three-second transition. Never shift recovery.
+	var offset := 0
 	for event: Dictionary in course.get("events", []):
 		if str(event.eventId).ends_with("-a"):
 			state = (state * 48271) % 2147483647
-		var in_work := false
-		for phase: Dictionary in course.phases:
-			if int(event.startMs) >= int(phase.startMs) and int(event.startMs) < int(phase.endMs):
-				in_work = str(phase.get("role", "")) == "work"
-		var mirror := state % 2 == 0 and in_work
-		if mirror:
-			event.laneIndex = 5 - int(event.laneIndex)
-			if event.has("alternatives"):
-				for choice: Dictionary in event.alternatives:
-					choice.laneIndex = 5 - int(choice.laneIndex)
-				# The route with a bonus always uses higher resistance after mirroring.
-				event.alternatives.sort_custom(func(a: Dictionary, b: Dictionary): return int(a.laneIndex) < int(b.laneIndex))
-				event.alternatives[0].rewardPercent = 100
-				event.alternatives[1].rewardPercent = 125
-				event.laneIndex = event.alternatives[0].laneIndex
+			var in_work := false
+			for phase: Dictionary in course.phases:
+				if int(event.startMs) >= int(phase.startMs) and int(event.startMs) < int(phase.endMs):
+					in_work = str(phase.get("role", "")) == "work"
+			offset = int(state % 2) if in_work and int(event.laneIndex) < 4 else 0
+		event.laneIndex = int(event.laneIndex) + offset
+		for choice: Dictionary in event.get("alternatives", []):
+			choice.laneIndex = int(choice.laneIndex) + offset
 	return course

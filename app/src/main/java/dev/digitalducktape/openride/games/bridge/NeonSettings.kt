@@ -18,11 +18,11 @@ data class NeonSettings(val courseId: String, val laneDifficulty: String, val re
         if (laneDifficulty !in listOf("beginner", "intermediate", "advanced", "expert") || referencePower !in 1..2000) return false
         if (courseId == "tutorial") return true
         if (Regex("(steady_flow|intervals|rolling_climb)_(10|20|30)").matches(courseId)) return true
-        if (!Regex("daily_\\d{4}-\\d{2}-\\d{2}_g1").matches(courseId)) return false
-        return runCatching { LocalDate.parse(courseId.removePrefix("daily_").removeSuffix("_g1")) }.isSuccess
+        if (!Regex("daily_\\d{4}-\\d{2}-\\d{2}_g[12]").matches(courseId)) return false
+        return runCatching { LocalDate.parse(courseId.removePrefix("daily_").substringBeforeLast("_g")) }.isSuccess
     }
 
-    fun planId() = "neon:$courseId:v1:$laneDifficulty:f$referencePower:e1:s1"
+    fun planId() = "neon:$courseId:v2:$laneDifficulty:f$referencePower:e1:s2"
 
     fun params() = buildJsonObject {
         put("course_id", courseId)

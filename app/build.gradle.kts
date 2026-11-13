@@ -25,7 +25,7 @@ android {
         // API above 29 — see the audit note in docs/DEVICE.md.
         minSdk = 29
         targetSdk = 34
-        versionCode = 9
+        versionCode = 10
         versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -96,7 +96,7 @@ android {
         create("neonReal") {
             initWith(getByName("debugReal"))
             applicationIdSuffix = ".neon"
-            versionNameSuffix = "-neon-vector.1"
+            versionNameSuffix = "-neon-vector.2"
             isDebuggable = false
             signingConfig = signingConfigs.findByName("neon")
             resValue("string", "app_name", "NEON VECTOR")

@@ -187,6 +187,8 @@ private fun ClassPlayer(
         modifier = modifier,
         factory = { context ->
             WebView(context).apply {
+                isVerticalScrollBarEnabled = false
+                isHorizontalScrollBarEnabled = false
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,

@@ -7,7 +7,7 @@ func test_library_has_ten_valid_complete_courses() -> void:
 	for course in courses:
 		assert_array(NeonCourse.validate(course)).is_empty()
 		assert_int(NeonCourse.maximum(course)).is_greater(0)
-		assert_int(int(course.events[0].startMs)).is_greater_equal(8000)
+		assert_int(int(course.events[0].startMs)).is_equal(3000)
 		for tier in NeonRules.TIERS:
 			var rules := NeonRules.new()
 			assert_array(rules.configure(course, tier, 150)).is_empty()
@@ -58,7 +58,7 @@ func test_comparison_identity_separates_course_tier_targets_and_riders() -> void
 	var r := NeonRules.new()
 	r.configure(course, "intermediate", 150)
 	var old := r.comparison_key("a")
-	course.courseVersion = 2
+	course.courseVersion = 3
 	r.configure(course, "intermediate", 150)
 	assert_str(r.comparison_key("a")).is_not_equal(old)
 
@@ -79,3 +79,17 @@ func test_daily_recovery_stays_gentle_and_bonus_routes_always_raise_resistance()
 				assert_int(int(event.alternatives[1].rewardPercent)).is_equal(125)
 				assert_int(int(event.laneIndex)).is_equal(int(event.alternatives[0].laneIndex))
 	assert_int(patterns.size()).is_greater(200)
+
+
+func test_v2_courses_keep_scoring_frequent_and_all_three_mechanics() -> void:
+	for course in NeonCourse.library():
+		var active := 0
+		var end := 0
+		var types := {}
+		for event: Dictionary in course.events:
+			assert_int(int(event.startMs) - end).is_less_equal(3000)
+			active += int(event.endMs) - int(event.startMs)
+			end = int(event.endMs)
+			types[event.type] = true
+		assert_int(active * 100 / int(course.durationMs)).is_equal(85)
+		assert_bool(types.has_all(["cruise", "hold", "burst"])).is_true()

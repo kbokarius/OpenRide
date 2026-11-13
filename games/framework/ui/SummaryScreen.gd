@@ -188,6 +188,8 @@ func _init() -> void:
 	_scroll = ScrollContainer.new()
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	_scroll.follow_focus = true
 	_scroll.follow_focus = false
 	_list.add_child(_scroll)
 	_rows = _vbox(_scroll, 12)
@@ -213,18 +215,6 @@ func apply_theme(new_theme: GameTheme) -> void:
 	for star in _hero_star_nodes:
 		star.ink = theme.ink
 	theme.style_button(done_button, GameTheme.PRIMARY)
-	var bar := _scroll.get_v_scroll_bar()
-	var track := StyleBoxFlat.new()
-	track.bg_color = Color(theme.ink, 0.6)
-	track.set_corner_radius_all(8)
-	track.content_margin_left = 6
-	track.content_margin_right = 6
-	bar.add_theme_stylebox_override("scroll", track)
-	var grab := StyleBoxFlat.new()
-	grab.bg_color = Color(theme.accent, 0.9)
-	grab.set_corner_radius_all(8)
-	for state in ["grabber", "grabber_highlight", "grabber_pressed"]:
-		bar.add_theme_stylebox_override(state, grab)
 
 
 ## Fills and shows the summary. `plan` is the session_started payload, for each segment's role.

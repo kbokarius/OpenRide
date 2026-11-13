@@ -7,7 +7,7 @@ import org.junit.Test
 
 class NeonSettingsTest {
     @Test fun `all library choices produce a locked plan without effort scaling`() {
-        val ids = listOf("tutorial", "daily_2026-11-13_g1") +
+        val ids = listOf("tutorial", "daily_2026-11-13_g1", "daily_2026-11-13_g2") +
             listOf("steady_flow", "intervals", "rolling_climb").flatMap { f -> listOf(10, 20, 30).map { "${f}_$it" } }
         val identities = mutableSetOf<String>()
         for (id in ids) for (tier in listOf("beginner", "intermediate", "advanced", "expert")) {

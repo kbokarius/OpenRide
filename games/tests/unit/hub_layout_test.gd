@@ -319,6 +319,9 @@ func _check_screen(what: String) -> void:
 	var names := targets.map(func(t): return str(t.name))
 	assert_bool("Exit" in names and "Start" in names).override_failure_message("%s: Exit and Start on one screen" % what).is_false()
 	_check_text(what, screen)
+	for scroll: ScrollContainer in screen.find_children("*", "ScrollContainer", true, false):
+		assert_bool(scroll.get_v_scroll_bar().visible).override_failure_message(what + ": visible vertical scrollbar").is_false()
+		assert_bool(scroll.get_h_scroll_bar().visible).override_failure_message(what + ": visible horizontal scrollbar").is_false()
 	for row in screen.find_children("*", "Control", true, false).filter(func(n): return n is OptionRow and n.is_visible_in_tree()):
 		var r: Rect2 = (row as Control).get_global_rect()
 		var parent_r: Rect2 = (row.get_parent() as Control).get_global_rect()

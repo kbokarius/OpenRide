@@ -227,7 +227,8 @@ func test_many_rows_with_long_names_fit_or_scroll() -> void:
 	assert_int(screen._rows.get_child_count()).is_equal(12)
 	var list := screen._scroll.get_global_rect()
 	assert_float(screen._rows.size.y).is_greater(list.size.y)  # they don't all fit, so…
-	assert_bool(screen._scroll.get_v_scroll_bar().visible).is_true()  # …the list scrolls
+	assert_bool(screen._scroll.get_v_scroll_bar().visible).is_false()
+	assert_float(screen._scroll.get_v_scroll_bar().max_value).is_greater(list.size.y)  # swipe still reaches all rows
 	for row in screen._rows.get_children():
 		var r := (row as Control).get_global_rect()
 		assert_float(r.position.x).is_greater_equal(list.position.x - 0.5)

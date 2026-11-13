@@ -24,6 +24,8 @@ func _run() -> void:
 		DisplayServer.window_set_size(Vector2i(1920, 1008))
 	storage_path = "user://neon_play_test_" + NeonRecords.new_id()
 	NeonRecords.path = storage_path
+	var game_options = load("res://framework/GameOptions.gd")
+	game_options.path = storage_path + "_options.cfg"
 	session = root.get_node("Session")
 	director = session.director
 	Engine.max_fps = 60
@@ -53,9 +55,16 @@ func _run() -> void:
 	_check(not root.get_node("Effort").enabled, "generic multiplier is off")
 	await create_timer(10).timeout
 	_check(game.rules.elapsed_ms >= 9000, "host clock advances during play")
-	_check(game.rules.score_units > 0, "correct resistance earns the first pickup")
+	_check(game.rules.score_units > 0, "correct resistance earns continuous points")
 	_check(game.track.ghost_visible and not game._ghost.is_empty(), "matching completed ghost loads into the real game")
 	_check(root.get_node("Effort").whole_points(root.get_node("Effort").score) == game.rules.score_units / NeonRules.UNIT, "HUD score equals exact rules total")
+	_check(root.get_node("AudioDirector").current_music_key().contains("neon_vector_drive"), "original soundtrack is playing")
+	game.change_option("music", "off")
+	await create_timer(0.8).timeout
+	_check(not root.get_node("AudioDirector").music_enabled, "music can be muted")
+	game.change_option("music", "on")
+	await create_timer(0.8).timeout
+	_check(root.get_node("AudioDirector").music_enabled, "music can resume")
 	await _shot("riding")
 	session.request_pause()
 	await process_frame
@@ -98,6 +107,7 @@ func _run() -> void:
 	for file in DirAccess.get_files_at(storage_path):
 		DirAccess.remove_absolute(storage_path.path_join(file))
 	DirAccess.remove_absolute(storage_path)
+	DirAccess.remove_absolute(game_options.path)
 	quit(0 if failures.is_empty() else 1)
 
 

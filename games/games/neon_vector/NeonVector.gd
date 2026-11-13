@@ -7,6 +7,7 @@ static var look := GameTheme.new(Color("67d8ff"), Color("0b132b"))
 var rules := NeonRules.new()
 var track: NeonTrack
 var status: NeonStatus
+var _host_music_on := true
 var _sequence := -1
 var _epoch := -1
 var _started_clock := false
@@ -39,12 +40,13 @@ func info() -> GameInfo:
 		{"key": "world", "label": "World", "choices": ["city", "orbit", "abyss", "canyon"], "labels": ["Midnight Circuit", "Orbital Drift", "Deep Signal", "Solar Frontier"], "default": "city", "where": "hub"},
 		{"key": "trail", "label": "Trail", "choices": ["ion", "prism", "comet"], "labels": ["Ion", "Prism", "Comet"], "default": "ion", "where": "hub"},
 		{"key": "ghost", "label": "Best-ride ghost", "choices": ["on", "off"], "labels": ["On", "Off"], "default": "on", "kind": "segmented"},
+		{"key": "music", "label": "Music", "choices": ["on", "off"], "labels": ["On", "Off"], "default": "on", "kind": "segmented"},
 		{"key": "motion", "label": "Background motion", "choices": ["full", "reduced"], "labels": ["Full", "Reduced"], "default": "full", "kind": "segmented"},
 	]
 	i.summary_stats = [
 		{"key": "completion_percent", "label": "course targets", "suffix": "%"},
-		{"key": "pickup_hits", "of": "pickup_count", "label": "pickups"},
-		{"key": "max_score", "label": "maximum", "grouped": true},
+		{"key": "burst_energy", "label": "burst energy", "suffix": " J", "grouped": true},
+		{"key": "max_score", "label": "target score", "grouped": true},
 	]
 	return i
 
@@ -56,7 +58,7 @@ func ui_theme() -> GameTheme:
 func target_text(_seg: Dictionary) -> String:
 	if not _errors.is_empty():
 		return "Course unavailable: %s" % _errors[0]
-	return "%s · %s · %d–%d resistance · %.0f / %.0f W charge" % [rules.course.get("title", ""), rules.tier.capitalize(), NeonRules.TIERS[rules.tier], NeonRules.TIERS[rules.tier] + 41, rules.reference_power * 0.6, rules.reference_power]
+	return "%s · %s · %d–%d resistance · %.0f W burst target" % [rules.course.get("title", ""), rules.tier.capitalize(), NeonRules.TIERS[rules.tier], NeonRules.TIERS[rules.tier] + 41, rules.reference_power]
 
 
 func _ready() -> void:
@@ -68,7 +70,7 @@ func _ready() -> void:
 func _on_prepare(_seg: Dictionary) -> void:
 	Engine.max_fps = 60
 	var course_id := str(params.get("course_id", "tutorial"))
-	var data := NeonCourse.daily(course_id.trim_prefix("daily_").trim_suffix("_g1")) if course_id.begins_with("daily_") else NeonCourse.load_course(course_id)
+	var data := NeonCourse.daily(course_id.get_slice("_", 1)) if course_id.begins_with("daily_") else NeonCourse.load_course(course_id)
 	_errors = rules.configure(data, str(params.get("lane_difficulty", "intermediate")), float(params.get("reference_power", 150)))
 	_sequence = -1
 	_epoch = -1
@@ -84,7 +86,7 @@ func _on_prepare(_seg: Dictionary) -> void:
 	_save_error = ""
 	_ghost = []
 	_ghost_cursor = 0
-	variant = "nv1:" + rules.comparison_key(GameOptions.rider())
+	variant = "nv%d:" % rules.scoring_version + rules.comparison_key(GameOptions.rider())
 	track.rules = rules
 	track.reduced_motion = option("motion") == "reduced"
 	hud.set_skin(look.hud_skin())
@@ -93,7 +95,8 @@ func _on_prepare(_seg: Dictionary) -> void:
 	hud.add_widget(status)
 	track.update_view(0)
 	status.refresh()
-	# No audio generator is registered: the whole experience is legible in silence.
+	_host_music_on = AudioDirector.music_enabled
+	_apply_music()
 
 
 func _on_start() -> void:
@@ -117,7 +120,7 @@ func _begin_ride() -> void:
 			return
 		var saved: Dictionary = replay.get("record", {})
 		_errors = rules.configure(saved.get("course", {}), rules.tier, rules.reference_power)
-		variant = "nv1:" + rules.comparison_key(_rider)
+		variant = "nv%d:" % rules.scoring_version + rules.comparison_key(_rider)
 	if not _errors.is_empty():
 		_storage_failed(NeonRecords.failure("Course unavailable. End this ride and choose another."))
 		return
@@ -300,8 +303,15 @@ func pause_message() -> String:
 		"pedalling": "Pedalling stopped. Resume when you’re ready."}.get(rules.pause_reason, "Tap Resume for a three-second countdown.")
 
 
+func _apply_music() -> void:
+	AudioDirector.set_volumes(_host_music_on and option("music") == "on", AudioDirector.music_volume, AudioDirector.sfx_volume)
+	AudioDirector.play_music({"name": "neon_vector_drive", "stem_files": {"drive": "res://games/neon_vector/audio/vector_drive.ogg"}, "loop_from": 0.0}, 138.0)
+
+
 func _on_option_changed(key: String, value: String) -> void:
-	if key == "motion":
+	if key == "music":
+		_apply_music()
+	elif key == "motion":
 		track.reduced_motion = value == "reduced"
 	elif key == "ghost":
 		track.ghost_visible = value == "on" and track.ghost_lane >= 0
@@ -320,15 +330,18 @@ func finish() -> Dictionary:
 	var result := super.finish()
 	result.score = int(_result.scoreUnits) / NeonRules.UNIT
 	result.stars = int(_result.stars)
+	var energy := 0
 	var hits := 0
 	var pickups := 0
 	for index in rules.event_states.size():
+		energy += int(rules.event_states[index].get("energyMilliJoules", 0))
 		if rules.course.events[index].type == "pickup":
 			pickups += 1
 			if rules.event_states[index].hit:
 				hits += 1
 	result.stats["neon"] = _result.duplicate(true)
 	result.stats["completion_percent"] = roundi(float(rules.base_units) / maxi(1, rules.max_base_units) * 100)
+	result.stats["burst_energy"] = energy / 1000
 	result.stats["pickup_hits"] = hits
 	result.stats["pickup_count"] = pickups
 	result.stats["max_score"] = rules.max_units / NeonRules.UNIT

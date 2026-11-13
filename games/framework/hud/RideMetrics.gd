@@ -38,6 +38,7 @@ var power_high := INF
 var values: Array[Label] = []
 var units: Array[Label] = []
 
+var _gauge_slots: Array[Control] = []
 var _rpm: Label
 var _watts: Label
 var _resistance: Label
@@ -143,6 +144,8 @@ func refresh(cadence: float, power: float, resistance: float, heart_rate := -1.0
 		_show(_bpm, "heart_rate", str(roundi(heart_rate)), HudTheme.INK)
 	_rpm_gauge.visible = cadence_low > -INF or cadence_high < INF
 	_watts_gauge.visible = power_low > -INF or power_high < INF
+	for slot in _gauge_slots:
+		slot.visible = _rpm_gauge.visible or _watts_gauge.visible
 	if roundi(cadence) != roundi(_cadence):
 		_cadence = cadence
 		_rpm_gauge.queue_redraw()
@@ -184,6 +187,8 @@ func _column(row: HBoxContainer, unit: String, gauge: Control) -> Label:
 	slot.custom_minimum_size = Vector2(0, GAUGE_SIZE.y + 6)
 	slot.add_child(gauge)
 	box.add_child(slot)
+	_gauge_slots.append(slot)
+	slot.visible = false
 	var unit_label := HudTheme.label(unit, HudTheme.SMALL, HudTheme.MUTED)
 	unit_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(unit_label)

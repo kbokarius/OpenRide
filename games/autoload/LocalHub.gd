@@ -321,12 +321,12 @@ func _just_ride(request: Dictionary, difficulty: String) -> Dictionary:
 	if id == "neon_vector":
 		var settings: Dictionary = request.get("neon", {})
 		var cid := str(settings.get("course_id", ""))
-		var course := NeonCourse.daily(cid.trim_prefix("daily_").trim_suffix("_g1")) if cid.begins_with("daily_") else NeonCourse.load_course(cid)
+		var course := NeonCourse.daily(cid.get_slice("_", 1)) if cid.begins_with("daily_") else NeonCourse.load_course(cid)
 		var rules := NeonRules.new()
 		if not rules.configure(course, str(settings.get("lane_difficulty", "")), float(settings.get("reference_power", 0))).is_empty():
 			return {"reason": "unsupported_mode"}
 		var power := int(settings.reference_power)
-		var plan_id := "neon:%s:v1:%s:f%d:e1:s1" % [cid, settings.lane_difficulty, power]
+		var plan_id := "neon:%s:v2:%s:f%d:e1:s2" % [cid, settings.lane_difficulty, power]
 		var segment := {"game_id": id, "role": "free", "duration_sec": int(course.durationMs) / 1000, "end_mode": "game", "params": settings.duplicate(true)}
 		return {"plan": {"kind": "just_ride", "plan_id": plan_id, "difficulty": "standard", "intro_sec": 3, "total_sec": int(course.durationMs) / 1000 + 3, "segments": [segment]}}
 	var e := entry(GameRegistry.info(id))

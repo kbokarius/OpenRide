@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "courseId": "intervals_30",
-  "courseVersion": 1,
+  "courseVersion": 2,
   "title": "Intervals",
   "family": "intervals",
   "durationMs": 1800000,
@@ -52,345 +52,350 @@
   "events": [
     {
       "eventId": "m01-a",
-      "type": "pickup",
-      "startMs": 8000,
-      "endMs": 8510,
-      "hitMs": 8250,
+      "type": "cruise",
+      "startMs": 3000,
+      "endMs": 16000,
       "laneIndex": 1
     },
     {
       "eventId": "m01-b",
       "type": "hold",
       "startMs": 16000,
-      "endMs": 34000,
+      "endMs": 30000,
       "laneIndex": 1,
       "cadenceMin": 60,
       "cadenceMax": 85
     },
     {
       "eventId": "m01-c",
-      "type": "pickup",
-      "startMs": 44000,
-      "endMs": 44510,
-      "hitMs": 44250,
+      "type": "cruise",
+      "startMs": 30000,
+      "endMs": 36000,
       "laneIndex": 1
     },
     {
       "eventId": "m01-d",
-      "type": "pickup",
-      "startMs": 48000,
-      "endMs": 48510,
-      "hitMs": 48250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 39000,
+      "endMs": 51000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
     },
     {
       "eventId": "m01-e",
-      "type": "pickup",
-      "startMs": 52000,
-      "endMs": 52510,
-      "hitMs": 52250,
+      "type": "cruise",
+      "startMs": 54000,
+      "endMs": 60000,
       "laneIndex": 1
     },
     {
       "eventId": "m02-a",
-      "type": "pickup",
-      "startMs": 68000,
-      "endMs": 68510,
-      "hitMs": 68250,
+      "type": "cruise",
+      "startMs": 63000,
+      "endMs": 76000,
       "laneIndex": 1
     },
     {
       "eventId": "m02-b",
       "type": "hold",
       "startMs": 76000,
-      "endMs": 94000,
+      "endMs": 90000,
       "laneIndex": 1,
       "cadenceMin": 60,
       "cadenceMax": 85
     },
     {
       "eventId": "m02-c",
-      "type": "pickup",
-      "startMs": 104000,
-      "endMs": 104510,
-      "hitMs": 104250,
+      "type": "cruise",
+      "startMs": 90000,
+      "endMs": 96000,
       "laneIndex": 1
     },
     {
       "eventId": "m02-d",
-      "type": "pickup",
-      "startMs": 108000,
-      "endMs": 108510,
-      "hitMs": 108250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 99000,
+      "endMs": 111000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
     },
     {
       "eventId": "m02-e",
-      "type": "pickup",
-      "startMs": 112000,
-      "endMs": 112510,
-      "hitMs": 112250,
+      "type": "cruise",
+      "startMs": 114000,
+      "endMs": 120000,
       "laneIndex": 1
     },
     {
       "eventId": "m03-a",
-      "type": "pickup",
-      "startMs": 128000,
-      "endMs": 128510,
-      "hitMs": 128250,
+      "type": "cruise",
+      "startMs": 123000,
+      "endMs": 136000,
       "laneIndex": 1
     },
     {
       "eventId": "m03-b",
       "type": "hold",
       "startMs": 136000,
-      "endMs": 154000,
+      "endMs": 150000,
       "laneIndex": 1,
       "cadenceMin": 60,
       "cadenceMax": 85
     },
     {
       "eventId": "m03-c",
-      "type": "pickup",
-      "startMs": 164000,
-      "endMs": 164510,
-      "hitMs": 164250,
+      "type": "cruise",
+      "startMs": 150000,
+      "endMs": 156000,
       "laneIndex": 1
     },
     {
       "eventId": "m03-d",
-      "type": "pickup",
-      "startMs": 168000,
-      "endMs": 168510,
-      "hitMs": 168250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 159000,
+      "endMs": 171000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
     },
     {
       "eventId": "m03-e",
-      "type": "pickup",
-      "startMs": 172000,
-      "endMs": 172510,
-      "hitMs": 172250,
+      "type": "cruise",
+      "startMs": 174000,
+      "endMs": 180000,
       "laneIndex": 1
     },
     {
       "eventId": "m04-a",
-      "type": "pickup",
-      "startMs": 188000,
-      "endMs": 188510,
-      "hitMs": 188250,
+      "type": "cruise",
+      "startMs": 183000,
+      "endMs": 196000,
       "laneIndex": 1
     },
     {
       "eventId": "m04-b",
       "type": "hold",
       "startMs": 196000,
-      "endMs": 214000,
+      "endMs": 210000,
       "laneIndex": 1,
       "cadenceMin": 60,
       "cadenceMax": 85
     },
     {
       "eventId": "m04-c",
-      "type": "pickup",
-      "startMs": 224000,
-      "endMs": 224510,
-      "hitMs": 224250,
+      "type": "cruise",
+      "startMs": 210000,
+      "endMs": 216000,
       "laneIndex": 1
     },
     {
       "eventId": "m04-d",
-      "type": "pickup",
-      "startMs": 228000,
-      "endMs": 228510,
-      "hitMs": 228250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 219000,
+      "endMs": 231000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
     },
     {
       "eventId": "m04-e",
-      "type": "pickup",
-      "startMs": 232000,
-      "endMs": 232510,
-      "hitMs": 232250,
+      "type": "cruise",
+      "startMs": 234000,
+      "endMs": 240000,
       "laneIndex": 1
     },
     {
       "eventId": "m05-a",
-      "type": "pickup",
-      "startMs": 248000,
-      "endMs": 248510,
-      "hitMs": 248250,
+      "type": "cruise",
+      "startMs": 243000,
+      "endMs": 256000,
       "laneIndex": 1
     },
     {
       "eventId": "m05-b",
       "type": "hold",
       "startMs": 256000,
-      "endMs": 274000,
+      "endMs": 270000,
       "laneIndex": 1,
       "cadenceMin": 70,
       "cadenceMax": 90
     },
     {
       "eventId": "m05-c",
-      "type": "pickup",
-      "startMs": 284000,
-      "endMs": 284510,
-      "hitMs": 284250,
+      "type": "cruise",
+      "startMs": 270000,
+      "endMs": 276000,
       "laneIndex": 1
     },
     {
       "eventId": "m05-d",
-      "type": "pickup",
-      "startMs": 288000,
-      "endMs": 288510,
-      "hitMs": 288250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 279000,
+      "endMs": 291000,
+      "laneIndex": 1,
+      "cadenceMin": 70,
+      "cadenceMax": 90
     },
     {
       "eventId": "m05-e",
-      "type": "pickup",
-      "startMs": 292000,
-      "endMs": 292510,
-      "hitMs": 292250,
+      "type": "cruise",
+      "startMs": 294000,
+      "endMs": 300000,
       "laneIndex": 1
     },
     {
       "eventId": "m06-a",
-      "type": "pickup",
-      "startMs": 308000,
-      "endMs": 308510,
-      "hitMs": 308250,
-      "laneIndex": 4
+      "type": "cruise",
+      "startMs": 303000,
+      "endMs": 316000,
+      "laneIndex": 2
     },
     {
       "eventId": "m06-b",
-      "type": "charge",
+      "type": "burst",
       "startMs": 316000,
-      "endMs": 326000,
-      "laneIndex": 4,
-      "ratio100": 0.6,
-      "ratio200": 1.0
+      "endMs": 330000,
+      "laneIndex": 2
     },
     {
       "eventId": "m06-c",
-      "type": "pickup",
-      "startMs": 344000,
-      "endMs": 344510,
-      "hitMs": 344250,
-      "laneIndex": 4
+      "type": "cruise",
+      "startMs": 330000,
+      "endMs": 336000,
+      "laneIndex": 2
     },
     {
       "eventId": "m06-d",
-      "type": "pickup",
-      "startMs": 348000,
-      "endMs": 348510,
-      "hitMs": 348250,
-      "laneIndex": 4
+      "type": "hold",
+      "startMs": 339000,
+      "endMs": 351000,
+      "laneIndex": 2,
+      "cadenceMin": 70,
+      "cadenceMax": 90,
+      "alternatives": [
+        {
+          "laneIndex": 2,
+          "rewardPercent": 100
+        },
+        {
+          "laneIndex": 3,
+          "rewardPercent": 125
+        }
+      ]
     },
     {
       "eventId": "m06-e",
-      "type": "pickup",
-      "startMs": 352000,
-      "endMs": 352510,
-      "hitMs": 352250,
-      "laneIndex": 4
+      "type": "cruise",
+      "startMs": 354000,
+      "endMs": 360000,
+      "laneIndex": 2
     },
     {
       "eventId": "m07-a",
-      "type": "pickup",
-      "startMs": 368000,
-      "endMs": 368510,
-      "hitMs": 368250,
-      "laneIndex": 2
+      "type": "cruise",
+      "startMs": 363000,
+      "endMs": 376000,
+      "laneIndex": 3
     },
     {
       "eventId": "m07-b",
       "type": "hold",
       "startMs": 376000,
-      "endMs": 394000,
-      "laneIndex": 2,
+      "endMs": 390000,
+      "laneIndex": 3,
       "cadenceMin": 70,
       "cadenceMax": 90
     },
     {
       "eventId": "m07-c",
-      "type": "pickup",
-      "startMs": 404000,
-      "endMs": 404510,
-      "hitMs": 404250,
-      "laneIndex": 2
+      "type": "cruise",
+      "startMs": 390000,
+      "endMs": 396000,
+      "laneIndex": 3
     },
     {
       "eventId": "m07-d",
-      "type": "pickup",
-      "startMs": 408000,
-      "endMs": 408510,
-      "hitMs": 408250,
-      "laneIndex": 2
+      "type": "hold",
+      "startMs": 399000,
+      "endMs": 411000,
+      "laneIndex": 3,
+      "cadenceMin": 70,
+      "cadenceMax": 90
     },
     {
       "eventId": "m07-e",
-      "type": "pickup",
-      "startMs": 412000,
-      "endMs": 412510,
-      "hitMs": 412250,
-      "laneIndex": 2
+      "type": "cruise",
+      "startMs": 414000,
+      "endMs": 420000,
+      "laneIndex": 3
     },
     {
       "eventId": "m08-a",
-      "type": "pickup",
-      "startMs": 428000,
-      "endMs": 428510,
-      "hitMs": 428250,
-      "laneIndex": 3
+      "type": "cruise",
+      "startMs": 423000,
+      "endMs": 436000,
+      "laneIndex": 2
     },
     {
       "eventId": "m08-b",
-      "type": "charge",
+      "type": "burst",
       "startMs": 436000,
-      "endMs": 446000,
-      "laneIndex": 3,
-      "ratio100": 0.6,
-      "ratio200": 1.0
+      "endMs": 450000,
+      "laneIndex": 2
     },
     {
       "eventId": "m08-c",
-      "type": "pickup",
-      "startMs": 464000,
-      "endMs": 464510,
-      "hitMs": 464250,
-      "laneIndex": 3
+      "type": "cruise",
+      "startMs": 450000,
+      "endMs": 456000,
+      "laneIndex": 2
     },
     {
       "eventId": "m08-d",
-      "type": "pickup",
-      "startMs": 468000,
-      "endMs": 468510,
-      "hitMs": 468250,
-      "laneIndex": 3
+      "type": "hold",
+      "startMs": 459000,
+      "endMs": 471000,
+      "laneIndex": 2,
+      "cadenceMin": 70,
+      "cadenceMax": 90
     },
     {
       "eventId": "m08-e",
-      "type": "pickup",
-      "startMs": 472000,
-      "endMs": 472510,
-      "hitMs": 472250,
-      "laneIndex": 3
+      "type": "cruise",
+      "startMs": 474000,
+      "endMs": 480000,
+      "laneIndex": 2
     },
     {
       "eventId": "m09-a",
-      "type": "pickup",
-      "startMs": 488000,
-      "endMs": 488510,
-      "hitMs": 488250,
+      "type": "cruise",
+      "startMs": 483000,
+      "endMs": 496000,
       "laneIndex": 1
     },
     {
       "eventId": "m09-b",
       "type": "hold",
       "startMs": 496000,
-      "endMs": 514000,
+      "endMs": 510000,
+      "laneIndex": 1,
+      "cadenceMin": 70,
+      "cadenceMax": 90
+    },
+    {
+      "eventId": "m09-c",
+      "type": "cruise",
+      "startMs": 510000,
+      "endMs": 516000,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m09-d",
+      "type": "hold",
+      "startMs": 519000,
+      "endMs": 531000,
       "laneIndex": 1,
       "cadenceMin": 70,
       "cadenceMax": 90,
@@ -406,247 +411,231 @@
       ]
     },
     {
-      "eventId": "m09-c",
-      "type": "pickup",
-      "startMs": 524000,
-      "endMs": 524510,
-      "hitMs": 524250,
-      "laneIndex": 1
-    },
-    {
-      "eventId": "m09-d",
-      "type": "pickup",
-      "startMs": 528000,
-      "endMs": 528510,
-      "hitMs": 528250,
-      "laneIndex": 1
-    },
-    {
       "eventId": "m09-e",
-      "type": "pickup",
-      "startMs": 532000,
-      "endMs": 532510,
-      "hitMs": 532250,
+      "type": "cruise",
+      "startMs": 534000,
+      "endMs": 540000,
       "laneIndex": 1
     },
     {
       "eventId": "m10-a",
-      "type": "pickup",
-      "startMs": 548000,
-      "endMs": 548510,
-      "hitMs": 548250,
+      "type": "cruise",
+      "startMs": 543000,
+      "endMs": 556000,
       "laneIndex": 2
     },
     {
       "eventId": "m10-b",
-      "type": "charge",
+      "type": "burst",
       "startMs": 556000,
-      "endMs": 566000,
-      "laneIndex": 2,
-      "ratio100": 0.6,
-      "ratio200": 1.0
+      "endMs": 570000,
+      "laneIndex": 2
     },
     {
       "eventId": "m10-c",
-      "type": "pickup",
-      "startMs": 584000,
-      "endMs": 584510,
-      "hitMs": 584250,
+      "type": "cruise",
+      "startMs": 570000,
+      "endMs": 576000,
       "laneIndex": 2
     },
     {
       "eventId": "m10-d",
-      "type": "pickup",
-      "startMs": 588000,
-      "endMs": 588510,
-      "hitMs": 588250,
-      "laneIndex": 2
+      "type": "hold",
+      "startMs": 579000,
+      "endMs": 591000,
+      "laneIndex": 2,
+      "cadenceMin": 70,
+      "cadenceMax": 90
     },
     {
       "eventId": "m10-e",
-      "type": "pickup",
-      "startMs": 592000,
-      "endMs": 592510,
-      "hitMs": 592250,
+      "type": "cruise",
+      "startMs": 594000,
+      "endMs": 600000,
       "laneIndex": 2
     },
     {
       "eventId": "m11-a",
-      "type": "pickup",
-      "startMs": 608000,
-      "endMs": 608510,
-      "hitMs": 608250,
+      "type": "cruise",
+      "startMs": 603000,
+      "endMs": 616000,
       "laneIndex": 1
     },
     {
       "eventId": "m11-b",
       "type": "hold",
       "startMs": 616000,
-      "endMs": 634000,
+      "endMs": 630000,
       "laneIndex": 1,
       "cadenceMin": 60,
       "cadenceMax": 85
     },
     {
       "eventId": "m11-c",
-      "type": "pickup",
-      "startMs": 644000,
-      "endMs": 644510,
-      "hitMs": 644250,
+      "type": "cruise",
+      "startMs": 630000,
+      "endMs": 636000,
       "laneIndex": 1
     },
     {
       "eventId": "m11-d",
-      "type": "pickup",
-      "startMs": 648000,
-      "endMs": 648510,
-      "hitMs": 648250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 639000,
+      "endMs": 651000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
     },
     {
       "eventId": "m11-e",
-      "type": "pickup",
-      "startMs": 652000,
-      "endMs": 652510,
-      "hitMs": 652250,
+      "type": "cruise",
+      "startMs": 654000,
+      "endMs": 660000,
       "laneIndex": 1
     },
     {
       "eventId": "m12-a",
-      "type": "pickup",
-      "startMs": 668000,
-      "endMs": 668510,
-      "hitMs": 668250,
+      "type": "cruise",
+      "startMs": 663000,
+      "endMs": 676000,
       "laneIndex": 1
     },
     {
       "eventId": "m12-b",
       "type": "hold",
       "startMs": 676000,
-      "endMs": 694000,
+      "endMs": 690000,
       "laneIndex": 1,
       "cadenceMin": 60,
       "cadenceMax": 85
     },
     {
       "eventId": "m12-c",
-      "type": "pickup",
-      "startMs": 704000,
-      "endMs": 704510,
-      "hitMs": 704250,
+      "type": "cruise",
+      "startMs": 690000,
+      "endMs": 696000,
       "laneIndex": 1
     },
     {
       "eventId": "m12-d",
-      "type": "pickup",
-      "startMs": 708000,
-      "endMs": 708510,
-      "hitMs": 708250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 699000,
+      "endMs": 711000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
     },
     {
       "eventId": "m12-e",
-      "type": "pickup",
-      "startMs": 712000,
-      "endMs": 712510,
-      "hitMs": 712250,
+      "type": "cruise",
+      "startMs": 714000,
+      "endMs": 720000,
       "laneIndex": 1
     },
     {
       "eventId": "m13-a",
-      "type": "pickup",
-      "startMs": 728000,
-      "endMs": 728510,
-      "hitMs": 728250,
-      "laneIndex": 1
+      "type": "cruise",
+      "startMs": 723000,
+      "endMs": 736000,
+      "laneIndex": 2
     },
     {
       "eventId": "m13-b",
       "type": "hold",
       "startMs": 736000,
-      "endMs": 754000,
-      "laneIndex": 1,
+      "endMs": 750000,
+      "laneIndex": 2,
       "cadenceMin": 70,
       "cadenceMax": 90
     },
     {
       "eventId": "m13-c",
-      "type": "pickup",
-      "startMs": 764000,
-      "endMs": 764510,
-      "hitMs": 764250,
-      "laneIndex": 1
+      "type": "cruise",
+      "startMs": 750000,
+      "endMs": 756000,
+      "laneIndex": 2
     },
     {
       "eventId": "m13-d",
-      "type": "pickup",
-      "startMs": 768000,
-      "endMs": 768510,
-      "hitMs": 768250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 759000,
+      "endMs": 771000,
+      "laneIndex": 2,
+      "cadenceMin": 70,
+      "cadenceMax": 90
     },
     {
       "eventId": "m13-e",
-      "type": "pickup",
-      "startMs": 772000,
-      "endMs": 772510,
-      "hitMs": 772250,
-      "laneIndex": 1
+      "type": "cruise",
+      "startMs": 774000,
+      "endMs": 780000,
+      "laneIndex": 2
     },
     {
       "eventId": "m14-a",
-      "type": "pickup",
-      "startMs": 788000,
-      "endMs": 788510,
-      "hitMs": 788250,
-      "laneIndex": 3
+      "type": "cruise",
+      "startMs": 783000,
+      "endMs": 796000,
+      "laneIndex": 2
     },
     {
       "eventId": "m14-b",
-      "type": "charge",
+      "type": "burst",
       "startMs": 796000,
-      "endMs": 806000,
-      "laneIndex": 3,
-      "ratio100": 0.6,
-      "ratio200": 1.0
+      "endMs": 810000,
+      "laneIndex": 2
     },
     {
       "eventId": "m14-c",
-      "type": "pickup",
-      "startMs": 824000,
-      "endMs": 824510,
-      "hitMs": 824250,
-      "laneIndex": 3
+      "type": "cruise",
+      "startMs": 810000,
+      "endMs": 816000,
+      "laneIndex": 2
     },
     {
       "eventId": "m14-d",
-      "type": "pickup",
-      "startMs": 828000,
-      "endMs": 828510,
-      "hitMs": 828250,
-      "laneIndex": 3
+      "type": "hold",
+      "startMs": 819000,
+      "endMs": 831000,
+      "laneIndex": 2,
+      "cadenceMin": 70,
+      "cadenceMax": 90
     },
     {
       "eventId": "m14-e",
-      "type": "pickup",
-      "startMs": 832000,
-      "endMs": 832510,
-      "hitMs": 832250,
-      "laneIndex": 3
+      "type": "cruise",
+      "startMs": 834000,
+      "endMs": 840000,
+      "laneIndex": 2
     },
     {
       "eventId": "m15-a",
-      "type": "pickup",
-      "startMs": 848000,
-      "endMs": 848510,
-      "hitMs": 848250,
+      "type": "cruise",
+      "startMs": 843000,
+      "endMs": 856000,
       "laneIndex": 1
     },
     {
       "eventId": "m15-b",
       "type": "hold",
       "startMs": 856000,
-      "endMs": 874000,
+      "endMs": 870000,
+      "laneIndex": 1,
+      "cadenceMin": 70,
+      "cadenceMax": 90
+    },
+    {
+      "eventId": "m15-c",
+      "type": "cruise",
+      "startMs": 870000,
+      "endMs": 876000,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m15-d",
+      "type": "hold",
+      "startMs": 879000,
+      "endMs": 891000,
       "laneIndex": 1,
       "cadenceMin": 70,
       "cadenceMax": 90,
@@ -662,247 +651,241 @@
       ]
     },
     {
-      "eventId": "m15-c",
-      "type": "pickup",
-      "startMs": 884000,
-      "endMs": 884510,
-      "hitMs": 884250,
-      "laneIndex": 1
-    },
-    {
-      "eventId": "m15-d",
-      "type": "pickup",
-      "startMs": 888000,
-      "endMs": 888510,
-      "hitMs": 888250,
-      "laneIndex": 1
-    },
-    {
       "eventId": "m15-e",
-      "type": "pickup",
-      "startMs": 892000,
-      "endMs": 892510,
-      "hitMs": 892250,
+      "type": "cruise",
+      "startMs": 894000,
+      "endMs": 900000,
       "laneIndex": 1
     },
     {
       "eventId": "m16-a",
-      "type": "pickup",
-      "startMs": 908000,
-      "endMs": 908510,
-      "hitMs": 908250,
-      "laneIndex": 4
-    },
-    {
-      "eventId": "m16-b",
-      "type": "charge",
-      "startMs": 916000,
-      "endMs": 926000,
-      "laneIndex": 4,
-      "ratio100": 0.6,
-      "ratio200": 1.0
-    },
-    {
-      "eventId": "m16-c",
-      "type": "pickup",
-      "startMs": 944000,
-      "endMs": 944510,
-      "hitMs": 944250,
-      "laneIndex": 4
-    },
-    {
-      "eventId": "m16-d",
-      "type": "pickup",
-      "startMs": 948000,
-      "endMs": 948510,
-      "hitMs": 948250,
-      "laneIndex": 4
-    },
-    {
-      "eventId": "m16-e",
-      "type": "pickup",
-      "startMs": 952000,
-      "endMs": 952510,
-      "hitMs": 952250,
-      "laneIndex": 4
-    },
-    {
-      "eventId": "m17-a",
-      "type": "pickup",
-      "startMs": 968000,
-      "endMs": 968510,
-      "hitMs": 968250,
+      "type": "cruise",
+      "startMs": 903000,
+      "endMs": 916000,
       "laneIndex": 2
     },
     {
-      "eventId": "m17-b",
+      "eventId": "m16-b",
+      "type": "burst",
+      "startMs": 916000,
+      "endMs": 930000,
+      "laneIndex": 2
+    },
+    {
+      "eventId": "m16-c",
+      "type": "cruise",
+      "startMs": 930000,
+      "endMs": 936000,
+      "laneIndex": 2
+    },
+    {
+      "eventId": "m16-d",
       "type": "hold",
-      "startMs": 976000,
-      "endMs": 994000,
+      "startMs": 939000,
+      "endMs": 951000,
       "laneIndex": 2,
       "cadenceMin": 70,
       "cadenceMax": 90
     },
     {
-      "eventId": "m17-c",
-      "type": "pickup",
-      "startMs": 1004000,
-      "endMs": 1004510,
-      "hitMs": 1004250,
+      "eventId": "m16-e",
+      "type": "cruise",
+      "startMs": 954000,
+      "endMs": 960000,
       "laneIndex": 2
+    },
+    {
+      "eventId": "m17-a",
+      "type": "cruise",
+      "startMs": 963000,
+      "endMs": 976000,
+      "laneIndex": 3
+    },
+    {
+      "eventId": "m17-b",
+      "type": "hold",
+      "startMs": 976000,
+      "endMs": 990000,
+      "laneIndex": 3,
+      "cadenceMin": 70,
+      "cadenceMax": 90
+    },
+    {
+      "eventId": "m17-c",
+      "type": "cruise",
+      "startMs": 990000,
+      "endMs": 996000,
+      "laneIndex": 3
     },
     {
       "eventId": "m17-d",
-      "type": "pickup",
-      "startMs": 1008000,
-      "endMs": 1008510,
-      "hitMs": 1008250,
-      "laneIndex": 2
+      "type": "hold",
+      "startMs": 999000,
+      "endMs": 1011000,
+      "laneIndex": 3,
+      "cadenceMin": 70,
+      "cadenceMax": 90
     },
     {
       "eventId": "m17-e",
-      "type": "pickup",
-      "startMs": 1012000,
-      "endMs": 1012510,
-      "hitMs": 1012250,
-      "laneIndex": 2
+      "type": "cruise",
+      "startMs": 1014000,
+      "endMs": 1020000,
+      "laneIndex": 3
     },
     {
       "eventId": "m18-a",
-      "type": "pickup",
-      "startMs": 1028000,
-      "endMs": 1028510,
-      "hitMs": 1028250,
-      "laneIndex": 3
+      "type": "cruise",
+      "startMs": 1023000,
+      "endMs": 1036000,
+      "laneIndex": 2
     },
     {
       "eventId": "m18-b",
-      "type": "charge",
+      "type": "burst",
       "startMs": 1036000,
-      "endMs": 1046000,
-      "laneIndex": 3,
-      "ratio100": 0.6,
-      "ratio200": 1.0
+      "endMs": 1050000,
+      "laneIndex": 2
     },
     {
       "eventId": "m18-c",
-      "type": "pickup",
-      "startMs": 1064000,
-      "endMs": 1064510,
-      "hitMs": 1064250,
-      "laneIndex": 3
+      "type": "cruise",
+      "startMs": 1050000,
+      "endMs": 1056000,
+      "laneIndex": 2
     },
     {
       "eventId": "m18-d",
-      "type": "pickup",
-      "startMs": 1068000,
-      "endMs": 1068510,
-      "hitMs": 1068250,
-      "laneIndex": 3
+      "type": "hold",
+      "startMs": 1059000,
+      "endMs": 1071000,
+      "laneIndex": 2,
+      "cadenceMin": 70,
+      "cadenceMax": 90,
+      "alternatives": [
+        {
+          "laneIndex": 2,
+          "rewardPercent": 100
+        },
+        {
+          "laneIndex": 3,
+          "rewardPercent": 125
+        }
+      ]
     },
     {
       "eventId": "m18-e",
-      "type": "pickup",
-      "startMs": 1072000,
-      "endMs": 1072510,
-      "hitMs": 1072250,
-      "laneIndex": 3
+      "type": "cruise",
+      "startMs": 1074000,
+      "endMs": 1080000,
+      "laneIndex": 2
     },
     {
       "eventId": "m19-a",
-      "type": "pickup",
-      "startMs": 1088000,
-      "endMs": 1088510,
-      "hitMs": 1088250,
+      "type": "cruise",
+      "startMs": 1083000,
+      "endMs": 1096000,
       "laneIndex": 1
     },
     {
       "eventId": "m19-b",
       "type": "hold",
       "startMs": 1096000,
-      "endMs": 1114000,
+      "endMs": 1110000,
       "laneIndex": 1,
       "cadenceMin": 60,
       "cadenceMax": 85
     },
     {
       "eventId": "m19-c",
-      "type": "pickup",
-      "startMs": 1124000,
-      "endMs": 1124510,
-      "hitMs": 1124250,
+      "type": "cruise",
+      "startMs": 1110000,
+      "endMs": 1116000,
       "laneIndex": 1
     },
     {
       "eventId": "m19-d",
-      "type": "pickup",
-      "startMs": 1128000,
-      "endMs": 1128510,
-      "hitMs": 1128250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 1119000,
+      "endMs": 1131000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
     },
     {
       "eventId": "m19-e",
-      "type": "pickup",
-      "startMs": 1132000,
-      "endMs": 1132510,
-      "hitMs": 1132250,
+      "type": "cruise",
+      "startMs": 1134000,
+      "endMs": 1140000,
       "laneIndex": 1
     },
     {
       "eventId": "m20-a",
-      "type": "pickup",
-      "startMs": 1148000,
-      "endMs": 1148510,
-      "hitMs": 1148250,
+      "type": "cruise",
+      "startMs": 1143000,
+      "endMs": 1156000,
       "laneIndex": 1
     },
     {
       "eventId": "m20-b",
       "type": "hold",
       "startMs": 1156000,
-      "endMs": 1174000,
+      "endMs": 1170000,
       "laneIndex": 1,
       "cadenceMin": 60,
       "cadenceMax": 85
     },
     {
       "eventId": "m20-c",
-      "type": "pickup",
-      "startMs": 1184000,
-      "endMs": 1184510,
-      "hitMs": 1184250,
+      "type": "cruise",
+      "startMs": 1170000,
+      "endMs": 1176000,
       "laneIndex": 1
     },
     {
       "eventId": "m20-d",
-      "type": "pickup",
-      "startMs": 1188000,
-      "endMs": 1188510,
-      "hitMs": 1188250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 1179000,
+      "endMs": 1191000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
     },
     {
       "eventId": "m20-e",
-      "type": "pickup",
-      "startMs": 1192000,
-      "endMs": 1192510,
-      "hitMs": 1192250,
+      "type": "cruise",
+      "startMs": 1194000,
+      "endMs": 1200000,
       "laneIndex": 1
     },
     {
       "eventId": "m21-a",
-      "type": "pickup",
-      "startMs": 1208000,
-      "endMs": 1208510,
-      "hitMs": 1208250,
+      "type": "cruise",
+      "startMs": 1203000,
+      "endMs": 1216000,
       "laneIndex": 1
     },
     {
       "eventId": "m21-b",
       "type": "hold",
       "startMs": 1216000,
-      "endMs": 1234000,
+      "endMs": 1230000,
+      "laneIndex": 1,
+      "cadenceMin": 70,
+      "cadenceMax": 90
+    },
+    {
+      "eventId": "m21-c",
+      "type": "cruise",
+      "startMs": 1230000,
+      "endMs": 1236000,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m21-d",
+      "type": "hold",
+      "startMs": 1239000,
+      "endMs": 1251000,
       "laneIndex": 1,
       "cadenceMin": 70,
       "cadenceMax": 90,
@@ -918,396 +901,365 @@
       ]
     },
     {
-      "eventId": "m21-c",
-      "type": "pickup",
-      "startMs": 1244000,
-      "endMs": 1244510,
-      "hitMs": 1244250,
-      "laneIndex": 1
-    },
-    {
-      "eventId": "m21-d",
-      "type": "pickup",
-      "startMs": 1248000,
-      "endMs": 1248510,
-      "hitMs": 1248250,
-      "laneIndex": 1
-    },
-    {
       "eventId": "m21-e",
-      "type": "pickup",
-      "startMs": 1252000,
-      "endMs": 1252510,
-      "hitMs": 1252250,
+      "type": "cruise",
+      "startMs": 1254000,
+      "endMs": 1260000,
       "laneIndex": 1
     },
     {
       "eventId": "m22-a",
-      "type": "pickup",
-      "startMs": 1268000,
-      "endMs": 1268510,
-      "hitMs": 1268250,
+      "type": "cruise",
+      "startMs": 1263000,
+      "endMs": 1276000,
       "laneIndex": 2
     },
     {
       "eventId": "m22-b",
-      "type": "charge",
+      "type": "burst",
       "startMs": 1276000,
-      "endMs": 1286000,
-      "laneIndex": 2,
-      "ratio100": 0.6,
-      "ratio200": 1.0
+      "endMs": 1290000,
+      "laneIndex": 2
     },
     {
       "eventId": "m22-c",
-      "type": "pickup",
-      "startMs": 1304000,
-      "endMs": 1304510,
-      "hitMs": 1304250,
+      "type": "cruise",
+      "startMs": 1290000,
+      "endMs": 1296000,
       "laneIndex": 2
     },
     {
       "eventId": "m22-d",
-      "type": "pickup",
-      "startMs": 1308000,
-      "endMs": 1308510,
-      "hitMs": 1308250,
-      "laneIndex": 2
+      "type": "hold",
+      "startMs": 1299000,
+      "endMs": 1311000,
+      "laneIndex": 2,
+      "cadenceMin": 70,
+      "cadenceMax": 90
     },
     {
       "eventId": "m22-e",
-      "type": "pickup",
-      "startMs": 1312000,
-      "endMs": 1312510,
-      "hitMs": 1312250,
+      "type": "cruise",
+      "startMs": 1314000,
+      "endMs": 1320000,
       "laneIndex": 2
     },
     {
       "eventId": "m23-a",
-      "type": "pickup",
-      "startMs": 1328000,
-      "endMs": 1328510,
-      "hitMs": 1328250,
-      "laneIndex": 1
+      "type": "cruise",
+      "startMs": 1323000,
+      "endMs": 1336000,
+      "laneIndex": 3
     },
     {
       "eventId": "m23-b",
       "type": "hold",
       "startMs": 1336000,
-      "endMs": 1354000,
-      "laneIndex": 1,
+      "endMs": 1350000,
+      "laneIndex": 3,
       "cadenceMin": 70,
       "cadenceMax": 90
     },
     {
       "eventId": "m23-c",
-      "type": "pickup",
-      "startMs": 1364000,
-      "endMs": 1364510,
-      "hitMs": 1364250,
-      "laneIndex": 1
+      "type": "cruise",
+      "startMs": 1350000,
+      "endMs": 1356000,
+      "laneIndex": 3
     },
     {
       "eventId": "m23-d",
-      "type": "pickup",
-      "startMs": 1368000,
-      "endMs": 1368510,
-      "hitMs": 1368250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 1359000,
+      "endMs": 1371000,
+      "laneIndex": 3,
+      "cadenceMin": 70,
+      "cadenceMax": 90
     },
     {
       "eventId": "m23-e",
-      "type": "pickup",
-      "startMs": 1372000,
-      "endMs": 1372510,
-      "hitMs": 1372250,
-      "laneIndex": 1
+      "type": "cruise",
+      "startMs": 1374000,
+      "endMs": 1380000,
+      "laneIndex": 3
     },
     {
       "eventId": "m24-a",
-      "type": "pickup",
-      "startMs": 1388000,
-      "endMs": 1388510,
-      "hitMs": 1388250,
-      "laneIndex": 3
+      "type": "cruise",
+      "startMs": 1383000,
+      "endMs": 1396000,
+      "laneIndex": 2
     },
     {
       "eventId": "m24-b",
-      "type": "charge",
+      "type": "burst",
       "startMs": 1396000,
-      "endMs": 1406000,
-      "laneIndex": 3,
-      "ratio100": 0.6,
-      "ratio200": 1.0
+      "endMs": 1410000,
+      "laneIndex": 2
     },
     {
       "eventId": "m24-c",
-      "type": "pickup",
-      "startMs": 1424000,
-      "endMs": 1424510,
-      "hitMs": 1424250,
-      "laneIndex": 3
+      "type": "cruise",
+      "startMs": 1410000,
+      "endMs": 1416000,
+      "laneIndex": 2
     },
     {
       "eventId": "m24-d",
-      "type": "pickup",
-      "startMs": 1428000,
-      "endMs": 1428510,
-      "hitMs": 1428250,
-      "laneIndex": 3
+      "type": "hold",
+      "startMs": 1419000,
+      "endMs": 1431000,
+      "laneIndex": 2,
+      "cadenceMin": 70,
+      "cadenceMax": 90,
+      "alternatives": [
+        {
+          "laneIndex": 2,
+          "rewardPercent": 100
+        },
+        {
+          "laneIndex": 3,
+          "rewardPercent": 125
+        }
+      ]
     },
     {
       "eventId": "m24-e",
-      "type": "pickup",
-      "startMs": 1432000,
-      "endMs": 1432510,
-      "hitMs": 1432250,
-      "laneIndex": 3
+      "type": "cruise",
+      "startMs": 1434000,
+      "endMs": 1440000,
+      "laneIndex": 2
     },
     {
       "eventId": "m25-a",
-      "type": "pickup",
-      "startMs": 1448000,
-      "endMs": 1448510,
-      "hitMs": 1448250,
+      "type": "cruise",
+      "startMs": 1443000,
+      "endMs": 1456000,
       "laneIndex": 1
     },
     {
       "eventId": "m25-b",
       "type": "hold",
       "startMs": 1456000,
-      "endMs": 1474000,
+      "endMs": 1470000,
       "laneIndex": 1,
       "cadenceMin": 70,
       "cadenceMax": 90
     },
     {
       "eventId": "m25-c",
-      "type": "pickup",
-      "startMs": 1484000,
-      "endMs": 1484510,
-      "hitMs": 1484250,
+      "type": "cruise",
+      "startMs": 1470000,
+      "endMs": 1476000,
       "laneIndex": 1
     },
     {
       "eventId": "m25-d",
-      "type": "pickup",
-      "startMs": 1488000,
-      "endMs": 1488510,
-      "hitMs": 1488250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 1479000,
+      "endMs": 1491000,
+      "laneIndex": 1,
+      "cadenceMin": 70,
+      "cadenceMax": 90
     },
     {
       "eventId": "m25-e",
-      "type": "pickup",
-      "startMs": 1492000,
-      "endMs": 1492510,
-      "hitMs": 1492250,
+      "type": "cruise",
+      "startMs": 1494000,
+      "endMs": 1500000,
       "laneIndex": 1
     },
     {
       "eventId": "m26-a",
-      "type": "pickup",
-      "startMs": 1508000,
-      "endMs": 1508510,
-      "hitMs": 1508250,
-      "laneIndex": 4
+      "type": "cruise",
+      "startMs": 1503000,
+      "endMs": 1516000,
+      "laneIndex": 2
     },
     {
       "eventId": "m26-b",
-      "type": "charge",
+      "type": "burst",
       "startMs": 1516000,
-      "endMs": 1526000,
-      "laneIndex": 4,
-      "ratio100": 0.6,
-      "ratio200": 1.0
+      "endMs": 1530000,
+      "laneIndex": 2
     },
     {
       "eventId": "m26-c",
-      "type": "pickup",
-      "startMs": 1544000,
-      "endMs": 1544510,
-      "hitMs": 1544250,
-      "laneIndex": 4
+      "type": "cruise",
+      "startMs": 1530000,
+      "endMs": 1536000,
+      "laneIndex": 2
     },
     {
       "eventId": "m26-d",
-      "type": "pickup",
-      "startMs": 1548000,
-      "endMs": 1548510,
-      "hitMs": 1548250,
-      "laneIndex": 4
+      "type": "hold",
+      "startMs": 1539000,
+      "endMs": 1551000,
+      "laneIndex": 2,
+      "cadenceMin": 70,
+      "cadenceMax": 90
     },
     {
       "eventId": "m26-e",
-      "type": "pickup",
-      "startMs": 1552000,
-      "endMs": 1552510,
-      "hitMs": 1552250,
-      "laneIndex": 4
+      "type": "cruise",
+      "startMs": 1554000,
+      "endMs": 1560000,
+      "laneIndex": 2
     },
     {
       "eventId": "m27-a",
-      "type": "pickup",
-      "startMs": 1568000,
-      "endMs": 1568510,
-      "hitMs": 1568250,
+      "type": "cruise",
+      "startMs": 1563000,
+      "endMs": 1576000,
       "laneIndex": 1
     },
     {
       "eventId": "m27-b",
       "type": "hold",
       "startMs": 1576000,
-      "endMs": 1594000,
+      "endMs": 1590000,
       "laneIndex": 1,
       "cadenceMin": 60,
       "cadenceMax": 85
     },
     {
       "eventId": "m27-c",
-      "type": "pickup",
-      "startMs": 1604000,
-      "endMs": 1604510,
-      "hitMs": 1604250,
+      "type": "cruise",
+      "startMs": 1590000,
+      "endMs": 1596000,
       "laneIndex": 1
     },
     {
       "eventId": "m27-d",
-      "type": "pickup",
-      "startMs": 1608000,
-      "endMs": 1608510,
-      "hitMs": 1608250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 1599000,
+      "endMs": 1611000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
     },
     {
       "eventId": "m27-e",
-      "type": "pickup",
-      "startMs": 1612000,
-      "endMs": 1612510,
-      "hitMs": 1612250,
+      "type": "cruise",
+      "startMs": 1614000,
+      "endMs": 1620000,
       "laneIndex": 1
     },
     {
       "eventId": "m28-a",
-      "type": "pickup",
-      "startMs": 1628000,
-      "endMs": 1628510,
-      "hitMs": 1628250,
+      "type": "cruise",
+      "startMs": 1623000,
+      "endMs": 1636000,
       "laneIndex": 1
     },
     {
       "eventId": "m28-b",
       "type": "hold",
       "startMs": 1636000,
-      "endMs": 1654000,
+      "endMs": 1650000,
       "laneIndex": 1,
       "cadenceMin": 60,
       "cadenceMax": 85
     },
     {
       "eventId": "m28-c",
-      "type": "pickup",
-      "startMs": 1664000,
-      "endMs": 1664510,
-      "hitMs": 1664250,
+      "type": "cruise",
+      "startMs": 1650000,
+      "endMs": 1656000,
       "laneIndex": 1
     },
     {
       "eventId": "m28-d",
-      "type": "pickup",
-      "startMs": 1668000,
-      "endMs": 1668510,
-      "hitMs": 1668250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 1659000,
+      "endMs": 1671000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
     },
     {
       "eventId": "m28-e",
-      "type": "pickup",
-      "startMs": 1672000,
-      "endMs": 1672510,
-      "hitMs": 1672250,
+      "type": "cruise",
+      "startMs": 1674000,
+      "endMs": 1680000,
       "laneIndex": 1
     },
     {
       "eventId": "m29-a",
-      "type": "pickup",
-      "startMs": 1688000,
-      "endMs": 1688510,
-      "hitMs": 1688250,
+      "type": "cruise",
+      "startMs": 1683000,
+      "endMs": 1696000,
       "laneIndex": 1
     },
     {
       "eventId": "m29-b",
       "type": "hold",
       "startMs": 1696000,
-      "endMs": 1714000,
+      "endMs": 1710000,
       "laneIndex": 1,
       "cadenceMin": 60,
       "cadenceMax": 85
     },
     {
       "eventId": "m29-c",
-      "type": "pickup",
-      "startMs": 1724000,
-      "endMs": 1724510,
-      "hitMs": 1724250,
+      "type": "cruise",
+      "startMs": 1710000,
+      "endMs": 1716000,
       "laneIndex": 1
     },
     {
       "eventId": "m29-d",
-      "type": "pickup",
-      "startMs": 1728000,
-      "endMs": 1728510,
-      "hitMs": 1728250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 1719000,
+      "endMs": 1731000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
     },
     {
       "eventId": "m29-e",
-      "type": "pickup",
-      "startMs": 1732000,
-      "endMs": 1732510,
-      "hitMs": 1732250,
+      "type": "cruise",
+      "startMs": 1734000,
+      "endMs": 1740000,
       "laneIndex": 1
     },
     {
       "eventId": "m30-a",
-      "type": "pickup",
-      "startMs": 1748000,
-      "endMs": 1748510,
-      "hitMs": 1748250,
+      "type": "cruise",
+      "startMs": 1743000,
+      "endMs": 1756000,
       "laneIndex": 1
     },
     {
       "eventId": "m30-b",
       "type": "hold",
       "startMs": 1756000,
-      "endMs": 1774000,
+      "endMs": 1770000,
       "laneIndex": 1,
       "cadenceMin": 60,
       "cadenceMax": 85
     },
     {
       "eventId": "m30-c",
-      "type": "pickup",
-      "startMs": 1784000,
-      "endMs": 1784510,
-      "hitMs": 1784250,
+      "type": "cruise",
+      "startMs": 1770000,
+      "endMs": 1776000,
       "laneIndex": 1
     },
     {
       "eventId": "m30-d",
-      "type": "pickup",
-      "startMs": 1788000,
-      "endMs": 1788510,
-      "hitMs": 1788250,
-      "laneIndex": 1
+      "type": "hold",
+      "startMs": 1779000,
+      "endMs": 1791000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
     },
     {
       "eventId": "m30-e",
-      "type": "pickup",
-      "startMs": 1792000,
-      "endMs": 1792510,
-      "hitMs": 1792250,
+      "type": "cruise",
+      "startMs": 1794000,
+      "endMs": 1800000,
       "laneIndex": 1
     }
   ]

@@ -70,7 +70,7 @@ func _run() -> void:
 		track.world_id = world.id
 		track.update_view(0)
 		status.refresh()
-		for i in 5:
+		for i in 60:
 			await process_frame
 		await RenderingServer.frame_post_draw
 		var file := "%s/%s-%d-%dx%d.png" % [out, world.id, roundi(seconds), window.x, window.y]
