@@ -363,7 +363,7 @@ class DatabaseMigrationTest {
     }
 
     @Test
-    fun `a version-1 database migrates to the schema Room expects at version 8`() = runTest {
+    fun `a version-1 database migrates to the schema Room expects at version 9`() = runTest {
         val name = "migration-chain-test.db"
         context.deleteDatabase(name)
         openV1Database(name).execSQL(
@@ -376,7 +376,7 @@ class DatabaseMigrationTest {
         // Room validates every table against its entities on open, so a migration that misses
         // a column, an index or a foreign key fails here.
         val room = Room.databaseBuilder(context, OpenRideDatabase::class.java, name)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
             .allowMainThreadQueries()
             .build()
         try {
@@ -391,7 +391,7 @@ class DatabaseMigrationTest {
     }
 
     @Test
-    fun `a version-7 game ride keeps its bests after migrating to 8`() = runTest {
+    fun `a version-7 game ride keeps its bests after migrating to 9`() = runTest {
         val name = "migration-7-8-bests.db"
         context.deleteDatabase(name)
         val v7 = openV1Database(name)
@@ -412,7 +412,7 @@ class DatabaseMigrationTest {
         helper = null
 
         val room = Room.databaseBuilder(context, OpenRideDatabase::class.java, name)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
             .allowMainThreadQueries()
             .build()
         try {

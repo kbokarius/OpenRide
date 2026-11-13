@@ -157,6 +157,9 @@ data class SegmentResult(
     /** The game's variant, e.g. Dodge Ball's `catch`; `""` (or absent) for none. */
     val variant: String = "",
 ) {
+    val recordEligible: Boolean
+        get() = gameId != "neon_vector" || ((stats["neon"] as? JsonObject)?.get("status") as? JsonPrimitive)?.content == "completed"
+
     companion object {
         /** Recorded when a game fails to report within the grace period, or reports garbage. */
         fun zero(gameId: String) =
@@ -413,6 +416,7 @@ data class PlanRequestMessage(
     val presetId: String = "",
     val difficulty: Difficulty = Difficulty.STANDARD,
     val slots: List<PlanRequestSlot> = emptyList(),
+    val neon: NeonSettings? = null,
 )
 
 /** `now_playing(json)`: the rider's music app's track, for the hub's music card. */
@@ -500,6 +504,7 @@ object BridgeMessages {
             presetId = obj.string("preset_id") ?: "",
             difficulty = difficultyOf(obj.string("difficulty")),
             slots = slots,
+            neon = NeonSettings.parse(obj["neon"]),
         )
     }
 

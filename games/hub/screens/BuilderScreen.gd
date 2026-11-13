@@ -127,7 +127,7 @@ func title_text() -> String:
 ## The "add a game" tiles: OptionCards with a card per catalog game (its picture, its name,
 ## the role it plays), flatter than a game screen's.
 func _tile_spec() -> Dictionary:
-	var games := HubState.games(state)
+	var games := HubState.games(state).filter(func(entry): return str(entry.get("id", "")) != "neon_vector")
 	var choices: Array = []
 	var cards: Array = []
 	var columns := clampi(games.size(), 1, TILE_COLUMNS_MAX)

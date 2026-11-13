@@ -281,6 +281,8 @@ func _on_music_closed() -> void:
 ## The pause screen shows while the session is paused, except under the calibration screen and
 ## the music panel (its own pause: Done resumes).
 func _sync_pause_screen() -> void:
+	if game:
+		pause_overlay.set_resume_status(game.resume_block_reason(), game.pause_message())
 	var calibrating := Session.paused and is_calibrating()
 	if calibrating:
 		_calibration_pause = true
@@ -517,12 +519,14 @@ func _show_game(next: Game) -> void:
 		game.ui_theme_changed.disconnect(_apply_look)
 	_swap_scene(next)
 	game = next
+	Session.resume_guard = game.resume_block_reason
 	if not game.ended.is_connected(_on_game_ended):
 		game.ended.connect(_on_game_ended)
 		game.ui_theme_changed.connect(_apply_look)
 
 
 func _close_game() -> void:
+	Session.resume_guard = Callable()
 	if game:
 		game.ended.disconnect(_on_game_ended)
 		game.ui_theme_changed.disconnect(_apply_look)

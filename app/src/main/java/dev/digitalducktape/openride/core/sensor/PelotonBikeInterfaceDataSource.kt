@@ -54,6 +54,8 @@ class PelotonBikeInterfaceDataSource(
     private val context: Context,
 ) : PollableBikeDataSource {
 
+    override val samples = BikeSampleBuffer()
+
     private val _metrics = MutableStateFlow(BikeMetrics.ZERO)
     override val metrics: StateFlow<BikeMetrics> = _metrics.asStateFlow()
 
@@ -80,7 +82,9 @@ class PelotonBikeInterfaceDataSource(
         override fun onSensorDataChange(bikeData: BikeData?) {
             if (bikeData == null) return
             framesReceived++
-            _metrics.value = bikeData.toBikeMetrics()
+            val decoded = bikeData.toBikeMetrics()
+            samples.record(decoded)
+            _metrics.value = decoded
             if (_connectionState.value != ConnectionState.Connected) {
                 _connectionState.value = ConnectionState.Connected
             }
@@ -204,6 +208,7 @@ class PelotonBikeInterfaceDataSource(
         val frame = runCatching { service?.bikeData }.getOrNull() ?: return null
         val decoded = frame.toBikeMetrics()
         framesReceived++
+        samples.record(decoded)
         _metrics.value = decoded
         if (_connectionState.value != ConnectionState.Connected) {
             _connectionState.value = ConnectionState.Connected

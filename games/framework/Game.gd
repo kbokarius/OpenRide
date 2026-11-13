@@ -110,6 +110,15 @@ func _on_pause() -> void:
 	pass
 
 
+## Optional pause guidance. Empty block reason means Resume is available.
+func resume_block_reason() -> String:
+	return ""
+
+
+func pause_message() -> String:
+	return "Tap Resume to carry on."
+
+
 func _on_resume() -> void:
 	pass
 

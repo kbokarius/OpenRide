@@ -329,7 +329,7 @@ func _process(delta: float) -> void:
 			_played += delta
 			var duration: float = _segment.duration_sec
 			var stop_at := -1.0
-			if duration >= 0:
+			if duration >= 0 and _segment.game_id != "neon_vector":
 				stop_at = duration if _segment.end_mode == "timer" else duration * 1.5
 			if stop_at >= 0 and _played >= stop_at:
 				_begin_ending()
@@ -347,7 +347,7 @@ func _start_segment(index: int) -> void:
 		"count": _plan.segments.size(),
 		"game_id": planned.game_id,
 		"duration_sec": planned.duration_sec,
-		"intro_sec": INTRO_SEC,
+		"intro_sec": int(_plan.get("intro_sec", INTRO_SEC)),
 		"end_mode": planned.get("end_mode", "game" if planned.duration_sec < 0 else _timed_end_mode(planned.game_id)),
 		"role": planned.role,
 		"difficulty": _plan.difficulty,
@@ -357,7 +357,7 @@ func _start_segment(index: int) -> void:
 		"params": planned.get("params", {}),
 	}
 	_phase = "intro"
-	_intro_left = INTRO_SEC
+	_intro_left = int(_segment.get("intro_sec", INTRO_SEC))
 	_played = 0.0
 	_session._on_segment_started(_wire(_segment))
 

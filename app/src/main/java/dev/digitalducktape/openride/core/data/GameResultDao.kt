@@ -66,7 +66,7 @@ interface GameResultDao {
         "SELECT g.gameId AS gameId, g.variant AS variant, $PLAN AS gamePlan, g.difficulty AS difficulty, " +
             "MAX(g.score) AS bestScore, MAX(g.stars) AS bestStars, COUNT(*) AS plays " +
             "FROM game_results g JOIN rides r ON r.id = g.rideId " +
-            "WHERE r.profileId = :profileId AND g.skipped = 0 AND $PLAN IS NOT NULL " +
+            "WHERE r.profileId = :profileId AND g.skipped = 0 AND g.recordEligible = 1 AND $PLAN IS NOT NULL " +
             "GROUP BY g.gameId, g.variant, $PLAN, g.difficulty " +
             "ORDER BY g.gameId, g.variant, $PLAN, g.difficulty",
     )
@@ -81,7 +81,7 @@ interface GameResultDao {
         "SELECT p.id AS profileId, p.name AS profileName, " +
             "MAX(g.score) AS bestScore, MAX(g.stars) AS bestStars " +
             "FROM game_results g JOIN rides r ON r.id = g.rideId JOIN profiles p ON p.id = r.profileId " +
-            "WHERE g.gameId = :gameId AND g.difficulty = :difficulty AND g.skipped = 0 " +
+            "WHERE g.gameId = :gameId AND g.difficulty = :difficulty AND g.skipped = 0 AND g.recordEligible = 1 " +
             "AND (:gamePlan IS NULL OR $PLAN = :gamePlan) AND g.variant = :variant " +
             "GROUP BY p.id ORDER BY bestScore DESC, p.name ASC LIMIT :limit",
     )
@@ -98,7 +98,7 @@ interface GameResultDao {
             "FROM game_results g JOIN rides r ON r.id = g.rideId " +
             "WHERE r.profileId = :profileId AND $PLAN = :gamePlan AND g.difficulty = :difficulty " +
             "AND r.id != :excludeRideId GROUP BY r.id, g.planRun " +
-            "HAVING :variant IS NULL OR SUM(g.variant != :variant) = 0)",
+            "HAVING MIN(g.recordEligible) = 1 AND (:variant IS NULL OR SUM(g.variant != :variant) = 0))",
     )
     suspend fun planBest(profileId: Long, gamePlan: String, difficulty: String, excludeRideId: Long, variant: String? = null): PlanBest
 
@@ -113,7 +113,7 @@ interface GameResultDao {
             "SUM(g.stars) AS totalStars, r.startEpochMs AS startEpochMs " +
             "FROM game_results g JOIN rides r ON r.id = g.rideId " +
             "WHERE r.profileId = :profileId AND $PLAN IS NOT NULL " +
-            "GROUP BY r.id, g.planRun, $PLAN, g.difficulty) " +
+            "GROUP BY r.id, g.planRun, $PLAN, g.difficulty HAVING MIN(g.recordEligible) = 1) " +
             "GROUP BY planId, difficulty ORDER BY planId, difficulty",
     )
     suspend fun planBests(profileId: Long): List<PlanBestRow>

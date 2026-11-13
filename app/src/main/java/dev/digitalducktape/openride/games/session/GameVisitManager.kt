@@ -385,9 +385,10 @@ class GameVisitManager(
                 variant = played.result.variant,
                 planId = plan.planId,
                 planRun = index,
+                recordEligible = played.result.recordEligible,
             )
             rows += row
-            visitResults += VisitResult(plan.planId, index, row.gameId, difficulty, row.variant, row.score, row.stars, row.skipped, row.durationSec)
+            visitResults += VisitResult(plan.planId, index, row.gameId, difficulty, row.variant, row.score, row.stars, row.skipped, row.durationSec, row.recordEligible)
         }
         gameplaySec += outcome.gameplaySec
         val counted = outcome.results.filterNot { it.result.skipped }
@@ -398,6 +399,7 @@ class GameVisitManager(
             score = counted.sumOf { it.result.score },
             stars = counted.sumOf { it.result.stars },
             gameIds = outcome.results.map { it.segment.gameId }.distinct(),
+            recordEligible = outcome.results.all { it.result.recordEligible },
         )
         visitPlans += run
         scope.launch {
@@ -435,7 +437,7 @@ class GameVisitManager(
      */
     private suspend fun bests(run: VisitPlan, earlier: List<VisitPlan>): JsonObject {
         val pid = rider?.id
-        if (!recording || pid == null) return EMPTY
+        if (!recording || pid == null || !run.recordEligible) return EMPTY
         val saved = try {
             gameResultDao.planBest(pid, run.planId, wire(Difficulty.serializer(), run.difficulty), excludeRideId = -1, variant = run.variant)
         } catch (e: CancellationException) {
@@ -444,7 +446,7 @@ class GameVisitManager(
             log("reading bests failed: $e")
             return EMPTY
         }
-        val same = earlier.filter { it.planId == run.planId && it.difficulty == run.difficulty && (run.variant == null || it.variant == run.variant) }
+        val same = earlier.filter { it.recordEligible && it.planId == run.planId && it.difficulty == run.difficulty && (run.variant == null || it.variant == run.variant) }
         val previousScore = (listOfNotNull(saved.bestScore) + same.map { it.score }).maxOrNull()
         val previousStars = (listOfNotNull(saved.bestStars) + same.map { it.stars }).maxOrNull()
         val flags = buildMap {

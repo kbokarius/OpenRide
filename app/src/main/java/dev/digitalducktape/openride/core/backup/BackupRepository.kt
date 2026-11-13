@@ -2,6 +2,7 @@ package dev.digitalducktape.openride.core.backup
 
 import androidx.room.RoomDatabase
 import androidx.room.withTransaction
+import dev.digitalducktape.openride.core.data.NeonAttemptDao
 import dev.digitalducktape.openride.core.data.GameResultDao
 import dev.digitalducktape.openride.core.data.Profile
 import dev.digitalducktape.openride.core.data.ProfileDao
@@ -37,6 +38,7 @@ class BackupRepository(
     private val rideDao: RideDao,
     private val avatarPhotoStore: AvatarPhotoStore? = null,
     private val gameResultDao: GameResultDao? = null,
+    private val neonAttemptDao: NeonAttemptDao? = null,
     private val epochMillisProvider: () -> Long = System::currentTimeMillis,
 ) {
     private val json = Json {
@@ -53,6 +55,7 @@ class BackupRepository(
         rides = rideDao.getAllRidesOnce().map { it.toBackup() },
         samples = rideDao.getAllSamplesOnce().map { it.toBackup() },
         gameResults = gameResultDao?.getAllOnce()?.map { it.toBackup() }.orEmpty(),
+        neonAttempts = neonAttemptDao?.getAllOnce().orEmpty(),
     )
 
     private fun encodePhoto(profile: Profile): String? = profile.avatarPhotoPath
@@ -91,6 +94,7 @@ class BackupRepository(
             backup.toEntity().copy(avatarPhotoPath = restorePhoto(backup))
         }
         database.withTransaction {
+            neonAttemptDao?.deleteAll()
             gameResultDao?.deleteAll()
             rideDao.deleteAllSamples()
             rideDao.deleteAllRides()
@@ -100,6 +104,7 @@ class BackupRepository(
             rideDao.insertRides(snapshot.rides.map { it.toEntity() })
             rideDao.insertSamples(snapshot.samples.map { it.toEntity() })
             gameResultDao?.insertAll(snapshot.gameResults.map { it.toEntity() })
+            neonAttemptDao?.insertAll(snapshot.neonAttempts.map { if (it.status == "pending") it.copy(status = "interrupted") else it })
         }
     }
 

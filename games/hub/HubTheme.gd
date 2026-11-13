@@ -31,6 +31,7 @@ const PICTURE_INSET := 8
 ## Each game's accent and ink (UI_STYLE.md §4): its card wears it. Cadence Karaoke's accent
 ## follows its world in play; the hub uses its default neon.
 const LOOKS := {
+	"neon_vector": [Color("67d8ff"), Color("0b132b")],
 	"kart_race": [Color("8c6bff"), Color("210f3d")],
 	"dodge_ball": [Color("38b6ff"), Color("0e1b3d")],
 	"tug_of_war": [Color("ff9f1c"), Color("2a160b")],

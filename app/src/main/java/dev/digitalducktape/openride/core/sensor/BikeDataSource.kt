@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.StateFlow
  * the PRD's risk mitigation) are interchangeable everywhere else in the app.
  */
 interface BikeDataSource {
+    /** Actual timestamped deliveries; null only for legacy/test sources without this contract. */
+    val samples: BikeSampleBuffer? get() = null
+
     /** Latest sensor reading. Consumers sample this at whatever cadence they need. */
     val metrics: StateFlow<BikeMetrics>
 

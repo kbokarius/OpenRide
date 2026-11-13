@@ -250,7 +250,7 @@ class GameSessionManager(
                 updateTimeLeft()
                 val duration = current.durationSec
                 val stopAt = when {
-                    duration < 0 -> null
+                    duration < 0 || current.gameId == "neon_vector" -> null
                     current.endMode == EndMode.TIMER -> duration
                     else -> duration * 3 / 2
                 }

@@ -201,7 +201,7 @@ func _show_top() -> void:
 		top = nav.top()
 		id = HubNav.HOME
 	_prefetch(id, top.args)
-	screen = SCREENS[id].new()
+	screen = NeonSetup.new() if id == HubNav.GAME and str(top.args.get("game_id", "")) == "neon_vector" else SCREENS[id].new()
 	screen.name = id.to_pascal_case() + "Screen"
 	screen.setup(state, top.args, queue)
 	screen.open.connect(func(sid: String, sargs: Dictionary): nav.push(sid, sargs))

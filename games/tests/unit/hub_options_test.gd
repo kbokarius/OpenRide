@@ -56,6 +56,8 @@ func _open(game_id: String) -> GameScreen:
 
 func test_every_hub_option_appears_on_its_game_screen() -> void:
 	for e in HubState.games(hub.state):
+		if str(e.id) == "neon_vector":
+			continue  # Dedicated setup/locked cosmetics are covered below.
 		var screen := await _open(str(e.id))
 		var info := GameRegistry.info(str(e.id))
 		var grouped: Array = []
@@ -182,3 +184,33 @@ func test_a_card_falls_back_to_its_label() -> void:
 		"kind": "cards", "cards": [{"value": "a", "title": "Alpha", "subtitle": "first", "accent": Color.RED}]}
 	assert_dict(GameInfo.card_for(spec, "a")).is_equal({"value": "a", "title": "Alpha", "subtitle": "first", "image": "", "accent": Color.RED})
 	assert_dict(GameInfo.card_for(spec, "b")).is_equal({"value": "b", "title": "Bee", "subtitle": "", "image": "", "accent": null})
+
+
+func test_neon_options_persist_and_worlds_require_completed_rides() -> void:
+	hub.nav.push(HubNav.GAME, {"game_id": "neon_vector"})
+	await _settle()
+	var screen := hub.screen as NeonSetup
+	assert_object(screen).is_not_null()
+	screen._progress = {"ok": true, "completions": 0, "history": []}
+	screen._open_extras()
+	await _settle()
+	var ghost := screen._panel.find_child("Option_ghost", true, false) as OptionRow
+	var motion := screen._panel.find_child("Option_motion", true, false) as OptionRow
+	assert_object(ghost).is_not_null()
+	assert_object(motion).is_not_null()
+	ghost.segmented.pick("off")
+	motion.segmented.pick("reduced")
+	var info := GameRegistry.info("neon_vector")
+	assert_str(GameOptions.get_value(info, "ghost", rider)).is_equal("off")
+	assert_str(GameOptions.get_value(info, "motion", rider)).is_equal("reduced")
+	assert_bool((screen._panel.find_child("world_orbit", true, false) as Button).disabled).is_true()
+	screen._progress.completions = 3
+	screen._open_extras()
+	await _settle()
+	var orbit := screen._panel.find_child("world_orbit", true, false) as Button
+	assert_bool(orbit.disabled).is_false()
+	orbit.pressed.emit()
+	assert_str(GameOptions.get_value(info, "world", rider)).is_equal("orbit")
+	assert_bool((screen._panel.find_child("trail_comet", true, false) as Button).disabled).is_true()
+	screen._close_panel()
+	hub.nav.pop()

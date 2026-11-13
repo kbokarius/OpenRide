@@ -2480,3 +2480,30 @@ Everything under `games/` is written for this project or permissively licensed. 
 listed in `games/assets/SOURCES.md` and third-party code in `THIRD_PARTY_NOTICES.md`; the rule
 itself is in the epic (#31). No game may use another game's names, characters, art, UI look,
 audio or trademarks.
+
+
+## NEON VECTOR (fork)
+
+See [the game guide](NEON_VECTOR.md), [approved rules spec](specs/lane-ride-v1.md) and [implementation ledger](specs/neon-vector-implementation.md). Game ID: `neon_vector`; one complete authored/daily course is one `end_mode: game` segment. The legacy 1.5× timer does not end this mode; its independent monotonic clock does. It has no camera roles, music registration or generic effort multiplier and is excluded from custom circuits.
+
+### Appended input fields and timestamped batches
+
+The v1 frame keeps indices 0–12 unchanged and appends sample age in milliseconds (13), actual delivery sequence (14), and NEON active course milliseconds (15; −1 when inactive). Older games continue reading their existing fields. Identical sensor values still produce new delivery timestamps; UI reads never renew freshness.
+
+For optional native method checks, use `JNISingleton.has_java_method`, not `Object.has_method`. Android plugin methods occupy the Java method table. This was verified in the packaged Android app; desktop mocks cannot exercise that registration path. See [Godot's JNISingleton contract](https://docs.godotengine.org/en/stable/classes/class_jnisingleton.html).
+
+`get_lane_ride_input_batch(afterSequence: Long)` returns JSON with `version`, `now_ms`, `sample_age_ms`, `sequence`, `overflow`, `fresh`, `active`, `running`, `elapsed_ms`, `origin_ms`, `epoch`, `pause_reason`, and `samples` (`received_ms`, `seq`, `cadence`, `power`, `resistance`). The sample-buffer snapshot time is also the clock observation time, preventing input received between separate clock reads from being applied retroactively.
+
+`neon_control(action, processedMs, durationMs)` accepts begin/ack/pause/resume/stop. Godot acknowledges completed 10 ms ticks. Resume reanchors the course to that acknowledgement; an OS/render stall never awards skipped wall time. The native buffer is bounded to five seconds/512 samples. The independent 1.5-second freshness and 250-ms stall limits pause much sooner.
+
+### Locked settings and durable records
+
+A `start_plan` Just Ride request includes `neon: {course_id, lane_difficulty, reference_power, replay_attempt_id?}`. Kotlin validates known course IDs, ISO daily dates, length, tier and integer power 1–2000 W. A replay resolves the owned stored course snapshot before the clock starts. Cosmetics remain per-rider GameOptions.
+
+`neon_records_request(json) -> Long` queues a bounded operation on a serial IO mailbox; a negative ticket means rejected/busy. `neon_records_reply(ticket) -> String` returns an empty string while pending, otherwise one JSON reply and removes it. Actions are state/best/get/save. Requests are bound to the native active rider, not a client-supplied profile ID. No Room IO blocks the Godot render thread. Replies carry `ok` and an error message on failure. The client times out after 15 seconds, pauses, and allows a retry; attempt IDs make late/repeated writes idempotent.
+
+A version-1 payload contains `attemptId`, `riderId`, `comparisonKey`, exact `course`, `result`, and completed 10 Hz `ghost` rows `[courseMs, lane, scoreUnits]`. Room schema 9 stores one durable attempt row and changes it from pending to final within a transaction. Old pending rows recover as interrupted on a new process. The original visit result remains in `game_results`; incomplete NEON rows are explicitly ineligible for record queries, including in-memory visit comparisons. Backups include durable attempts independently of visit completion.
+
+Native `sessionFinished` also queues pending-attempt interruption. This covers the existing OpenRide behavior where opening the main app ends a live Games visit without a Godot result. A completed/ended attempt remains immutable. Returning directly to the Games task through Android Recents retains a paused live course; opening the main app instead ends it.
+
+The renderer (`NeonTrack`) cannot award points. `NeonCourse` validates content, `NeonRules` scores pure timestamped input, `NeonRecords` handles persistence, and the `Game` subclass coordinates the shared host. All authored JSON is exported through `include_filter` in `export_presets.cfg`.

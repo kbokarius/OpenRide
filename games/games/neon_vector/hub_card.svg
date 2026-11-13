@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="288" viewBox="0 0 512 288">
+<defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#080b22"/><stop offset=".55" stop-color="#27365e"/><stop offset="1" stop-color="#080e24"/></linearGradient><linearGradient id="road" x2="0" y2="1"><stop stop-color="#11172d"/><stop offset="1" stop-color="#13314c"/></linearGradient><linearGradient id="light"><stop stop-color="#65dbff"/><stop offset="1" stop-color="#b69bff"/></linearGradient></defs>
+<path fill="url(#sky)" d="M0 0h512v288H0z"/>
+<g fill="#cce8ff" opacity=".6"><circle cx="51" cy="26" r="1"/><circle cx="126" cy="54" r="1"/><circle cx="347" cy="30" r="1"/><circle cx="434" cy="19" r="1"/><circle cx="466" cy="60" r="1"/></g>
+<g fill="#11162f" stroke="#64d9ff" stroke-opacity=".16"><path d="M0 154V100h29v54zm37 0V80h30v74zm39 0V112h26v42zm34 0V66h31v88zm40 0V93h36v61zm46 0V117h25v37zm96 0V113h26v41zm36 0V82h36v72zm44 0V109h27v45zm38 0V60h34v94zm44 0V94h29v60zm38 0V120h20v34z"/></g>
+<g fill="#97a4e9" opacity=".5"><path d="M43 95h17v2H43zm0 15h17v2H43zm74-27h17v2h-17zm0 16h17v2h-17zm40 10h22v2h-22zm181-12h21v2h-21zm79-19h19v2h-19zm0 16h19v2h-19zm43 14h17v2h-17z"/></g>
+<circle cx="256" cy="130" r="44" fill="none" stroke="#9e89e9" stroke-opacity=".24" stroke-width="2"/>
+<path d="M234 146h44L512 288H0z" fill="url(#road)"/>
+<g stroke="url(#light)" fill="none"><path d="M234 146 0 288m242-142L85 288m164-142L171 288m85-142v142m7-142L341 288m-71-142L427 288m-149-142L512 288" stroke-opacity=".5"/><path d="M234 146 0 288m278-142L512 288" stroke-width="3"/><path d="M197 169h118m-180 38h242M44 261h424" stroke-opacity=".13"/></g>
+<path d="m271 188 12 11-12 11-12-11z" fill="#ffdb73"/><path d="m260 163 6 6-6 6-6-6z" fill="#ffdb73"/>
+<path d="m216 168 7 2-28 43-20-7z" fill="#95e6c7" fill-opacity=".22" stroke="#95e6c7" stroke-width="2"/>
+<g transform="translate(287 252)"><path d="M-10 8 0 36 10 8" fill="#65dbff" opacity=".4"/><circle r="26" fill="none" stroke="#65dbff" stroke-width="9" opacity=".09"/><circle r="21" fill="#13283f" stroke="#65dbff" stroke-width="3"/><circle r="15" fill="none" stroke="#e9f6ff" stroke-width="1.8"/><path d="m-8 5 8-13 8 13-8-4z" fill="#f1f7ff"/></g>
+<path d="M0 146h512" stroke="#67d8ff" stroke-width="2" opacity=".25"/>
+</svg>

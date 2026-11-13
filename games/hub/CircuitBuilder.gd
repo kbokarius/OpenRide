@@ -33,6 +33,8 @@ var dropped := 0
 
 func _init(catalog_entries: Array = [], lineup: Array = [], level := "standard") -> void:
 	for e in catalog_entries:
+		if str(e.id) == "neon_vector":
+			continue
 		catalog[str(e.id)] = e
 	difficulty = level if level in HubPrefs.DIFFICULTIES else "standard"
 	for s in lineup:

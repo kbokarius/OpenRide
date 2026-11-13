@@ -1,0 +1,462 @@
+{
+  "schemaVersion": 1,
+  "courseId": "intervals_10",
+  "courseVersion": 1,
+  "title": "Intervals",
+  "family": "intervals",
+  "durationMs": 600000,
+  "phases": [
+    {
+      "name": "Warm up",
+      "role": "warmup",
+      "startMs": 0,
+      "endMs": 120000
+    },
+    {
+      "name": "Find your line",
+      "role": "work",
+      "startMs": 120000,
+      "endMs": 240000
+    },
+    {
+      "name": "Recover",
+      "role": "recovery",
+      "startMs": 240000,
+      "endMs": 300000
+    },
+    {
+      "name": "Build your score",
+      "role": "work",
+      "startMs": 300000,
+      "endMs": 480000
+    },
+    {
+      "name": "Cool down",
+      "role": "cooldown",
+      "startMs": 480000,
+      "endMs": 600000
+    }
+  ],
+  "events": [
+    {
+      "eventId": "m01-a",
+      "type": "pickup",
+      "startMs": 8000,
+      "endMs": 8510,
+      "hitMs": 8250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m01-b",
+      "type": "hold",
+      "startMs": 16000,
+      "endMs": 34000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
+    },
+    {
+      "eventId": "m01-c",
+      "type": "pickup",
+      "startMs": 44000,
+      "endMs": 44510,
+      "hitMs": 44250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m01-d",
+      "type": "pickup",
+      "startMs": 48000,
+      "endMs": 48510,
+      "hitMs": 48250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m01-e",
+      "type": "pickup",
+      "startMs": 52000,
+      "endMs": 52510,
+      "hitMs": 52250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m02-a",
+      "type": "pickup",
+      "startMs": 68000,
+      "endMs": 68510,
+      "hitMs": 68250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m02-b",
+      "type": "hold",
+      "startMs": 76000,
+      "endMs": 94000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
+    },
+    {
+      "eventId": "m02-c",
+      "type": "pickup",
+      "startMs": 104000,
+      "endMs": 104510,
+      "hitMs": 104250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m02-d",
+      "type": "pickup",
+      "startMs": 108000,
+      "endMs": 108510,
+      "hitMs": 108250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m02-e",
+      "type": "pickup",
+      "startMs": 112000,
+      "endMs": 112510,
+      "hitMs": 112250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m03-a",
+      "type": "pickup",
+      "startMs": 128000,
+      "endMs": 128510,
+      "hitMs": 128250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m03-b",
+      "type": "hold",
+      "startMs": 136000,
+      "endMs": 154000,
+      "laneIndex": 1,
+      "cadenceMin": 70,
+      "cadenceMax": 90,
+      "alternatives": [
+        {
+          "laneIndex": 1,
+          "rewardPercent": 100
+        },
+        {
+          "laneIndex": 2,
+          "rewardPercent": 125
+        }
+      ]
+    },
+    {
+      "eventId": "m03-c",
+      "type": "pickup",
+      "startMs": 164000,
+      "endMs": 164510,
+      "hitMs": 164250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m03-d",
+      "type": "pickup",
+      "startMs": 168000,
+      "endMs": 168510,
+      "hitMs": 168250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m03-e",
+      "type": "pickup",
+      "startMs": 172000,
+      "endMs": 172510,
+      "hitMs": 172250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m04-a",
+      "type": "pickup",
+      "startMs": 188000,
+      "endMs": 188510,
+      "hitMs": 188250,
+      "laneIndex": 3
+    },
+    {
+      "eventId": "m04-b",
+      "type": "charge",
+      "startMs": 196000,
+      "endMs": 206000,
+      "laneIndex": 3,
+      "ratio100": 0.6,
+      "ratio200": 1.0
+    },
+    {
+      "eventId": "m04-c",
+      "type": "pickup",
+      "startMs": 224000,
+      "endMs": 224510,
+      "hitMs": 224250,
+      "laneIndex": 3
+    },
+    {
+      "eventId": "m04-d",
+      "type": "pickup",
+      "startMs": 228000,
+      "endMs": 228510,
+      "hitMs": 228250,
+      "laneIndex": 3
+    },
+    {
+      "eventId": "m04-e",
+      "type": "pickup",
+      "startMs": 232000,
+      "endMs": 232510,
+      "hitMs": 232250,
+      "laneIndex": 3
+    },
+    {
+      "eventId": "m05-a",
+      "type": "pickup",
+      "startMs": 248000,
+      "endMs": 248510,
+      "hitMs": 248250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m05-b",
+      "type": "hold",
+      "startMs": 256000,
+      "endMs": 274000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
+    },
+    {
+      "eventId": "m05-c",
+      "type": "pickup",
+      "startMs": 284000,
+      "endMs": 284510,
+      "hitMs": 284250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m05-d",
+      "type": "pickup",
+      "startMs": 288000,
+      "endMs": 288510,
+      "hitMs": 288250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m05-e",
+      "type": "pickup",
+      "startMs": 292000,
+      "endMs": 292510,
+      "hitMs": 292250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m06-a",
+      "type": "pickup",
+      "startMs": 308000,
+      "endMs": 308510,
+      "hitMs": 308250,
+      "laneIndex": 4
+    },
+    {
+      "eventId": "m06-b",
+      "type": "charge",
+      "startMs": 316000,
+      "endMs": 326000,
+      "laneIndex": 4,
+      "ratio100": 0.6,
+      "ratio200": 1.0
+    },
+    {
+      "eventId": "m06-c",
+      "type": "pickup",
+      "startMs": 344000,
+      "endMs": 344510,
+      "hitMs": 344250,
+      "laneIndex": 4
+    },
+    {
+      "eventId": "m06-d",
+      "type": "pickup",
+      "startMs": 348000,
+      "endMs": 348510,
+      "hitMs": 348250,
+      "laneIndex": 4
+    },
+    {
+      "eventId": "m06-e",
+      "type": "pickup",
+      "startMs": 352000,
+      "endMs": 352510,
+      "hitMs": 352250,
+      "laneIndex": 4
+    },
+    {
+      "eventId": "m07-a",
+      "type": "pickup",
+      "startMs": 368000,
+      "endMs": 368510,
+      "hitMs": 368250,
+      "laneIndex": 2
+    },
+    {
+      "eventId": "m07-b",
+      "type": "hold",
+      "startMs": 376000,
+      "endMs": 394000,
+      "laneIndex": 2,
+      "cadenceMin": 70,
+      "cadenceMax": 90
+    },
+    {
+      "eventId": "m07-c",
+      "type": "pickup",
+      "startMs": 404000,
+      "endMs": 404510,
+      "hitMs": 404250,
+      "laneIndex": 2
+    },
+    {
+      "eventId": "m07-d",
+      "type": "pickup",
+      "startMs": 408000,
+      "endMs": 408510,
+      "hitMs": 408250,
+      "laneIndex": 2
+    },
+    {
+      "eventId": "m07-e",
+      "type": "pickup",
+      "startMs": 412000,
+      "endMs": 412510,
+      "hitMs": 412250,
+      "laneIndex": 2
+    },
+    {
+      "eventId": "m08-a",
+      "type": "pickup",
+      "startMs": 428000,
+      "endMs": 428510,
+      "hitMs": 428250,
+      "laneIndex": 3
+    },
+    {
+      "eventId": "m08-b",
+      "type": "charge",
+      "startMs": 436000,
+      "endMs": 446000,
+      "laneIndex": 3,
+      "ratio100": 0.6,
+      "ratio200": 1.0
+    },
+    {
+      "eventId": "m08-c",
+      "type": "pickup",
+      "startMs": 464000,
+      "endMs": 464510,
+      "hitMs": 464250,
+      "laneIndex": 3
+    },
+    {
+      "eventId": "m08-d",
+      "type": "pickup",
+      "startMs": 468000,
+      "endMs": 468510,
+      "hitMs": 468250,
+      "laneIndex": 3
+    },
+    {
+      "eventId": "m08-e",
+      "type": "pickup",
+      "startMs": 472000,
+      "endMs": 472510,
+      "hitMs": 472250,
+      "laneIndex": 3
+    },
+    {
+      "eventId": "m09-a",
+      "type": "pickup",
+      "startMs": 488000,
+      "endMs": 488510,
+      "hitMs": 488250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m09-b",
+      "type": "hold",
+      "startMs": 496000,
+      "endMs": 514000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
+    },
+    {
+      "eventId": "m09-c",
+      "type": "pickup",
+      "startMs": 524000,
+      "endMs": 524510,
+      "hitMs": 524250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m09-d",
+      "type": "pickup",
+      "startMs": 528000,
+      "endMs": 528510,
+      "hitMs": 528250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m09-e",
+      "type": "pickup",
+      "startMs": 532000,
+      "endMs": 532510,
+      "hitMs": 532250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m10-a",
+      "type": "pickup",
+      "startMs": 548000,
+      "endMs": 548510,
+      "hitMs": 548250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m10-b",
+      "type": "hold",
+      "startMs": 556000,
+      "endMs": 574000,
+      "laneIndex": 1,
+      "cadenceMin": 60,
+      "cadenceMax": 85
+    },
+    {
+      "eventId": "m10-c",
+      "type": "pickup",
+      "startMs": 584000,
+      "endMs": 584510,
+      "hitMs": 584250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m10-d",
+      "type": "pickup",
+      "startMs": 588000,
+      "endMs": 588510,
+      "hitMs": 588250,
+      "laneIndex": 1
+    },
+    {
+      "eventId": "m10-e",
+      "type": "pickup",
+      "startMs": 592000,
+      "endMs": 592510,
+      "hitMs": 592250,
+      "laneIndex": 1
+    }
+  ]
+}

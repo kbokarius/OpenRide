@@ -20,3 +20,7 @@ docs/superpowers/
 games/.godot/
 games/reports/
 games.pck
+
+# Private fork signing identity (supply through NEON_SIGNING_PROPERTIES)
+*.jks
+*signing.properties

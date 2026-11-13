@@ -24,7 +24,7 @@ const ROUND_SEC := {"dodge_ball": 90, "tug_of_war": 120, "safe_cracker": 75, "th
 const USES_CAMERA := {"tug_of_war": false}
 ## The display order of the first games (GameCatalog's, without the demo); every other
 ## registered game follows, by id (`order()`).
-const ORDER := ["kart_race", "dodge_ball", "tug_of_war", "safe_cracker", "cadence_karaoke", "watt_lane", "the_pull",
+const ORDER := ["neon_vector", "kart_race", "dodge_ball", "tug_of_war", "safe_cracker", "cadence_karaoke", "watt_lane", "the_pull",
 	"balloon_pump", "keepy_uppy", "power_grid", "ready_for_launch", "gate_crasher"]
 ## CircuitPresets: warm-up, N blocks, cool-down. Shapes only: each slot's game is drawn from its
 ## role's pool (`draw_slots`, as Kotlin's CircuitDraw).
@@ -318,6 +318,17 @@ func _just_ride(request: Dictionary, difficulty: String) -> Dictionary:
 	var id := str(request.get("game_id", ""))
 	if id not in order() or GameRegistry.info(id) == null:
 		return {"reason": "unknown_game"}
+	if id == "neon_vector":
+		var settings: Dictionary = request.get("neon", {})
+		var cid := str(settings.get("course_id", ""))
+		var course := NeonCourse.daily(cid.trim_prefix("daily_").trim_suffix("_g1")) if cid.begins_with("daily_") else NeonCourse.load_course(cid)
+		var rules := NeonRules.new()
+		if not rules.configure(course, str(settings.get("lane_difficulty", "")), float(settings.get("reference_power", 0))).is_empty():
+			return {"reason": "unsupported_mode"}
+		var power := int(settings.reference_power)
+		var plan_id := "neon:%s:v1:%s:f%d:e1:s1" % [cid, settings.lane_difficulty, power]
+		var segment := {"game_id": id, "role": "free", "duration_sec": int(course.durationMs) / 1000, "end_mode": "game", "params": settings.duplicate(true)}
+		return {"plan": {"kind": "just_ride", "plan_id": plan_id, "difficulty": "standard", "intro_sec": 3, "total_sec": int(course.durationMs) / 1000 + 3, "segments": [segment]}}
 	var e := entry(GameRegistry.info(id))
 	if e.uses_camera and not camera_available():
 		return {"reason": "camera_unavailable"}
@@ -492,7 +503,7 @@ func plan_finishing(plan: Dictionary, summary: Dictionary) -> Dictionary:
 	var key := "%s|%s" % [plan.plan_id, plan.difficulty]
 	var score := int(summary.totals.score)
 	var stars := int(summary.totals.stars)
-	if plan_bests.has(key):
+	if _record_eligible(summary) and plan_bests.has(key):
 		var before: Dictionary = plan_bests[key]
 		var bests := {"previous_score": before.score, "previous_stars": before.stars}
 		if score > int(before.score):
@@ -514,9 +525,10 @@ func plan_finished(plan: Dictionary, summary: Dictionary) -> void:
 		"game_ids": game_ids})
 	var key := "%s|%s" % [plan.plan_id, plan.difficulty]
 	var best: Dictionary = plan_bests.get(key, {"score": -1, "stars": -1})
-	plan_bests[key] = {"score": maxi(score, int(best.score)), "stars": maxi(stars, int(best.stars))}
+	if _record_eligible(summary):
+		plan_bests[key] = {"score": maxi(score, int(best.score)), "stars": maxi(stars, int(best.stars))}
 	for r in summary.results:
-		if r.get("skipped", false):
+		if r.get("skipped", false) or (r.get("game_id", "") == "neon_vector" and r.get("stats", {}).get("neon", {}).get("status", "") != "completed"):
 			continue
 		var gkey := "%s|%s|%s|%s" % [r.game_id, plan.plan_id, plan.difficulty, r.get("variant", "")]
 		var row: Dictionary = game_bests.get(gkey, {"game_id": r.game_id, "plan_id": plan.plan_id,
@@ -551,3 +563,10 @@ func _reject(request: Dictionary, reason: String) -> void:
 
 func _wire(value: Dictionary) -> Dictionary:
 	return JSON.parse_string(JSON.stringify(value))
+
+
+func _record_eligible(summary: Dictionary) -> bool:
+	for result: Dictionary in summary.get("results", []):
+		if result.get("game_id", "") == "neon_vector" and result.get("stats", {}).get("neon", {}).get("status", "") != "completed":
+			return false
+	return true

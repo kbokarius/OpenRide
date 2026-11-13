@@ -60,6 +60,7 @@ var visit_id := ""
 ## The last now_playing ({} with nothing playing).
 var now_playing: Dictionary = {}
 
+var resume_guard: Callable
 var _bridge: Object = null
 var _local: Node = null
 
@@ -136,8 +137,15 @@ func set_tracker_mode(mode: String) -> void:
 ## it keeps animating while the first 3D frame compiles shaders. Desktop: nothing to cover.
 func show_loading(show: bool) -> void:
 	loading = show
-	if _bridge and _bridge.has_method("show_loading"):
+	if _bridge and _bridge.has_java_method("show_loading"):
 		_bridge.show_loading(show)
+
+
+func neon_control(action: String, processed_ms: int = 0, duration_ms: int = 0) -> void:
+	if _bridge and _bridge.has_java_method("neon_control"):
+		_bridge.neon_control(action, processed_ms, duration_ms)
+	elif _bridge == null:
+		InputBus._neon_local.control(action, processed_ms, duration_ms, Time.get_ticks_msec())
 
 
 func request_pause() -> void:
@@ -149,6 +157,8 @@ func request_pause() -> void:
 
 
 func request_resume() -> void:
+	if resume_guard.is_valid() and not str(resume_guard.call()).is_empty():
+		return
 	print("OPENRIDE_GAMES -> request_resume")
 	if _bridge:
 		_bridge.request_resume()

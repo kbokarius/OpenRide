@@ -3,6 +3,10 @@ package dev.digitalducktape.openride.games.bridge
 import dev.digitalducktape.openride.core.sensor.BikeDataSource
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.StateFlow
+import dev.digitalducktape.openride.core.sensor.ConnectionState
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /** Kotlin → Godot signals of the Bridge contract (v1 plus the hub's v1.1). JSON arguments are JSON text. */
 interface GameSignals {
@@ -90,7 +94,9 @@ class GameBridge(
     private val riderMusic: () -> Boolean = { false },
     /** The hub's music card: `play_pause`, `next` or `previous`, for the rider's music app. */
     private val musicControl: (String) -> Unit = {},
+    private val neonRecords: NeonRecords? = null,
 ) : GameSignals {
+    val neonTimeline = NeonTimeline()
     /** The latest `now_playing`, sent again when Godot is (re)ready, since the engine drops signals before then. */
     @Volatile
     private var lastNowPlaying: String? = null
@@ -112,6 +118,7 @@ class GameBridge(
     fun detach(session: GameSession) {
         if (this.session === session) {
             this.session = null
+            neonTimeline.stop()
             readyPending.set(false)
         }
     }
@@ -124,23 +131,72 @@ class GameBridge(
             current.onGameReady()
             lastNowPlaying?.let { emitter?.nowPlaying(it) }
         }
+        val sample = bikeDataSource.samples?.readAfter(-1)
+        val clock = neonTimeline.snapshot()
         return InputFrame.pack(
             metrics = bikeDataSource.metrics.value,
             sensorsOk = sensorsOffline.value != true,
             heartRateBpm = heartRateBpm.value,
             tracker = trackerReading(),
-            segmentTimeLeftSec = current?.segmentTimeLeftSec ?: -1.0,
+            segmentTimeLeftSec = if (clock.active) (clock.durationMs - clock.elapsedMs).coerceAtLeast(0L) / 1000.0 else current?.segmentTimeLeftSec ?: -1.0,
             riderMusic = riderMusic(),
+            sampleAgeMs = sample?.sampleAgeMs ?: Long.MAX_VALUE,
+            sampleSequence = sample?.latestSequence ?: 0L,
+            courseElapsedMs = if (clock.active) clock.elapsedMs else -1L,
         )
     }
 
-    fun segmentFinished(resultJson: String) { session?.onSegmentFinished(resultJson) }
+    fun neonInputBatch(afterSequence: Long): String {
+        val batch = bikeDataSource.samples?.readAfter(afterSequence)
+        val fresh = batch != null && batch.sampleAgeMs <= 1500 && bikeDataSource.connectionState.value == ConnectionState.Connected
+        val clock = neonTimeline.poll(sensorFresh = fresh, overflow = batch?.overflow == true, observedMs = batch?.nowMs ?: System.nanoTime() / 1_000_000L)
+        return buildJsonObject {
+            put("version", 1)
+            put("now_ms", batch?.nowMs ?: System.nanoTime() / 1_000_000L)
+            put("sample_age_ms", batch?.sampleAgeMs ?: Long.MAX_VALUE)
+            put("sequence", batch?.latestSequence ?: 0L)
+            put("overflow", batch?.overflow ?: false)
+            put("fresh", fresh)
+            put("active", clock.active)
+            put("running", clock.running)
+            put("elapsed_ms", clock.elapsedMs)
+            put("origin_ms", clock.originMs)
+            put("epoch", clock.epoch)
+            put("pause_reason", clock.pauseReason)
+            put("samples", buildJsonArray {
+                batch?.samples?.forEach { sample ->
+                    add(buildJsonObject {
+                        put("received_ms", sample.receivedMs)
+                        put("seq", sample.sequence)
+                        put("cadence", sample.metrics.cadenceRpm)
+                        put("power", sample.metrics.powerWatts)
+                        put("resistance", sample.metrics.resistancePercent)
+                    })
+                }
+            })
+        }.toString()
+    }
+
+    fun neonRecordsRequest(json: String): Long = neonRecords?.submit(json) ?: -1L
+    fun neonRecordsReply(ticket: Long): String = neonRecords?.poll(ticket).orEmpty()
+
+    fun neonControl(action: String, processedMs: Long, durationMs: Long) {
+        when (action) {
+            "begin" -> if (durationMs in 10L..1_800_000L && durationMs % 10L == 0L) neonTimeline.begin(durationMs)
+            "ack" -> neonTimeline.acknowledge(processedMs)
+            "pause" -> { neonTimeline.acknowledge(processedMs); neonTimeline.pause() }
+            "resume" -> neonTimeline.resume()
+            "stop" -> neonTimeline.stop()
+        }
+    }
+
+    fun segmentFinished(resultJson: String) { neonTimeline.stop(); session?.onSegmentFinished(resultJson) }
     fun requestCalibration(mode: String) { session?.onRequestCalibration(mode) }
     fun setTrackerMode(mode: String) { session?.onSetTrackerMode(mode) }
-    fun requestPause() { session?.onRequestPause() }
+    fun requestPause() { neonTimeline.pause(); session?.onRequestPause() }
     fun requestResume() { session?.onRequestResume() }
-    fun requestEnd() { session?.onRequestEnd() }
-    fun requestExit() { session?.onRequestExit() }
+    fun requestEnd() { neonTimeline.pause(); session?.onRequestEnd() }
+    fun requestExit() { neonTimeline.stop(); session?.onRequestExit() }
     fun startPlan(requestJson: String) { session?.onStartPlan(requestJson) }
     fun updateSetting(key: String, valueJson: String) { session?.onUpdateSetting(key, valueJson) }
     fun hubCalibrate(mode: String, full: Boolean) { session?.onHubCalibrate(mode, full) }
@@ -161,10 +217,14 @@ class GameBridge(
     override fun sessionStarted(planJson: String) { emitter?.sessionStarted(planJson) }
     override fun segmentStarted(segmentJson: String) { emitter?.segmentStarted(segmentJson) }
     override fun segmentEnding() { emitter?.segmentEnding() }
-    override fun sessionPaused() { emitter?.sessionPaused() }
+    override fun sessionPaused() { neonTimeline.pause(); emitter?.sessionPaused() }
     override fun sessionResumed() { emitter?.sessionResumed() }
     override fun calibrationProgress(progress: CalibrationProgressSignal) { emitter?.calibrationProgress(progress) }
-    override fun sessionFinished(summaryJson: String) { emitter?.sessionFinished(summaryJson) }
+    override fun sessionFinished(summaryJson: String) {
+        neonRecords?.interruptPending()
+        neonTimeline.stop()
+        emitter?.sessionFinished(summaryJson)
+    }
     override fun hubState(stateJson: String) { emitter?.hubState(stateJson) }
     override fun planRejected(reasonJson: String) { emitter?.planRejected(reasonJson) }
     override fun visitEnded(resultJson: String) { emitter?.visitEnded(resultJson) }

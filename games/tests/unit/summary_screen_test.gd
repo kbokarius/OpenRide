@@ -56,6 +56,15 @@ func test_the_best_line_says_what_the_rider_is_up_against() -> void:
 	assert_str(SummaryScreen.bests_text({"previous_score": 5400, "previous_stars": 2})).is_equal("Your best: 5400 points, 2 stars")
 
 
+func test_neon_native_interruption_is_not_called_complete() -> void:
+	var screen: SummaryScreen = auto_free(SummaryScreen.new())
+	add_child(screen)
+	var plan := {"kind": "just_ride", "segments": [{"game_id": "neon_vector", "role": "free", "duration_sec": 300}]}
+	screen.show_summary(_summary([]), plan)
+	assert_str(screen._title.text).is_equal("Ride interrupted")
+	assert_bool(screen._stars_note.visible).is_true()
+
+
 # --- Look and layout (framework/ui/UI_STYLE.md) ---
 
 const SCREEN := Rect2(0, 0, 1920, 1080)

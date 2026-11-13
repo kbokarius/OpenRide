@@ -5,6 +5,7 @@ extends RefCounted
 ## The game_id is the contract's `game_id` and must match the game's `info().id`.
 
 const GAMES := {
+	"neon_vector": "res://games/neon_vector/NeonVector.tscn",
 	"demo": "res://games/demo/Demo.tscn",
 	"dodge_ball": "res://games/dodge_ball/DodgeBall.tscn",
 	"tug_of_war": "res://games/tug_of_war/TugOfWar.tscn",

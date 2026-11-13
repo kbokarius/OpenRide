@@ -106,6 +106,18 @@ func test_every_game_screen() -> void:
 		hub.nav.push(HubNav.GAME, {"game_id": e.id})
 		await _settle()
 		_check_screen("game " + str(e.id))
+		if hub.screen is NeonSetup:
+			hub.screen._open_power()
+			await _settle()
+			_check_screen("NEON VECTOR power")
+			hub.screen._close_panel()
+			hub.screen._open_extras()
+			await _settle()
+			_check_screen("NEON VECTOR style and history")
+			hub.screen._close_panel()
+			hub.nav.pop()
+			await _settle(2)
+			continue
 		for mode in hub.screen.length_picker.modes.choices:
 			hub.screen.length_picker.modes.pick(mode)
 			await _wait(0.4)  # the pick's pop (a scale) settles

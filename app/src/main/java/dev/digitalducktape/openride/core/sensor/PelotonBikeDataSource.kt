@@ -67,6 +67,8 @@ class PelotonBikeDataSource(
     private val context: Context,
 ) : BoundBikeDataSource {
 
+    override val samples = BikeSampleBuffer()
+
     private val _metrics = MutableStateFlow(BikeMetrics.ZERO)
     override val metrics: StateFlow<BikeMetrics> = _metrics.asStateFlow()
 
@@ -104,7 +106,9 @@ class PelotonBikeDataSource(
         override fun onSensorDataChange(bikeData: BikeData?) {
             if (bikeData == null) return
             framesReceived++
-            _metrics.value = bikeData.toBikeMetrics()
+            val decoded = bikeData.toBikeMetrics()
+            samples.record(decoded)
+            _metrics.value = decoded
             // First real frame is the only honest signal that the link is live.
             if (_connectionState.value != ConnectionState.Connected) {
                 _connectionState.value = ConnectionState.Connected

@@ -45,7 +45,7 @@ class UpdateRepositoryTest {
         }
     }
 
-    // The repository's hardcoded endpoint (kept in sync with UpdateRepository.LATEST_RELEASE_URL).
+    // Default upstream build endpoint; the fork supplies its own through BuildConfig.
     private val latestReleaseUrl = "https://api.github.com/repos/digitalducktape/openride/releases/latest"
     private val apkUrl = "https://github.com/digitalducktape/openride/releases/download/v0.7.0/openride-real-7.apk"
     private val releaseBody =
@@ -56,6 +56,15 @@ class UpdateRepositoryTest {
         context = ApplicationProvider.getApplicationContext()
         File(context.cacheDir, "updates").deleteRecursively()
         FileProviderCache.clear()
+    }
+
+    @Test
+    fun `fork checks only its configured release channel`() = runTest {
+        val fork = "https://api.github.com/repos/kbokarius/OpenRide/releases/latest"
+        val fetcher = FakeFetcher().apply { respond(fork, releaseBody.replace("openride-real-7", "openride-neon-7")) }
+        val result = UpdateRepository(context, fetcher, latestReleaseUrl = fork).check(1, "neon")
+        assertTrue(result is UpdateCheckResult.Available)
+        assertEquals(listOf(fork), fetcher.requested)
     }
 
     @Test

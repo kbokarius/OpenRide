@@ -62,7 +62,7 @@ class GameBridgeTest {
         val frame = bridge.inputFrame()
 
         assertArrayEquals(
-            doubleArrayOf(1.0, 85.0, 160.0, 35.0, 16.0, 128.0, 0.0, 0.0, 0.0, 0.0, 33.0, 1.0, 0.0),
+            doubleArrayOf(1.0, 85.0, 160.0, 35.0, 16.0, 128.0, 0.0, 0.0, 0.0, 0.0, 33.0, 1.0, 0.0, Long.MAX_VALUE.toDouble(), 0.0, -1.0),
             frame,
             0.0,
         )

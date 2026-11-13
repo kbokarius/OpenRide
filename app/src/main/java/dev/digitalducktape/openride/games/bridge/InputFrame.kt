@@ -51,7 +51,11 @@ object InputFrame {
     /** Added after v1, at the end so the version stays 1: Godot reads it only when present. */
     const val RIDER_MUSIC = 12
 
-    const val SIZE = 13
+    /** Optional NEON VECTOR extension; original v1 indices remain unchanged. */
+    const val SAMPLE_AGE_MS = 13
+    const val SAMPLE_SEQUENCE = 14
+    const val COURSE_ELAPSED_MS = 15
+    const val SIZE = 16
 
     /** [HEART_RATE] when no strap is connected. */
     const val NO_HEART_RATE = -1.0
@@ -63,6 +67,9 @@ object InputFrame {
         tracker: TrackerReading,
         segmentTimeLeftSec: Double,
         riderMusic: Boolean = false,
+        sampleAgeMs: Long = Long.MAX_VALUE,
+        sampleSequence: Long = 0L,
+        courseElapsedMs: Long = -1L,
     ): DoubleArray = DoubleArray(SIZE).apply {
         this[VERSION_INDEX] = VERSION.toDouble()
         this[CADENCE] = metrics.cadenceRpm.toDouble()
@@ -77,5 +84,8 @@ object InputFrame {
         this[SEGMENT_TIME_LEFT] = segmentTimeLeftSec
         this[SENSORS_OK] = if (sensorsOk) 1.0 else 0.0
         this[RIDER_MUSIC] = if (riderMusic) 1.0 else 0.0
+        this[SAMPLE_AGE_MS] = sampleAgeMs.toDouble()
+        this[SAMPLE_SEQUENCE] = sampleSequence.toDouble()
+        this[COURSE_ELAPSED_MS] = courseElapsedMs.toDouble()
     }
 }

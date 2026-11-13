@@ -11,7 +11,8 @@ static var _mask: Shader
 
 
 static func card_path(game_id: String) -> String:
-	return "res://games/%s/hub_card.png" % game_id
+	var vector := "res://games/%s/hub_card.svg" % game_id
+	return vector if ResourceLoader.exists(vector) else "res://games/%s/hub_card.png" % game_id
 
 
 static func has_card(game_id: String) -> bool:

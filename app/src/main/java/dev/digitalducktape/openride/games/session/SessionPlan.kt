@@ -1,5 +1,6 @@
 package dev.digitalducktape.openride.games.session
 
+import dev.digitalducktape.openride.games.bridge.NeonSettings
 import dev.digitalducktape.openride.games.bridge.Difficulty
 import dev.digitalducktape.openride.games.bridge.EndMode
 import dev.digitalducktape.openride.games.bridge.PlanRejectReason
@@ -143,7 +144,7 @@ sealed interface SessionRequest {
     val difficulty: Difficulty
 
     @Serializable @SerialName("just_ride")
-    data class JustRide(val gameId: String, val mode: JustRideMode, override val difficulty: Difficulty = Difficulty.STANDARD) :
+    data class JustRide(val gameId: String, val mode: JustRideMode, override val difficulty: Difficulty = Difficulty.STANDARD, val neon: NeonSettings? = null) :
         SessionRequest
 
     /**
@@ -208,7 +209,8 @@ fun PlanRequestMessage.toSessionRequest(cameraGames: Boolean, catalog: GameCatal
             game == null -> RequestMapping.Rejected(PlanRejectReason.UNKNOWN_GAME)
             mode == null || mode.second !in game.supports -> RequestMapping.Rejected(PlanRejectReason.UNSUPPORTED_MODE)
             game.usesCamera && !cameraGames -> RequestMapping.Rejected(PlanRejectReason.CAMERA_UNAVAILABLE)
-            else -> RequestMapping.Ok(SessionRequest.JustRide(game.id, mode.first, difficulty))
+            game.id == "neon_vector" && (neon == null || !neon.valid() || this.mode != "minutes" || length != neon.minutes) -> RequestMapping.Rejected(PlanRejectReason.UNSUPPORTED_MODE)
+            else -> RequestMapping.Ok(SessionRequest.JustRide(game.id, mode.first, if (game.id == "neon_vector") Difficulty.STANDARD else difficulty, neon))
         }
     }
     PlanRequestKind.CIRCUIT ->
@@ -430,6 +432,7 @@ object SessionPlans {
     /** Why [slots] can't be played as a custom circuit, or null if they can. */
     fun customProblem(slots: List<CustomSlot>, catalog: GameCatalog, cameraGames: Boolean = true): PlanRejectReason? {
         if (slots.isEmpty()) return PlanRejectReason.EMPTY_CIRCUIT
+        if (slots.any { it.gameId == "neon_vector" }) return PlanRejectReason.UNSUPPORTED_MODE
         if (slots.size > CUSTOM_MAX_SLOTS) return PlanRejectReason.TOO_LONG
         val games = slots.map { catalog[it.gameId] ?: return PlanRejectReason.UNKNOWN_GAME }
         if (slots.zip(games).sumOf { (slot, game) -> customSeconds(game, slot.durationSec) } > CUSTOM_MAX_SEC) {
@@ -505,7 +508,15 @@ object SessionPlans {
      */
     fun forRequest(request: SessionRequest, ftp: FtpBasis, catalog: GameCatalog, circuitSeed: Long = 0L): SessionPlan? = when (request) {
         is SessionRequest.JustRide -> catalog[request.gameId]?.let { game ->
-            runCatching { justRide(game, request.mode, request.difficulty, ftp) }.getOrNull()
+            runCatching {
+                if (game.id == "neon_vector") {
+                    val settings = requireNotNull(request.neon)
+                    require(settings.valid())
+                    val plan = justRide(game, JustRideMode.Timed(settings.minutes), Difficulty.STANDARD, ftp)
+                    plan.copy(planId = settings.planId(), introSec = 3,
+                        segments = plan.segments.map { it.copy(params = settings.params(), effort = false) })
+                } else justRide(game, request.mode, request.difficulty, ftp)
+            }.getOrNull()
         }
         is SessionRequest.Circuit -> CircuitPresets[request.presetId]?.let {
             circuit(it, request.difficulty, ftp, catalog, cameraGames = request.cameraGames, seed = circuitSeed)

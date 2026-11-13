@@ -20,7 +20,7 @@ class InputFrameTest {
         )
 
         assertArrayEquals(
-            doubleArrayOf(1.0, 92.0, 187.0, 41.0, 17.5, 143.0, -0.5, 0.25, 1.0, 3.0, 42.0, 1.0, 0.0),
+            doubleArrayOf(1.0, 92.0, 187.0, 41.0, 17.5, 143.0, -0.5, 0.25, 1.0, 3.0, 42.0, 1.0, 0.0, Long.MAX_VALUE.toDouble(), 0.0, -1.0),
             frame,
             0.0,
         )
@@ -41,7 +41,10 @@ class InputFrameTest {
         assertEquals(10, InputFrame.SEGMENT_TIME_LEFT)
         assertEquals(11, InputFrame.SENSORS_OK)
         assertEquals(12, InputFrame.RIDER_MUSIC)
-        assertEquals(13, InputFrame.SIZE)
+        assertEquals(13, InputFrame.SAMPLE_AGE_MS)
+        assertEquals(14, InputFrame.SAMPLE_SEQUENCE)
+        assertEquals(15, InputFrame.COURSE_ELAPSED_MS)
+        assertEquals(16, InputFrame.SIZE)
         assertEquals(1, InputFrame.VERSION)
     }
 

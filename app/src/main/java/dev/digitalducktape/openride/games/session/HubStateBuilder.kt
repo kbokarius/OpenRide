@@ -30,6 +30,7 @@ data class VisitResult(
     val stars: Int,
     val skipped: Boolean,
     val playedSec: Int = 0,
+    val recordEligible: Boolean = true,
 )
 
 /**
@@ -43,6 +44,7 @@ data class VisitPlan(
     val score: Double,
     val stars: Int,
     val gameIds: List<String>,
+    val recordEligible: Boolean = true,
 )
 
 /** Everything `hub_state` is built from. */
@@ -150,7 +152,7 @@ object HubStateBuilder {
             merged[key] = if (old == null) Triple(score, stars, plays) else Triple(maxOf(old.first, score), maxOf(old.second, stars), old.third + plays)
         }
         inputs.gameBests.forEach { add(GameKey(it.gameId, it.gamePlan, it.difficulty, it.variant), it.bestScore, it.bestStars, it.plays) }
-        inputs.visitResults.filterNot { it.skipped }.forEach { add(GameKey(it.gameId, it.planId, it.difficulty, it.variant), it.score, it.stars, 1) }
+        inputs.visitResults.filter { !it.skipped && it.recordEligible }.forEach { add(GameKey(it.gameId, it.planId, it.difficulty, it.variant), it.score, it.stars, 1) }
         return merged.entries
             .mapNotNull { (key, best) ->
                 difficultyOf(key.difficulty)?.let { HubGameBest(key.gameId, key.planId, it, key.variant, best.first, best.second, best.third) }
@@ -169,7 +171,7 @@ object HubStateBuilder {
         }
         inputs.planBests.forEach { row -> difficultyOf(row.difficulty)?.let { add(row.planId, it, row.bestScore, row.bestStars, row.lastPlayedMs) } }
         // This visit's runs aren't saved yet: they're the most recent of all.
-        inputs.visitPlans.forEach { add(it.planId, it.difficulty, it.score, it.stars, Long.MAX_VALUE) }
+        inputs.visitPlans.filter { it.recordEligible }.forEach { add(it.planId, it.difficulty, it.score, it.stars, Long.MAX_VALUE) }
         val presets = CircuitPresets.ALL.map { it.id }.toSet()
         val recentCustom = merged.entries
             .filter { it.key.first.startsWith(GameLabels.CUSTOM_PREFIX) }

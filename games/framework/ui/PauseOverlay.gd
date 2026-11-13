@@ -13,6 +13,7 @@ const LAYER := 30
 ## The kit's plain button colours by kind.
 const PLAIN_COLOURS := {GameTheme.GO: Color(0.16, 0.45, 0.3), GameTheme.DANGER: Color(0.45, 0.16, 0.2)}
 
+var _resume_button: Button
 var _paused_box: VBoxContainer
 var _confirm_box: VBoxContainer
 var _options_box: VBoxContainer
@@ -38,7 +39,8 @@ func _init() -> void:
 	add_child(shade)
 
 	_paused_box = _card("Paused", "Tap Resume to carry on.")
-	_paused_box.add_child(_button("Resume", func(): resume_pressed.emit(), GameTheme.GO))
+	_resume_button = _button("Resume", func(): resume_pressed.emit(), GameTheme.GO)
+	_paused_box.add_child(_resume_button)
 	_options_button = _button("Game options", show_options)
 	_options_button.visible = false
 	_paused_box.add_child(_options_button)
@@ -184,3 +186,11 @@ func _card(heading: String, line: String) -> VBoxContainer:
 	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(text)
 	return box
+
+
+func set_resume_status(reason: String, message := "Tap Resume to carry on.") -> void:
+	_resume_button.disabled = not reason.is_empty()
+	var label := _paused_box.get_child(1) as Label
+	label.text = reason if not reason.is_empty() else message
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.custom_minimum_size.x = 800

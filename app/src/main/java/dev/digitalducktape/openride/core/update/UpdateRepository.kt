@@ -1,5 +1,6 @@
 package dev.digitalducktape.openride.core.update
 
+import dev.digitalducktape.openride.BuildConfig
 import android.content.Context
 import android.content.Intent
 import dev.digitalducktape.openride.core.content.FeedFetcher
@@ -25,6 +26,7 @@ class UpdateRepository(
     private val context: Context,
     private val fetcher: FeedFetcher = HttpUrlFeedFetcher(),
     private val checker: UpdateChecker = UpdateChecker(),
+    private val latestReleaseUrl: String = BuildConfig.UPDATE_LATEST_RELEASE_URL,
 ) {
 
     /**
@@ -34,7 +36,7 @@ class UpdateRepository(
     suspend fun check(currentVersionCode: Int, assetInfix: String): UpdateCheckResult =
         withContext(Dispatchers.IO) {
             val body = try {
-                fetcher.fetch(LATEST_RELEASE_URL).use { it.bufferedReader().readText() }
+                fetcher.fetch(latestReleaseUrl).use { it.bufferedReader().readText() }
             } catch (e: Exception) {
                 return@withContext UpdateCheckResult.Failed("Couldn't reach GitHub releases")
             }
@@ -77,8 +79,5 @@ class UpdateRepository(
         const val UPDATES_DIR = "updates"
         const val APK_MIME_TYPE = "application/vnd.android.package-archive"
 
-        /** The public repo's latest-release endpoint. Unauthenticated — the repo must stay public. */
-        const val LATEST_RELEASE_URL =
-            "https://api.github.com/repos/digitalducktape/openride/releases/latest"
     }
 }

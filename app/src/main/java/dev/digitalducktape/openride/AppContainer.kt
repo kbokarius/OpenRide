@@ -36,6 +36,8 @@ import dev.digitalducktape.openride.core.data.MIGRATION_3_4
 import dev.digitalducktape.openride.core.data.MIGRATION_4_5
 import dev.digitalducktape.openride.core.data.MIGRATION_5_6
 import dev.digitalducktape.openride.core.data.MIGRATION_6_7
+import dev.digitalducktape.openride.core.data.MIGRATION_8_9
+import dev.digitalducktape.openride.games.bridge.NeonRecords
 import dev.digitalducktape.openride.core.data.MIGRATION_7_8
 import dev.digitalducktape.openride.core.data.OpenRideDatabase
 import dev.digitalducktape.openride.core.data.ProfileHeadCalibrationStore
@@ -108,7 +110,7 @@ class AppContainer(private val applicationContext: Context) {
             applicationContext,
             OpenRideDatabase::class.java,
             OpenRideDatabase.DATABASE_NAME,
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build()
     }
 
     /** Rider avatar photos on disk (camera capture feature); paths live on [dev.digitalducktape.openride.core.data.Profile.avatarPhotoPath]. */
@@ -137,7 +139,7 @@ class AppContainer(private val applicationContext: Context) {
 
     /** Whole-database backup/restore to one shareable file (PRD P1-8, T15). */
     val backupRepository: BackupRepository by lazy {
-        BackupRepository(database, database.profileDao(), database.rideDao(), avatarPhotoStore, database.gameResultDao())
+        BackupRepository(database, database.profileDao(), database.rideDao(), avatarPhotoStore, database.gameResultDao(), database.neonAttemptDao())
     }
 
     /**
@@ -155,7 +157,8 @@ class AppContainer(private val applicationContext: Context) {
                 database.rideDao().observeRideCount(),
                 // A game session saves its results just after its ride.
                 database.gameResultDao().observeCount(),
-            ) { profiles, rideCount, resultCount -> Triple(profiles, rideCount, resultCount) },
+                database.neonAttemptDao().observeFinalCount(),
+            ) { profiles, rideCount, resultCount, neonCount -> listOf(profiles, rideCount, resultCount, neonCount) },
             isDatabaseEmpty = {
                 database.profileDao().getAllOnce().isEmpty() && database.rideDao().getAllRidesOnce().isEmpty()
             },
@@ -289,6 +292,7 @@ class AppContainer(private val applicationContext: Context) {
             trackerReading = { headTracker.state.value.toTrackerReading() },
             riderMusic = { riderMusic.value },
             musicControl = { NowPlayingFeed.control(nowPlaying, it) },
+            neonRecords = NeonRecords(database.neonAttemptDao(), containerScope, { activeProfileHolder.activeProfileId.value }),
         ).also { bridge ->
             // The hub's music card: the rider's track, sent as it changes.
             NowPlayingFeed(applicationContext, nowPlaying, bridge::publishNowPlaying, containerScope)

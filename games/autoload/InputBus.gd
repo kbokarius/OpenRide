@@ -27,6 +27,9 @@ const I_TRACKER_STATE := 9
 const I_SEGMENT_TIME_LEFT := 10
 const I_SENSORS_OK := 11
 const I_RIDER_MUSIC := 12  ## added after v1; read only when the frame has it
+const I_SAMPLE_AGE_MS := 13
+const I_SAMPLE_SEQUENCE := 14
+const I_COURSE_ELAPSED_MS := 15
 const FRAME_SIZE := 12  ## the fields every v1 frame has
 
 ## tracker_state values.
@@ -51,6 +54,12 @@ var sensors_ok := false
 ## The rider's own music app has a track (the app's mini player): AudioDirector keeps game
 ## music off meanwhile. M toggles it in the keyboard simulator.
 var rider_music := false
+var _neon_fresh_since := -1
+var sample_age_ms := 2147483647.0
+var sample_sequence := 0
+var course_elapsed_ms := -1.0
+var _neon_local := NeonLocalInput.new()
+var _sim_neon_sensors := true  ## N toggles a real silence in desktop NEON VECTOR playtests
 ## The latest raw frame, for debugging.
 var frame := PackedFloat64Array()
 
@@ -104,7 +113,32 @@ func _process(delta: float) -> void:
 	segment_time_left = f[I_SEGMENT_TIME_LEFT]
 	sensors_ok = f[I_SENSORS_OK] > 0.5
 	rider_music = f.size() > I_RIDER_MUSIC and f[I_RIDER_MUSIC] > 0.5
+	if _bridge == null:
+		_neon_local.record(Time.get_ticks_msec(), cadence, power, resistance, _sim_neon_sensors)
+		sample_age_ms = Time.get_ticks_msec() - int(_neon_local.samples[-1].received_ms) if not _neon_local.samples.is_empty() else 2147483647.0
+		sample_sequence = _neon_local.sequence
+		if _neon_local.active:
+			course_elapsed_ms = mini(_neon_local.duration, Time.get_ticks_msec() - _neon_local.origin) if _neon_local.running else _neon_local.acknowledged
+			segment_time_left = maxf(0, (_neon_local.duration - course_elapsed_ms) / 1000.0)
+	else:
+		sample_age_ms = f[I_SAMPLE_AGE_MS] if f.size() > I_SAMPLE_AGE_MS else 2147483647.0
+		sample_sequence = int(f[I_SAMPLE_SEQUENCE]) if f.size() > I_SAMPLE_SEQUENCE else 0
+		course_elapsed_ms = f[I_COURSE_ELAPSED_MS] if f.size() > I_COURSE_ELAPSED_MS else -1.0
+	if sample_age_ms <= 1500 and sensors_ok:
+		if _neon_fresh_since < 0:
+			_neon_fresh_since = Time.get_ticks_msec()
+	else:
+		_neon_fresh_since = -1
 	frame_updated.emit()
+
+
+func neon_batch(after_sequence: int) -> Dictionary:
+	if _bridge == null:
+		return _neon_local.batch(after_sequence, Time.get_ticks_msec())
+	if not _bridge.has_java_method("get_lane_ride_input_batch"):
+		return {"fresh": false, "running": false, "pause_reason": "bridge_missing", "samples": []}
+	var value: Variant = JSON.parse_string(_bridge.get_lane_ride_input_batch(after_sequence))
+	return value if value is Dictionary else {"fresh": false, "running": false, "pause_reason": "bridge_invalid", "samples": []}
 
 
 func _input(event: InputEvent) -> void:
@@ -112,6 +146,9 @@ func _input(event: InputEvent) -> void:
 		return
 	if event.keycode == KEY_SPACE:
 		_sim_standing = not _sim_standing
+		get_viewport().set_input_as_handled()
+	elif event.keycode == KEY_N:
+		_sim_neon_sensors = not _sim_neon_sensors
 		get_viewport().set_input_as_handled()
 	elif event.keycode == KEY_M:
 		_sim_rider_music = not _sim_rider_music
@@ -170,3 +207,7 @@ func _key_axis(negative: Array, positive: Array) -> float:
 			value += 1.0
 			break
 	return value
+
+
+func neon_resume_ready() -> bool:
+	return _neon_fresh_since >= 0 and Time.get_ticks_msec() - _neon_fresh_since >= 1000 and sample_age_ms <= 1500 and sensors_ok

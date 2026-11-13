@@ -1,5 +1,6 @@
 package dev.digitalducktape.openride.core.backup
 
+import dev.digitalducktape.openride.core.data.NeonAttempt
 import dev.digitalducktape.openride.core.data.GameResult
 import dev.digitalducktape.openride.core.data.Profile
 import dev.digitalducktape.openride.core.data.Ride
@@ -90,15 +91,16 @@ data class GameResultBackup(
     /** Added with schema 8 (the Games hub); older backups read as null (the ride's plan) and 0. */
     val planId: String? = null,
     val planRun: Int = 0,
+    val recordEligible: Boolean = true,
 )
 
 fun GameResult.toBackup() = GameResultBackup(
     rideId, segmentIndex, gameId, role, difficulty, startSec, durationSec, score, stars, won, skipped, statsJson, variant,
-    planId, planRun,
+    planId, planRun, recordEligible,
 )
 fun GameResultBackup.toEntity() = GameResult(
     rideId, segmentIndex, gameId, role, difficulty, startSec, durationSec, score, stars, won, skipped, statsJson, variant,
-    planId, planRun,
+    planId, planRun, recordEligible,
 )
 
 fun RideSample.toBackup() = RideSampleBackup(rideId, tSec, cadence, resistance, power, heartRateBpm)
@@ -118,6 +120,7 @@ data class BackupSnapshot(
     val samples: List<RideSampleBackup>,
     /** Mini-games results (#35). Absent from older files, which read as none. */
     val gameResults: List<GameResultBackup> = emptyList(),
+    val neonAttempts: List<NeonAttempt> = emptyList(),
 ) {
     companion object {
         const val CURRENT_VERSION = 1

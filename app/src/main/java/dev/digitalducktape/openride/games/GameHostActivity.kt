@@ -137,6 +137,13 @@ class GameHostActivity : GodotActivity(), GameLoadingHost {
         startSession(intent)
     }
 
+    override fun onPause() {
+        // Freeze the course before Godot's view stops rendering (Home, lock screen, app switch).
+        // Return through the normal explicit Resume flow; never score background wall time.
+        if (bridge.neonTimeline.snapshot().active) bridge.requestPause()
+        super.onPause()
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         // Same kiosk full-screen as MainActivity: the bike's navigation bar otherwise stays

@@ -290,6 +290,18 @@ func show_summary(summary: Dictionary, plan: Dictionary, looks: Dictionary = {})
 	_stars_note.visible = single and (lit == 0 or results.is_empty())
 	_stars_note.text = "No games finished this time." if results.is_empty() else "No stars this time. Next ride!"
 
+	if single and first_id == "neon_vector" and results.is_empty():
+		_title.text = "Ride interrupted"
+		_stars_note.text = "No completed result. Check Style & history for your saved attempt."
+	elif single and first_id == "neon_vector":
+		var neon: Dictionary = results[0].get("stats", {}).get("neon", {})
+		if neon.get("status", "interrupted") != "completed":
+			_title.text = "Ride interrupted" if neon.get("status", "") == "interrupted" else "Ride ended early"
+			_stars_note.visible = true
+			_stars_note.text = "Partial ride saved. Complete a course to earn stars and records."
+		_kicker.text = "%s · %s · %d W" % [str(neon.get("title", "NEON VECTOR")), str(neon.get("difficulty", "")).capitalize(), int(neon.get("referencePower", 150))]
+		if neon.get("courseId", "") == "tutorial":
+			_kicker.text = "FIRST CONTACT · PRACTICE"
 	var extra := _stat_tiles(first_info, results) if single else []
 	# A game's stat tiles share one row with points and time: a second row pushed Done off the
 	# screen with the no-stars note and a best showing (seen on the bike).

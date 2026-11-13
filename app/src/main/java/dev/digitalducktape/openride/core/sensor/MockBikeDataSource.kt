@@ -39,6 +39,8 @@ class MockBikeDataSource(
     private val random: Random = Random.Default,
 ) : BikeDataSource {
 
+    override val samples = BikeSampleBuffer()
+
     private val _metrics = MutableStateFlow(BikeMetrics.ZERO)
     override val metrics: StateFlow<BikeMetrics> = _metrics.asStateFlow()
 
@@ -61,7 +63,9 @@ class MockBikeDataSource(
             delay(TICK_INTERVAL_MS)
             elapsedSec++
             if (elapsedSec < silentUntilSec) continue
-            _metrics.value = computeMetrics(elapsedSec)
+            val decoded = computeMetrics(elapsedSec)
+            samples.record(decoded)
+            _metrics.value = decoded
             framesReceived++
         }
     }

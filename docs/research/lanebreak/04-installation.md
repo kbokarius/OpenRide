@@ -53,9 +53,9 @@ Upstream's [installation guide](../../INSTALL.md) recommends blocking Peloton up
 
 Open **Profile → App updates → Check for updates**, then **Download**, then **Install**, and confirm Android's installer. Android may first require permission for OpenRide to **install unknown apps**. The app does not silently install updates. Alternatively reinstall the latest upstream APK through OpenPelo. Source: [upstream update guide](../../INSTALL.md#in-app-updates-t22--22).
 
-## Installing a future custom game build
+## Installing the custom game build
 
-Use **Install local APK** in OpenPelo and choose the custom app file we produce. This has not been built yet. The recommended distribution design is:
+Implementation update: the fork now supplies a separate **NEON VECTOR** build. Use **Install local APK** in OpenPelo; see the current [game and installation guide](../../NEON_VECTOR.md). The implemented distribution design is:
 
 1. A distinct application ID and visible name for the experimental fork, so it can coexist with upstream.
 2. A dedicated signing key kept outside Git and backed up securely. Reuse it for every update.
@@ -63,14 +63,14 @@ Use **Install local APK** in OpenPelo and choose the custom app file we produce.
 4. A real-sensor build configuration, not ordinary mock debug.
 5. A manual local-APK install for the first trial, then optional updates from releases in this fork.
 
-The current updater is hardcoded to `https://api.github.com/repos/digitalducktape/openride/releases/latest` in [UpdateRepository](../../../app/src/main/java/dev/digitalducktape/openride/core/update/UpdateRepository.kt). It expects `openride-real-<versionCode>.apk` for the real build. The GitHub fork alone changes none of this. The current `debugReal` variant is a debug-derived build; release signing and real-sensor configuration need deliberate setup.
+At the original research snapshot, the updater was hardcoded to `https://api.github.com/repos/digitalducktape/openride/releases/latest` in [UpdateRepository](../../../app/src/main/java/dev/digitalducktape/openride/core/update/UpdateRepository.kt). It expects `openride-real-<versionCode>.apk` for the real build. The `neonReal` build now overrides the endpoint to `kbokarius/OpenRide`, selects the `neon` asset, enables real sensors and uses dedicated signing. Upstream build variants retain their own update configuration.
 
 Android normally refuses to update an installed package with a differently signed APK. A local build does not automatically share the maintainer's signing key. Do not uninstall upstream just to work around that error: uninstalling removes its app data. Prefer a separate app, then explicitly transfer a backup if wanted. Sources: [Android app signing](https://developer.android.com/studio/publish/app-signing), [ADB install options](https://developer.android.com/tools/adb).
 
 ## Backups and rollback
 
 - Export a backup from **Profile → Backup & restore** and copy it off the tablet before app replacement or any reset.
-- Current backups include profiles, rides, samples and game results. Custom content sources are excluded; app preferences/circuits are not guaranteed by this backup format. See [BackupRepository](../../../app/src/main/java/dev/digitalducktape/openride/core/backup/BackupRepository.kt).
+- Fork backups include profiles, rides, samples, game results and NEON attempts/course snapshots/ghosts. Custom content sources are excluded; app preferences/circuits are not guaranteed by this backup format. See [BackupRepository](../../../app/src/main/java/dev/digitalducktape/openride/core/backup/BackupRepository.kt).
 - To return to the prior home app, turn off OpenRide's Home screen setting. Restore any Peloton components or update settings separately if they were changed.
-- A future fork installed separately can be removed after backing up its own data without overwriting upstream's data.
+- The fork installed separately can be removed after backing up its own data without overwriting upstream's data.
 - No subscription cancellation, firmware update, reset, component disabling, or installation was performed during research.

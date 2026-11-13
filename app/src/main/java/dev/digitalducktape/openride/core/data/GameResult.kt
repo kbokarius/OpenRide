@@ -62,4 +62,5 @@ data class GameResult(
     @ColumnInfo(defaultValue = "") val variant: String = "",
     val planId: String? = null,
     @ColumnInfo(defaultValue = "0") val planRun: Int = 0,
+    @ColumnInfo(defaultValue = "1") val recordEligible: Boolean = true,
 )

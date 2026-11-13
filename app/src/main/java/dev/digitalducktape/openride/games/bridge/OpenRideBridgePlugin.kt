@@ -31,6 +31,18 @@ class OpenRideBridgePlugin(godot: Godot, private val bridge: GameBridge) : Godot
     fun get_input_frame(): DoubleArray = bridge.inputFrame()
 
     @UsedByGodot
+    fun get_lane_ride_input_batch(afterSequence: Long): String = bridge.neonInputBatch(afterSequence)
+
+    @UsedByGodot
+    fun neon_records_request(json: String): Long = bridge.neonRecordsRequest(json)
+
+    @UsedByGodot
+    fun neon_records_reply(ticket: Long): String = bridge.neonRecordsReply(ticket)
+
+    @UsedByGodot
+    fun neon_control(action: String, processedMs: Long, durationMs: Long) = bridge.neonControl(action, processedMs, durationMs)
+
+    @UsedByGodot
     fun segment_finished(resultJson: String) = bridge.segmentFinished(resultJson)
 
     @UsedByGodot

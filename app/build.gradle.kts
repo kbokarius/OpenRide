@@ -10,6 +10,10 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Optional private signing properties, kept outside the repository.
+val neonSigningPath = providers.environmentVariable("NEON_SIGNING_PROPERTIES").orNull
+val neonSigning = neonSigningPath?.let { Properties().apply { file(it).inputStream().use(::load) } }
+
 android {
     namespace = "dev.digitalducktape.openride"
     compileSdk = 34
@@ -36,6 +40,18 @@ android {
         // dev build never offers to install the real bike APK over itself. Only the `real`
         // asset is published, so the mock build simply finds nothing and stays quiet.
         buildConfigField("String", "UPDATE_APK_ASSET_INFIX", "\"mock\"")
+        buildConfigField("String", "UPDATE_LATEST_RELEASE_URL", "\"https://api.github.com/repos/digitalducktape/openride/releases/latest\"")
+    }
+
+    signingConfigs {
+        if (neonSigning != null) {
+            create("neon") {
+                storeFile = file(neonSigning.getProperty("storeFile"))
+                storePassword = neonSigning.getProperty("storePassword")
+                keyAlias = neonSigning.getProperty("keyAlias")
+                keyPassword = neonSigning.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -73,6 +89,20 @@ android {
                 abiFilters.clear()
                 abiFilters += "arm64-v8a"
             }
+        }
+
+        // The fork's real-bike build is a separate app, signed with a durable local key.
+        // Without NEON_SIGNING_PROPERTIES Gradle produces an unsigned artifact deliberately.
+        create("neonReal") {
+            initWith(getByName("debugReal"))
+            applicationIdSuffix = ".neon"
+            versionNameSuffix = "-neon-vector.1"
+            isDebuggable = false
+            signingConfig = signingConfigs.findByName("neon")
+            resValue("string", "app_name", "NEON VECTOR")
+            buildConfigField("String", "UPDATE_APK_ASSET_INFIX", "\"neon\"")
+            buildConfigField("String", "UPDATE_LATEST_RELEASE_URL", "\"https://api.github.com/repos/kbokarius/OpenRide/releases/latest\"")
+            matchingFallbacks += listOf("debugReal", "debug")
         }
     }
 

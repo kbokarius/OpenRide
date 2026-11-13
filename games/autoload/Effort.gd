@@ -86,3 +86,13 @@ func _process(delta: float) -> void:
 	else:
 		# Keep the badge truthful while frozen, without counting the time.
 		_meter.multiplier = EffortMeter.multiplier_for(InputBus.resistance, InputBus.cadence, _meter.enabled)
+
+
+## Exact deterministic total for games with their own fixed-point scoring. No multiplier bypass.
+func set_unmultiplied_total(points: float) -> void:
+	if enabled or not is_scoring() or not is_finite(points) or points < _meter.score:
+		return
+	var gained := points - _meter.score
+	_meter.score = points
+	if gained > 0:
+		awarded.emit(gained)

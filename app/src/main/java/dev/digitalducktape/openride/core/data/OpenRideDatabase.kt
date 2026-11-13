@@ -7,8 +7,8 @@ import dev.digitalducktape.openride.core.content.ContentSource
 import dev.digitalducktape.openride.core.content.ContentSourceDao
 
 @Database(
-    entities = [Profile::class, Ride::class, RideSample::class, ContentSource::class, GameResult::class],
-    version = 8,
+    entities = [Profile::class, Ride::class, RideSample::class, ContentSource::class, GameResult::class, NeonAttempt::class],
+    version = 9,
     exportSchema = true,
 )
 abstract class OpenRideDatabase : RoomDatabase() {
@@ -16,6 +16,7 @@ abstract class OpenRideDatabase : RoomDatabase() {
     abstract fun rideDao(): RideDao
     abstract fun contentSourceDao(): ContentSourceDao
     abstract fun gameResultDao(): GameResultDao
+    abstract fun neonAttemptDao(): NeonAttemptDao
 
     companion object {
         const val DATABASE_NAME = "openride.db"
@@ -132,5 +133,18 @@ val MIGRATION_7_8 = object : androidx.room.migration.Migration(7, 8) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE game_results ADD COLUMN planId TEXT")
         db.execSQL("ALTER TABLE game_results ADD COLUMN planRun INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** NEON VECTOR durable attempts and explicit record eligibility, additive to all existing rides. */
+val MIGRATION_8_9 = object : androidx.room.migration.Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE game_results ADD COLUMN recordEligible INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `neon_attempts` (`attemptId` TEXT NOT NULL, `profileId` INTEGER, " +
+            "`comparisonKey` TEXT NOT NULL, `courseId` TEXT NOT NULL, `status` TEXT NOT NULL, " +
+            "`scoreUnits` INTEGER NOT NULL, `elapsedMs` INTEGER NOT NULL, `updatedMs` INTEGER NOT NULL, " +
+            "`payloadJson` TEXT NOT NULL, PRIMARY KEY(`attemptId`), FOREIGN KEY(`profileId`) REFERENCES `profiles`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_neon_attempts_profileId` ON `neon_attempts` (`profileId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_neon_attempts_profileId_comparisonKey` ON `neon_attempts` (`profileId`, `comparisonKey`)")
     }
 }

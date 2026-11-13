@@ -509,9 +509,16 @@ class GameCatalog(games: List<GameDeclaration>) {
         /** Kart Race's bots (eight racers, the rider included). */
         private const val KART_BOTS = 7
 
+        val NEON_VECTOR = GameDeclaration(
+            id = "neon_vector", title = "NEON VECTOR", supports = setOf(JustRideSupport.MINUTES),
+            minSec = 300, maxSec = 1800, timedEndMode = EndMode.GAME,
+            // A complete authored ride. Never inserted into shuffled mini-game circuits.
+            effortInJustRide = false,
+        )
+
         /** Every registered game. Each game issue adds its declaration here. */
         val DEFAULT = GameCatalog(
-            listOf(DEMO, DODGE_BALL, TUG_OF_WAR, SAFE_CRACKER, CADENCE_KARAOKE, KART_RACE, WATT_LANE, THE_PULL, BALLOON_PUMP, KEEPY_UPPY, POWER_GRID, READY_FOR_LAUNCH, GATE_CRASHER),
+            listOf(DEMO, NEON_VECTOR, DODGE_BALL, TUG_OF_WAR, SAFE_CRACKER, CADENCE_KARAOKE, KART_RACE, WATT_LANE, THE_PULL, BALLOON_PUMP, KEEPY_UPPY, POWER_GRID, READY_FOR_LAUNCH, GATE_CRASHER),
         )
     }
 }

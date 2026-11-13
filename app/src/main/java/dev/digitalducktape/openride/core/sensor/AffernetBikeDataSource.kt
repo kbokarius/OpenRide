@@ -66,6 +66,8 @@ class AffernetBikeDataSource(
     )
 
     private val _metrics = MutableStateFlow(BikeMetrics.ZERO)
+    @Volatile private var activeSource: BoundBikeDataSource? = null
+    override val samples: BikeSampleBuffer? get() = activeSource?.samples
     override val metrics: StateFlow<BikeMetrics> = _metrics.asStateFlow()
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Unavailable)
@@ -105,6 +107,7 @@ class AffernetBikeDataSource(
         v1.stop()
         bikeInterface.stop()
         activePath = null
+        activeSource = null
         _connectionState.value = ConnectionState.Unavailable
     }
 
@@ -127,6 +130,7 @@ class AffernetBikeDataSource(
     }
 
     private fun adopt(winner: BoundBikeDataSource, path: String, loser: BoundBikeDataSource) {
+        activeSource = winner
         activePath = path
         // The single most useful line in a field bug report: which binder this board feeds.
         Log.i(TAG, "sensor path adopted: $path (releasing the other binding)")

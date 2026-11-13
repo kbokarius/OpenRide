@@ -1,0 +1,108 @@
+extends GdUnitTestSuite
+
+
+func _course(events: Array, duration: int = 20000) -> Dictionary:
+	return {"schemaVersion": 1, "courseId": "test", "courseVersion": 1, "title": "Test",
+		"family": "test", "durationMs": duration, "phases": [{"name": "Ride", "startMs": 0, "endMs": duration}], "events": events}
+
+
+func _event(kind: String, start: int, end: int, lane: int = 2) -> Dictionary:
+	return {"eventId": "%s-%s" % [kind, start], "type": kind, "startMs": start, "endMs": end,
+		"laneIndex": lane, "hitMs": start + 250 if kind == "pickup" else start,
+		"cadenceMin": 70, "cadenceMax": 90, "ratio100": 0.6, "ratio200": 1.0}
+
+
+func _run(rules: NeonRules, end: int, cadence: int = 80, watts: int = 150, resistance: int = 41, fps: int = 60) -> void:
+	# Samples are produced at 20 Hz independently of render cadence.
+	var next_sample: int = rules.elapsed_ms
+	var target: int = rules.elapsed_ms
+	while target < end and rules.pause_reason.is_empty():
+		target = mini(end, target + maxi(1, roundi(1000.0 / fps)))
+		while next_sample < target:
+			rules.push_sample({"t": next_sample, "seq": next_sample + 1, "cadence": cadence, "power": watts, "resistance": resistance})
+			next_sample += 50
+		rules.advance(target)
+
+
+func test_all_resistance_boundaries_and_outside_are_exact() -> void:
+	for tier in NeonRules.TIERS:
+		var lo: int = NeonRules.TIERS[tier]
+		assert_int(NeonRules.lane_for(lo - 1, tier)).is_equal(-1)
+		assert_int(NeonRules.lane_for(lo + 42, tier)).is_equal(-1)
+		for lane in 6:
+			for r in range(lo + lane * 7, lo + lane * 7 + 7):
+				assert_int(NeonRules.lane_for(r, tier)).is_equal(lane)
+
+
+func test_pickup_is_once_and_requires_settled_lane() -> void:
+	var r := NeonRules.new()
+	assert_array(r.configure(_course([_event("pickup", 1000, 1510)]), "intermediate", 150)).is_empty()
+	_run(r, 2000)
+	assert_int(r.score_units).is_equal(140 * NeonRules.UNIT)
+	_run(r, 3000)
+	assert_int(r.score_units).is_equal(140 * NeonRules.UNIT)
+
+
+func test_hold_inclusive_cadence_and_zero_pedalling() -> void:
+	for rpm in [0, 19, 69, 70, 90, 91]:
+		var r := NeonRules.new()
+		r.configure(_course([_event("hold", 1000, 2000)]), "intermediate", 150)
+		_run(r, 2500, rpm)
+		assert_int(r.score_units).is_equal(10 * NeonRules.UNIT if rpm in [70, 90] else 0)
+
+
+func test_charge_reference_examples_and_cadence_ceiling() -> void:
+	for pair in [[45, 50], [90, 100], [150, 150], [300, 150]]:
+		var r := NeonRules.new()
+		r.configure(_course([_event("charge", 1000, 11000)]), "intermediate", 150)
+		_run(r, 11500, 80, pair[0])
+		assert_int(r.score_units).is_equal(pair[1] * NeonRules.UNIT)
+	var fast := NeonRules.new()
+	fast.configure(_course([_event("charge", 1000, 11000)]), "intermediate", 150)
+	_run(fast, 11500, 121)
+	assert_int(fast.score_units).is_zero()
+
+
+func test_same_trace_at_different_frame_rates_is_exact() -> void:
+	var scores: Array[int] = []
+	for fps in [30, 60, 120]:
+		var r := NeonRules.new()
+		r.configure(_course([_event("hold", 1000, 4000), _event("charge", 8000, 18000)]), "intermediate", 157)
+		_run(r, 20000, 83, 113, 41, fps)
+		scores.append(r.score_units)
+	assert_int(scores[0]).is_equal(scores[1])
+	assert_int(scores[1]).is_equal(scores[2])
+
+
+func test_stale_unchanged_sample_freezes_and_cannot_catch_up() -> void:
+	var r := NeonRules.new()
+	r.configure(_course([_event("hold", 1000, 10000)]), "intermediate", 150)
+	r.push_sample({"t": 0, "seq": 1, "cadence": 80, "power": 100, "resistance": 41})
+	r.advance(5000)
+	assert_str(r.pause_reason).is_equal("sensor")
+	assert_int(r.elapsed_ms).is_equal(1510)
+	var frozen := r.score_units
+	r.advance(10000)
+	assert_int(r.score_units).is_equal(frozen)
+
+
+func test_invalid_power_setting_and_incomplete_stars() -> void:
+	for power in [0.0, -1.0, NAN, INF]:
+		var r := NeonRules.new()
+		assert_array(r.configure(_course([]), "beginner", power)).is_not_empty()
+	var r := NeonRules.new()
+	r.configure(_course([_event("hold", 1000, 2000)]), "intermediate", 150)
+	_run(r, 2500)
+	assert_int(r.result("ended").stars).is_zero()
+
+
+func test_branch_locks_once_and_maximum_does_not_sum_alternatives() -> void:
+	var e := _event("hold", 1000, 2000, 0)
+	e["alternatives"] = [{"laneIndex": 0, "rewardPercent": 100}, {"laneIndex": 2, "rewardPercent": 125}]
+	var r := NeonRules.new()
+	r.configure(_course([e]), "intermediate", 150)
+	_run(r, 1500, 80, 100, 26)
+	_run(r, 2500, 80, 100, 41)
+	assert_int(r.max_units).is_equal(1250000)
+	assert_int(r.score_units).is_equal(500000)
+	assert_int(r.event_states[0].choice).is_zero()
