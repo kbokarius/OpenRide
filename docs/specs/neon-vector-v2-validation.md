@@ -34,6 +34,7 @@ Device: dedicated Android 11/API 30 ARM64 emulator, 1920×1080, 160 dpi, host GP
 - Replayed an existing revision-1 completed attempt. The original pickup rules, stored course and ghost remained available after the update.
 - Started the new revision-2 practice course through the real Kotlin–Godot bridge, with course time and scoring advancing from synthetic sensor readings.
 - Tested a cold shader cache. An initial experiment exposed first-use shader compilation during gameplay, which correctly triggered the protective stall pause. All required material variants are now exercised during the intro. The final cold-start run spent 6.513 seconds compiling during INTRO, then entered PLAYING at approximately 60 fps without that protective pause. This initial wait depends on the GPU and cache state.
+- That cold-start run completed the full five-minute practice ride. After force-stop, SQLite inspection confirmed 300,000 active ms, 701.4 points, course/scoring version 2 and 3,000 saved ghost samples. The earlier version-1 completion retained its 794.6 points and 3,000 samples. `PRAGMA integrity_check` returned `ok`.
 
 Installing the real-sensor APK on an emulator verifies packaging and signature compatibility, not physical sensor operation. The mock app supplies the test sensor stream.
 
