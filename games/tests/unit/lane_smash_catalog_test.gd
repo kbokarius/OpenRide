@@ -179,3 +179,36 @@ func test_background_reacts_smoothly_to_cadence_and_resistance() -> void:
 	sky.update_environment("reactor", Color("5ba5df"), 140, 1, 1, true)
 	assert_float(sky.flow_time - before).is_less(slow)
 	sky.free()
+
+func test_all_tracks_change_lanes_frequently_with_short_holds_and_equal_effort_budgets() -> void:
+	for minutes in LaneSmashCatalog.LENGTHS:
+		var expected: Array = []
+		var ids: Array = LaneSmashCatalog.tracks(minutes).map(func(t): return t.id)
+		for seed_value in [1, 17, 12345, 2147483646]: ids.append(LaneSmashCatalog.random_id(minutes, seed_value))
+		for id: String in ids:
+			var course := LaneSmashCatalog.load_track(id)
+			var budgets := [0, 0, 0, 0]
+			var last_lane := -1
+			var lane_since := 0
+			var first_types := {}
+			var lanes := {}
+			for event: Dictionary in course.events:
+				var span := int(event.endMs) - int(event.startMs)
+				var lane := int(event.laneIndex)
+				lanes[lane] = true
+				if int(event.endMs) < 50000: first_types[event.type] = true
+				if lane != last_lane:
+					assert_int(int(event.startMs) - lane_since).override_failure_message(id).is_less_equal(21500)
+					if last_lane >= 0: assert_int(absi(lane - last_lane)).is_less_equal(2)
+					lane_since = int(event.startMs)
+					last_lane = lane
+				budgets[0] += span * lane
+				budgets[1] += span
+				if event.type == "hold":
+					assert_int(span).is_equal(6000)
+					budgets[2] += span * (int(event.cadenceMin) + 10)
+				if event.type == "burst": budgets[3] += span
+			assert_int(lanes.size()).is_equal(6)
+			assert_int(first_types.size()).is_equal(3)
+			if expected.is_empty(): expected = budgets
+			assert_array(budgets).override_failure_message(id).is_equal(expected)

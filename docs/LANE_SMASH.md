@@ -1,10 +1,10 @@
 # Lane Smash
 
-A resistance-controlled 3D cycling game built inside OpenRide. Original code, graphics, courses and optional electronic music; no Peloton subscription or network connection is needed by the game. This revision replaces the NEON VECTOR name and course picker while preserving the installed package and saved rides.
+A resistance-controlled 3D cycling game built inside OpenRide. Original code, graphics, courses and optional electronic music; no Peloton subscription or network connection is needed by the game. Lane Smash is the only available experience. The app opens directly into its track selector while preserving the installed package and saved rides.
 
 ## Start a ride
 
-1. Open the app’s **Games** tab, tap **Enter Games**, then choose **Lane Smash**.
+1. Open **Lane Smash**. Its track selector appears directly; no profile, FTP, or game-selection screen is required.
 2. Choose **10, 15, 20 or 30 min**. Each duration has 25 named tracks.
 3. Select a track, or tap **Generate random track**. Scroll the library to see more tracks; there are no visible scrollbars.
 4. Choose the resistance difficulty. **Last** and **Best** show scores for this exact track and difficulty; incomplete last attempts are marked **partial**.
@@ -30,7 +30,9 @@ The five overall ranges match the published Lanebreak Bike update; the equal sev
 - Gold bars, arrows and power crystals shatter when the front wheel touches them. The visual collision does not award points by itself: the correct lane, cadence and output rules still apply. Objects in other lanes remain intact.
 - Stars rate how well you met the targets encountered during your ride. Complete the full selected duration and reach 25%, 60% or 90% for one, two or three stars. Extra burst output cannot replace missed lane/cadence targets.
 
-The rider sits on an angular fighter-inspired bicycle. The cyclist's legs follow measured cadence. Faster pedalling moves farther down the track. Game speed reaches its **37.3 mph maximum at 140 rpm**; higher cadence cannot overrun the course. This is a game-speed scale, not a road-bike speed estimate. The 10/15/20/30-minute roads cover 6.40/9.51/12.61/18.83 miles, including a buffer beyond the maximum reachable distance. Each ride still ends at the selected active time.
+Sections now alternate low effort, climbing, easing back and recovery. Lane targets change every 20–47 seconds at 60–140 rpm (about 35 seconds at 80 rpm); cadence sections last 6–14 seconds. Every track has the same target-effort budget per road minute, with different ordering and target placement. Actual output depends on the rider. Completed sections explode and show their earned points without adding a second bonus.
+
+The rider sits on a streamlined fighter-inspired bicycle with a smooth matte suit and no rear thrusters. The cyclist's legs follow measured cadence. Faster pedalling moves farther down the track. Game speed reaches its **37.3 mph maximum at 140 rpm**; higher cadence cannot overrun the course. This is a game-speed scale, not a road-bike speed estimate. The 10/15/20/30-minute roads cover 6.40/9.51/12.61/18.83 miles, including a buffer beyond the maximum reachable distance. Each ride still ends at the selected active time.
 
 The old **Reference power** control is gone. An internal 150 W reference supplies the star target for power sections; it does not alter resistance, measured watts or the points you can earn.
 
@@ -52,9 +54,9 @@ Live score, speed, ghost gap and ride-metric numbers update once per second. Sec
 
 Attempts save before play, every five active seconds, on interruption and before results. Closing the app leaves an **Interrupted** attempt instead of resuming a partial course. Storage failures offer **Retry save** or ending the ride.
 
-After switching away on Android, return directly through the recent-apps view. Opening OpenRide's main Home screen ends the Games visit under the existing host behavior.
+Return through recent apps or the **Lane Smash** app icon after switching away. Both lead to the same persistent game activity. **Exit** returns to the tablet launcher.
 
-Backups include course snapshots, scores and completed ghost traces. Settings such as music are local preferences. Old NEON VECTOR snapshots retain their original scoring and comparison identity; new tracks use revision 3. This revision does not change Room schema 9.
+Backups include course snapshots, scores and completed ghost traces. Settings such as music are local preferences. Old NEON VECTOR snapshots retain their original scoring and comparison identity; new tracks use course version 4 / generator version 2. This revision does not change Room schema 9.
 
 ## Installing the fork on the Bike
 
@@ -63,15 +65,15 @@ This is an app installation, not a replacement operating system. The original Bi
 1. On the Bike, check **Settings → Device Settings → About tablet** for the model, Android version and build. Firmware may arrange these labels differently. Do not start a firmware update just to inspect them.
 2. On the Mac, open [OpenPelo](https://github.com/doudar/Openpelo/releases). Follow its **Developer Mode Guide** for that tablet, enable **USB debugging**, and connect a USB data cable to the tablet's data port. Leave the Bike's sensor cable connected.
 3. Accept **Allow USB debugging** on the tablet. In OpenPelo, choose the Bike under **Target Device**; use **Refresh Devices** if needed.
-4. Choose **Install local APK**, then select the signed `openride-neon-11.apk` supplied with this fork. The normal **Compatible applications → OpenRide** catalog entry installs upstream, not this game build.
-5. Open **Lane Smash** on the Bike, create/select a rider, then open **Games → Enter Games → Lane Smash**. Pedal and turn the knob to verify live cadence, power and resistance before starting a 10-minute Light ride.
+4. Choose **Install local APK**, then select the signed `openride-neon-12.apk` supplied with this fork. The normal **Compatible applications → OpenRide** catalog entry installs upstream, not this game build.
+5. Open **Lane Smash** on the Bike. It opens directly into the track selector and reuses or creates a local rider automatically. Pedal and turn the knob to verify live cadence, power and resistance before starting a 10-minute Light ride.
 6. Complete a 10-minute ride, then reopen the app to confirm its saved score and ghost. Test End Ride on a separate attempt. Follow with a full ride before relying on it for daily use.
 
 The fork package is `dev.digitalducktape.openride.neon`, with real sensors enabled, a dedicated signing key and a `kbokarius/OpenRide` update channel. It can coexist with upstream OpenRide. This task does not reset the tablet, disable Peloton apps, change the home app, install onto the Bike, or cancel a membership.
 
-For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**, or use **Profile → App updates** after a release has been published to the fork. The updater expects assets named `openride-neon-<versionCode>.apk`; this revision uses version code 11. No fork release is automatically published by a local build.
+For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**. The former Profile and App updates controls are removed. This revision uses version code 12 and keeps the same package/signing identity. No fork release is automatically published by a local build.
 
-Before replacing or removing an installed app, use **Profile → Backup & restore** to export a backup off the tablet. Do not uninstall upstream to resolve a signature mismatch. The dedicated fork avoids that conflict. More firmware-specific context and sources: [installation research](research/lanebreak/04-installation.md).
+Update this fork in place: do not uninstall it or clear its app data, since that can remove locally stored history. Automatic backups remain enabled, but the former manual Profile controls are removed. Do not uninstall upstream to resolve a signature mismatch. The dedicated fork avoids that conflict. More firmware-specific context and sources: [installation research](research/lanebreak/04-installation.md).
 
 ## Building and maintaining
 
@@ -85,4 +87,4 @@ Before replacing or removing an installed app, use **Profile → Backup & restor
 - `LaneSmashCatalog.gd` defines the named/seeded courses. Legacy JSON remains exported for saved replays. Keep the generator version and course hash stable unless deliberately versioning content.
 - `godot --path games -s res://tests/demo_lane_smash.gd` opens an automated desktop ride with an isolated completed ghost. It uses simulated sensor values and separate demonstration history.
 
-Lane Smash is a full-ride mode and stays outside the generic circuit builder. The shared Games UI uses clean typography and preserves the existing pause, resume and result controls. See [revision 3 specification](specs/lane-smash-v3.md) and [validation](specs/lane-smash-v3-validation.md).
+Lane Smash is the only selectable game; other game assets are excluded from the APK. See [revision 4 specification](specs/lane-smash-v4.md) and [validation](specs/lane-smash-v4-validation.md).

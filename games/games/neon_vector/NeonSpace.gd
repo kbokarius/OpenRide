@@ -5,8 +5,8 @@ extends Node3D
 
 const SPEED := 18.0
 const LANE_WIDTH := 3.0
-const ROAD_STEPS := 96
-const STEP := 3.0
+const ROAD_STEPS := 192
+const STEP := 1.5
 const MARKERS := 112
 const GOLD := Color("ffd369")
 const GREEN := Color("6fffd0")
@@ -19,14 +19,11 @@ var world_id := ""
 var reduced_motion := false
 var distance := 0.0
 var _curve := 1.0
-var _road: MultiMeshInstance3D
-var _rails: MultiMeshInstance3D
-var _ties: MultiMeshInstance3D
-var _posts: MultiMeshInstance3D
+var _road: MeshInstance3D
+var _rails: MeshInstance3D
 var _bars: MultiMeshInstance3D
 var _arrows: MultiMeshInstance3D
 var _crystals: MultiMeshInstance3D
-var _ribbons: MultiMeshInstance3D
 var _shards: MultiMeshInstance3D
 var _impacts: Array[Dictionary] = []
 var _collected := {}
@@ -89,16 +86,16 @@ func _ready() -> void:
 	camera.make_current()
 	var box := BoxMesh.new()
 	box.size = Vector3.ONE
-	_road = _instances(box, ROAD_STEPS * 6, _material(Color.WHITE, 0.06, false, true))
-	_rails = _instances(box, ROAD_STEPS * 7, _material(Color.WHITE, 1.3, false, true))
-	_ties = _instances(box, ROAD_STEPS, _material(Color.WHITE, 0.15, false, true))
-	_posts = _instances(box, ROAD_STEPS * 2, _material(Color.WHITE, 0.5, false, true))
+	_road = _mesh(ArrayMesh.new(), _material(Color.WHITE, 0.06, false, true))
+	_road.material_override.roughness = 1.0
+	_road.material_override.metallic = 0.0
+	_road.material_override.metallic_specular = 0.0
+	_rails = _mesh(ArrayMesh.new(), _material(Color.WHITE, 0.65, false, true))
 	_bars = _instances(box, MARKERS, _material(Color.WHITE, 0.8, true, true))
 	_arrows = _instances(_chevron(), MARKERS, _material(Color.WHITE, 0.6, true, true))
 	var crystal := PrismMesh.new()
 	crystal.size = Vector3(1, 1.3, 0.7)
 	_crystals = _instances(crystal, MARKERS, _material(Color.WHITE, 1.0, true, true))
-	_ribbons = _instances(box, 112, _material(Color.WHITE, 0.5, true, true))
 	_shards = _instances(box, 192, _material(Color.WHITE, 1.2, true, true))
 	_shards.multimesh.visible_instance_count = 0
 
@@ -230,26 +227,60 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 
 
 func _road_geometry(index: int) -> void:
-	for i in ROAD_STEPS:
-		var s := (index + i - 8) * STEP
-		for lane in 6:
-			var n := i * 6 + lane
-			_road.multimesh.set_instance_transform(n, pose(s, (lane - 2.5) * LANE_WIDTH, -0.14, Vector3(2.98, 0.25, STEP + 0.06)))
-			_road.multimesh.set_instance_color(n, Color("121a32").lerp(_accent, 0.035 if lane % 2 else 0.07))
-		for edge in 7:
-			var n := i * 7 + edge
-			_rails.multimesh.set_instance_transform(n, pose(s, (edge - 3) * LANE_WIDTH, 0.04, Vector3(0.045 if edge in [0, 6] else 0.022, 0.035, STEP + 0.08)))
-			_rails.multimesh.set_instance_color(n, _accent if edge in [0, 6] else _accent.darkened(0.65))
-		_ties.multimesh.set_instance_transform(i, pose(s - STEP / 2, 0, -0.18, Vector3(18.2, 0.25, 0.09)))
-		_ties.multimesh.set_instance_color(i, _second.darkened(0.6))
-		for side in 2:
-			_posts.multimesh.set_instance_transform(i * 2 + side, pose(s, -9.12 if side == 0 else 9.12, 0.25, Vector3(0.12, 0.65, 0.12)))
-			_posts.multimesh.set_instance_color(i * 2 + side, _accent.darkened(0.25))
+	# Shared sample positions and normals, indexed quads: no overlapping boxes or
+	# transverse seams. Both road and lane lines follow the exact same continuous spline.
+	var centers := PackedVector3Array()
+	var bases: Array[Basis] = []
+	for i in ROAD_STEPS + 1:
+		var s := (index + i - 16) * STEP
+		centers.append(path(s))
+		bases.append(road_basis(s))
+	var strips: Array = []
+	for lane in 6:
+		strips.append([float(lane - 3) * LANE_WIDTH, float(lane - 2) * LANE_WIDTH, -0.015, Color("121a32").lerp(_accent, 0.035 if lane % 2 else 0.07)])
+	_road.mesh = _continuous_mesh(centers, bases, strips)
+	strips.clear()
+	for edge in 7:
+		var center := (edge - 3) * LANE_WIDTH
+		var width := 0.06 if edge in [0, 6] else 0.025
+		strips.append([center - width, center + width, 0.025, _accent if edge in [0, 6] else _accent.darkened(0.65)])
+	_rails.mesh = _continuous_mesh(centers, bases, strips)
+
+
+static func _continuous_mesh(centers: PackedVector3Array, bases: Array[Basis], strips: Array) -> ArrayMesh:
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var colors := PackedColorArray()
+	var indices := PackedInt32Array()
+	for strip: Array in strips:
+		var offset := vertices.size()
+		for i in centers.size():
+			for side in 2:
+				vertices.append(centers[i] + bases[i].x * float(strip[side]) + bases[i].y * float(strip[2]))
+				normals.append(bases[i].y)
+				colors.append(strip[3])
+			if i > 0:
+				var a := offset + (i - 1) * 2
+				indices.append_array(PackedInt32Array([a, a + 1, a + 2, a + 1, a + 3, a + 2]))
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var result := ArrayMesh.new()
+	result.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return result
+
+
+func section_completed(kind: String, lane: int) -> void:
+	var color := GOLD if kind == "cruise" else (GREEN if kind == "hold" else VIOLET)
+	var at := pose(distance + LaneSmashCyclist.FRONT_REACH, (lane - 2.5) * LANE_WIDTH, 0.8).origin
+	_explode(at, color, 36, 1.8)
 
 
 func _events(rules: NeonRules, visual_lane: float) -> void:
 	var counts := {"cruise": 0, "hold": 0, "charge": 0}
-	var ribbon_count := 0
 	var now := rules.road_time_ms()
 	if now < _previous_ms:
 		_collected.clear()
@@ -310,19 +341,6 @@ func _events(rules: NeonRules, visual_lane: float) -> void:
 				pool.multimesh.set_instance_color(n, tint)
 				counts[bucket] = n + 1
 				tick += 1
-			if kind != "pickup":
-				var near := maxi(int(event.startMs), now - 700)
-				var far := mini(int(event.endMs), now + 14000)
-				var at := near
-				while at < far and ribbon_count < 112:
-					var finish := mini(far, at + 350)
-					var mid := (at + finish) / 2000.0 * _unit_speed
-					var tint := color
-					tint.a = 0.12 * (0.25 if muted else 1.0) * smoothstep(0.0, 2.0, mid - distance - LaneSmashCyclist.FRONT_REACH)
-					_ribbons.multimesh.set_instance_transform(ribbon_count, pose(mid, lateral, 0.035, Vector3(2.55, 0.035, (finish - at) / 1000.0 * _unit_speed + 0.01)))
-					_ribbons.multimesh.set_instance_color(ribbon_count, tint)
-					ribbon_count += 1
-					at = finish
 	_previous_ms = now
 	_previous_distance = distance
 	if _warming:
@@ -335,15 +353,14 @@ func _events(rules: NeonRules, visual_lane: float) -> void:
 	_bars.multimesh.visible_instance_count = counts.cruise
 	_arrows.multimesh.visible_instance_count = counts.hold
 	_crystals.multimesh.visible_instance_count = counts.charge
-	_ribbons.multimesh.visible_instance_count = ribbon_count
 
 
-func _explode(at: Vector3, color: Color) -> void:
+func _explode(at: Vector3, color: Color, count := 12, force := 1.0) -> void:
 	impact_count += 1
-	for i in 12:
+	for i in count:
 		if _impacts.size() >= 192: _impacts.pop_front()
-		var angle := i * TAU / 12.0 + impact_count * 0.8
-		_impacts.append({"origin": at, "velocity": Vector3(cos(angle) * 3.0, 1.5 + (i % 4) * 0.9, sin(angle) * 3.0), "age": 0.0, "color": color})
+		var angle := i * TAU / float(count) + impact_count * 0.8
+		_impacts.append({"origin": at, "velocity": Vector3(cos(angle) * 3.0, 1.5 + (i % 4) * 0.9, sin(angle) * 3.0) * force, "age": 0.0, "color": color})
 
 func _animate_impacts(delta: float) -> void:
 	for i in range(_impacts.size() - 1, -1, -1):

@@ -1,4 +1,14 @@
-# OpenRide
+# Lane Smash
+
+This personal fork opens directly into **Lane Smash**, a resistance-controlled cycling game with 100 named tracks, seeded random rides, best-ride ghosts, and reactive 3D scenery. Other games and the original workout/profile controls are unavailable.
+
+Start with the [Lane Smash guide](docs/LANE_SMASH.md), [revision 4 specification](docs/specs/lane-smash-v4.md), and [validation](docs/specs/lane-smash-v4-validation.md). The original Bike still needs physical compatibility testing.
+
+---
+
+## Upstream OpenRide documentation (historical)
+
+The following describes upstream OpenRide, not the available screens in this Lane Smash fork.
 
 <p align="center">
   <img src="docs/screenshots/header.png" width="100%" alt="OpenRide — the open source bike app for your workout" />

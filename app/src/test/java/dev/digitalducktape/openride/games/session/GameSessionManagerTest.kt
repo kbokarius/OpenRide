@@ -84,7 +84,7 @@ class GameSessionManagerTest {
     @Test
     fun `Lane Smash disables freewheel pause only for its active plan`() {
         val request = SessionRequest.JustRide("neon_vector", JustRideMode.Timed(10), neon = dev.digitalducktape.openride.games.bridge.NeonSettings("ls_10_01", "challenging", 150))
-        val plan = requireNotNull(SessionPlans.forRequest(request, FtpBasis.of(200), GameCatalog.DEFAULT))
+        val plan = requireNotNull(SessionPlans.forRequest(request, FtpBasis.of(200), GameCatalog.LEGACY))
         val manager = runner()
         manager.run(plan, ride, PlanStart(riderId = 3, riderName = "Ed")) { outcomes += it }
         scope.runCurrent()

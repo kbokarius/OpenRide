@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">OpenRide</string>
-    <string name="games_loading">Loading games…</string>
-    <string name="games_starting">Starting your game…</string>
+    <string name="app_name">Lane Smash</string>
+    <string name="games_loading">Loading Lane Smash…</string>
+    <string name="games_starting">Starting your ride…</string>
 </resources>

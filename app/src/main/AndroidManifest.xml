@@ -68,8 +68,8 @@
     <application
         android:name=".OpenRideApplication"
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:icon="@drawable/ic_lane_smash"
+        android:roundIcon="@drawable/ic_lane_smash"
         android:label="@string/app_name"
         android:theme="@style/Theme.OpenRide"
         android:supportsRtl="true">
@@ -134,7 +134,7 @@
         <service
             android:name="dev.digitalducktape.openride.core.music.NowPlayingListenerService"
             android:exported="true"
-            android:label="OpenRide music controls"
+            android:label="Lane Smash music controls"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
@@ -178,8 +178,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:enabled="false"
-            android:icon="@mipmap/ic_launcher"
-            android:roundIcon="@mipmap/ic_launcher_round"
+            android:icon="@drawable/ic_lane_smash"
+            android:roundIcon="@drawable/ic_lane_smash"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

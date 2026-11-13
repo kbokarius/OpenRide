@@ -23,7 +23,7 @@ class KeepyUppyCatalogTest {
 
     @Test
     fun `it is registered as a work game whose camera is an option`() {
-        val game = GameCatalog.DEFAULT["keepy_uppy"]
+        val game = GameCatalog.LEGACY["keepy_uppy"]
         assertNotNull(game)
         assertEquals("Keepy Uppy", game!!.title)
         assertEquals(setOf(SegmentRole.WORK), game.roles)

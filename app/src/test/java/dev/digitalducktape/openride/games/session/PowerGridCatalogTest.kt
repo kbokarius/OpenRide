@@ -22,7 +22,7 @@ class PowerGridCatalogTest {
 
     @Test
     fun `it is registered for every circuit role, without the camera or rounds`() {
-        val game = GameCatalog.DEFAULT["power_grid"]
+        val game = GameCatalog.LEGACY["power_grid"]
         assertNotNull(game)
         assertEquals("Power Grid", game!!.title)
         assertEquals(setOf(SegmentRole.WARMUP, SegmentRole.WORK, SegmentRole.RECOVERY, SegmentRole.COOLDOWN), game.roles)
@@ -70,7 +70,7 @@ class PowerGridCatalogTest {
     @Test
     fun `it joins every role's circuit pool`() {
         for (role in listOf(SegmentRole.WARMUP, SegmentRole.WORK, SegmentRole.RECOVERY, SegmentRole.COOLDOWN)) {
-            assertTrue(GameCatalog.DEFAULT.circuitPool(role, cameraGames = false).any { it.id == "power_grid" })
+            assertTrue(GameCatalog.LEGACY.circuitPool(role, cameraGames = false).any { it.id == "power_grid" })
         }
     }
 }

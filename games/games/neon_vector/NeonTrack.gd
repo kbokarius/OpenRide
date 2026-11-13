@@ -31,6 +31,11 @@ var view: SubViewport
 var _band_styles: Array[StyleBoxFlat] = []
 var _band_world := ""
 var _font: Font
+var _completion_cursor := 0
+var _completion_age := 10.0
+var _completion_text := ""
+var _completion_kind := "cruise"
+var completed_sections := {"cruise": 0, "hold": 0, "burst": 0}
 var _intro_alpha := 0.0:
 	set(value):
 		_intro_alpha = value
@@ -74,6 +79,7 @@ func update_view(delta: float) -> void:
 		space.reduced_motion = reduced_motion
 		space.set_world(world_id)
 		space.update_view(rules, delta, visual_lane, ghost_lane, ghost_visible, trail_id)
+		_update_completions(delta)
 		var second := rules.elapsed_ms / 1000
 		if second != _text_second:
 			_text_second = second
@@ -99,6 +105,13 @@ func _draw() -> void:
 
 	if rules.course.is_empty():
 		return
+	if _completion_age < 2.0:
+		var alpha := smoothstep(0.0, 0.12, _completion_age) * (1.0 - smoothstep(1.2, 2.0, _completion_age))
+		var color := GOLD if _completion_kind == "cruise" else (HOLD if _completion_kind == "hold" else CHARGE)
+		var width := _font.get_string_size(_completion_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 40).x
+		var y := 410.0 - minf(_completion_age, 1.5) * 20.0
+		draw_rect(Rect2(960 - width / 2 - 24, y - 46, width + 48, 66), Color(0.025, 0.035, 0.06, 0.8 * alpha))
+		_text(_completion_text, Vector2(960 - width / 2, y), 40, Color(color, alpha))
 	var progress := clampf(float(rules.elapsed_ms) / float(rules.course.durationMs), 0.0, 1.0)
 	draw_line(Vector2(52, 1055), Vector2(1868, 1055), Color(accent, 0.15), 5.0)
 	draw_line(Vector2(52, 1055), Vector2(52 + 1816 * progress, 1055), accent, 5.0)
@@ -154,3 +167,17 @@ func _tutorial_help(accent: Color) -> void:
 	_text(card[0], Vector2(52, 415), 30, Color(accent, alpha))
 	for i in range(1, card.size()):
 		_text(card[i], Vector2(52, 415 + i * 39), 28, Color(MUTED, alpha))
+
+
+func _update_completions(delta: float) -> void:
+	_completion_age += delta
+	while _completion_cursor < rules.course.events.size() and int(rules.course.events[_completion_cursor].endMs) <= rules.road_time_ms():
+		var event: Dictionary = rules.course.events[_completion_cursor]
+		var points := int(rules.event_states[_completion_cursor].scoreUnits) / NeonRules.UNIT
+		_completion_cursor += 1
+		if points <= 0: continue
+		_completion_kind = str(event.type)
+		_completion_text = "%s  +%d" % [{"cruise": "SECTION COMPLETE", "hold": "CADENCE COMPLETE", "burst": "POWER BURST COMPLETE"}.get(_completion_kind, "SECTION COMPLETE"), points]
+		_completion_age = 0.0
+		completed_sections[_completion_kind] = int(completed_sections.get(_completion_kind, 0)) + 1
+		space.section_completed(_completion_kind, int(event.laneIndex))

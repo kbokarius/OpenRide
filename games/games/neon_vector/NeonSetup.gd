@@ -35,6 +35,7 @@ func build() -> void:
 	add_child(background)
 	var bar := top_bar("Lane Smash", look)
 	bar.get_node("Title").text = "Lane Smash"
+	bar.get_node("Back").text = "Exit"
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.add_child(spacer)
@@ -66,7 +67,10 @@ func build() -> void:
 	length_label = look.label("DURATION", 34, GameTheme.MUTED)
 	right.add_child(length_label)
 	length_picker = Segmented.new(["10", "15", "20", "30"], ["10 min", "15 min", "20 min", "30 min"], str(minutes), look, 160)
+	length_picker.font_size = 34
+	length_picker.animate_selection = false
 	for button in length_picker.buttons:
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 34)
 	length_picker.changed.connect(func(value: String):
 		minutes = int(value)
@@ -78,17 +82,19 @@ func build() -> void:
 		_refresh_course())
 	right.add_child(length_picker)
 	right.add_child(look.label("RESISTANCE", 34, GameTheme.MUTED))
-	var tiers := GridContainer.new()
-	tiers.columns = 3
-	tiers.add_theme_constant_override("h_separation", 24)
-	tiers.add_theme_constant_override("v_separation", 24)
+	var tiers := VBoxContainer.new()
+	tiers.add_theme_constant_override("separation", 24)
 	right.add_child(tiers)
-	for id: String in NeonRules.CURRENT_TIERS:
-		var button := look.button(id.capitalize(), func(): _pick_tier(id), GameTheme.SECONDARY)
-		button.custom_minimum_size = Vector2(222, 120)
-		button.add_theme_font_size_override("font_size", 34)
-		tiers.add_child(button)
-		tier_buttons[id] = button
+	for row_ids in [["light", "moderate", "hard"], ["challenging", "extreme"]]:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 24)
+		tiers.add_child(row)
+		for id: String in row_ids:
+			var button := look.button(id.capitalize(), func(): _pick_tier(id), GameTheme.SECONDARY)
+			button.custom_minimum_size = Vector2(222 if row_ids.size() == 3 else 345, 120)
+			button.add_theme_font_size_override("font_size", 34)
+			row.add_child(button)
+			tier_buttons[id] = button
 	range_label = look.label("", 34, GameTheme.MUTED)
 	right.add_child(range_label)
 	course_label = look.label("", 38)
@@ -154,6 +160,7 @@ func _refresh_course() -> void:
 		var row: Dictionary = _track_rows[i]
 		track_buttons[i].text = "%02d    %s  /  %s\n         %s\n         %s" % [i + 1, row.title, LaneSmashEnvironment.TITLES[row.background], row.description, _score_text(row.id)]
 		look.style_button(track_buttons[i], GameTheme.PRIMARY if i == selected_index and random_seed == 0 and _replay_id.is_empty() else GameTheme.SECONDARY)
+		track_buttons[i].add_theme_font_size_override("font_size", 34)
 	for key in tier_buttons:
 		look.style_button(tier_buttons[key], GameTheme.PRIMARY if key == tier else GameTheme.SECONDARY)
 		tier_buttons[key].add_theme_font_size_override("font_size", 34)

@@ -25,7 +25,7 @@ class GateCrasherCatalogTest {
 
     @Test
     fun `it is registered as a work game that needs the camera`() {
-        val game = GameCatalog.DEFAULT["gate_crasher"]
+        val game = GameCatalog.LEGACY["gate_crasher"]
         assertNotNull(game)
         assertEquals("Gate Crasher", game!!.title)
         assertEquals(setOf(SegmentRole.WORK), game.roles)
@@ -38,8 +38,8 @@ class GateCrasherCatalogTest {
 
     @Test
     fun `a camera-off circuit skips it`() {
-        assertTrue(GameCatalog.DEFAULT.circuitPool(SegmentRole.WORK).any { it.id == "gate_crasher" })
-        assertFalse(GameCatalog.DEFAULT.circuitPool(SegmentRole.WORK, cameraGames = false).any { it.id == "gate_crasher" })
+        assertTrue(GameCatalog.LEGACY.circuitPool(SegmentRole.WORK).any { it.id == "gate_crasher" })
+        assertFalse(GameCatalog.LEGACY.circuitPool(SegmentRole.WORK, cameraGames = false).any { it.id == "gate_crasher" })
     }
 
     @Test

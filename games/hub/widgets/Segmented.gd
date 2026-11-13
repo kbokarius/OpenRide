@@ -10,6 +10,8 @@ const MIN_WIDTH := 200.0
 var choices: Array = []
 var value := ""
 var buttons: Array[Button] = []
+var font_size := 0
+var animate_selection := true
 var _theme: GameTheme
 
 
@@ -35,7 +37,7 @@ func pick(v: String) -> void:
 		return
 	value = v
 	_restyle()
-	GameTheme.pop(buttons[choices.find(v)], 1.08, 0.25)
+	if animate_selection: GameTheme.pop(buttons[choices.find(v)], 1.08, 0.25)
 	changed.emit(v)
 
 
@@ -49,3 +51,4 @@ func show_value(v: String) -> void:
 func _restyle() -> void:
 	for i in buttons.size():
 		_theme.style_button(buttons[i], GameTheme.PRIMARY if str(choices[i]) == value else GameTheme.SECONDARY)
+		if font_size > 0: buttons[i].add_theme_font_size_override("font_size", font_size)

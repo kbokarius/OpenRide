@@ -282,7 +282,7 @@ func show_summary(summary: Dictionary, plan: Dictionary, looks: Dictionary = {})
 
 	if single and first_id == "neon_vector" and results.is_empty():
 		_title.text = "Ride interrupted"
-		_stars_note.text = "No completed result. Check Style & history for your saved attempt."
+		_stars_note.text = "No completed result. Check Settings & history for your saved attempt."
 	elif single and first_id == "neon_vector":
 		var neon: Dictionary = results[0].get("stats", {}).get("neon", {})
 		if neon.get("status", "interrupted") != "completed":

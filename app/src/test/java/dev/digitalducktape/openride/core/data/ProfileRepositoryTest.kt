@@ -42,6 +42,17 @@ class ProfileRepositoryTest {
     )
 
     @Test
+    fun `Lane Smash startup reuses history and creates only one default rider`() = runTest {
+        val first = repository.ensureLaneSmashProfile(null)
+        assertEquals(first, repository.ensureLaneSmashProfile(null))
+        assertEquals(first, repository.ensureLaneSmashProfile(999))
+        val second = repository.createProfile(sampleProfile("Kon"))
+        assertEquals(second, repository.ensureLaneSmashProfile(second))
+        assertEquals(2, repository.observeProfiles().first().size)
+        assertNull(repository.getProfile(first)!!.ftp)
+    }
+
+    @Test
     fun `create and read a profile by id`() = runTest {
         val id = repository.createProfile(sampleProfile())
 

@@ -1,6 +1,6 @@
 class_name LaneSmashCatalog
 extends RefCounted
-## Frozen generator v1. IDs fully describe reproducible content; snapshots preserve replays.
+## Frozen generator v2. IDs fully describe reproducible content; snapshots preserve replays.
 const LENGTHS := [10, 15, 20, 30]
 const NAMES := ["Nightfall", "Vector Run", "Cold Circuit", "Apex Protocol", "Iron Horizon", "Deep Current", "Solar Array", "Black Meridian", "Velocity", "Carbon Ridge", "Arc Reactor", "Zero Gravity", "Afterburn", "Steel Pulse", "Blue Shift", "Outer Ring", "Ion Storm", "Altitude", "Dark Matter", "Redline", "Titan", "Slipstream", "Overdrive", "Summit Relay", "Event Horizon"]
 const PATTERNS := ["Rolling", "Cadence", "Power", "Climbing", "Mixed"]
@@ -36,39 +36,44 @@ static func generate(minutes: int, seed_value: int, index: int, id: String, rand
 	var state := seed_value
 	var events: Array = []
 	var phases: Array = []
-	var previous_lane := 0
-	var pattern: int = index % 5
+	var previous_lane := -1
+	# Every minute has the same lane histogram for every track. Permutations vary the
+	# climb/recovery shape without changing resistance exposure or target durations.
 	for minute in minutes:
 		state = (state * 48271) % 2147483647
-		var role := "warmup" if minute == 0 else ("cooldown" if minute == minutes - 1 else ("recovery" if minute % 5 == 4 else "work"))
-		var desired := 0
-		if role == "work":
-			match pattern:
-				0: desired = [0, 1, 2, 3, 2, 1][minute % 6]
-				1: desired = 1 + int(state % 3)
-				2: desired = 2 + int(state % 4)
-				3: desired = mini(5, (minute % 8))
-				_: desired = int(state % 6)
-		var lane := clampi(desired, maxi(0, previous_lane - 2), mini(5, previous_lane + 2))
-		# Smoothly return to low lanes in recovery/cooldown without impossible knob jumps.
-		if role != "work": lane = maxi(0, previous_lane - 2)
-		var next_lane := clampi(lane + int((state / 11) % 3) - 1, 0, 5) if role == "work" else maxi(0, lane - 1)
-		phases.append({"name": {"warmup": "Warm up", "work": "Main ride", "recovery": "Recovery", "cooldown": "Cool down"}[role], "role": role, "startMs": minute * 60000, "endMs": (minute + 1) * 60000})
-		var burst := role == "work" and (minute % (2 if pattern == 2 else 3) == 1)
-		var cadence := 65 + int(state % 5) * 5
-		for part in 5:
-			var spans := [[3000, 16000], [16000, 30000], [30000, 36000], [39000, 51000], [54000, 60000]]
-			var kind := "cruise" if part in [0, 2, 4] else ("burst" if part == 1 and burst else "hold")
-			var target_lane := lane if part < 3 else next_lane
-			var event := {"eventId": "m%02d-%d" % [minute + 1, part], "type": kind, "startMs": minute * 60000 + spans[part][0], "endMs": minute * 60000 + spans[part][1], "laneIndex": target_lane}
-			if kind == "hold":
-				event.cadenceMin = cadence if role == "work" else 55
-				event.cadenceMax = int(event.cadenceMin) + 20
-			events.append(event)
-		previous_lane = next_lane
-	return {"schemaVersion": 1, "courseVersion": 3, "generatorVersion": 1, "courseId": id,
+		var wave := minute % 4
+		var routes := [[[0, 1, 2]], [[3, 4, 5], [3, 5, 4], [4, 3, 5], [4, 5, 3]], [[4, 3, 2], [3, 4, 2], [4, 2, 3]], [[1, 2, 1]]]
+		var variants: Array = routes[wave]
+		var pick := int((state + index) % variants.size())
+		var lanes: Array = variants[pick]
+		while int(lanes[0]) == previous_lane:
+			pick = (pick + 1) % variants.size()
+			lanes = variants[pick]
+		var phase_name := "Warm up" if minute == 0 else ("Recovery" if wave == 3 else ("Build" if wave in [0, 1] else "Ease back"))
+		for block in 3:
+			state = (state * 48271) % 2147483647
+			var lane := int(lanes[block])
+			var begin := minute * 60000 + block * 20000
+			var hold_start := 4500 + int(state % 5) * 500
+			var block_role := "warmup" if minute == 0 and block == 0 else ("recovery" if wave == 3 else "work")
+			phases.append({"name": phase_name if minute > 0 or block == 0 else "Build", "role": block_role, "startMs": begin, "endMs": begin + 20000})
+			# Six road-seconds: 6–14 real seconds across the normal 60–140 rpm range.
+			var spans := [[1500, hold_start], [hold_start, hold_start + 6000], [hold_start + 6000, 12500], [12500, 18500]]
+			for part in 4:
+				if spans[part][0] == spans[part][1]: continue
+				var kind := "hold" if part == 1 else ("burst" if part == 3 and block == 1 and wave != 3 else "cruise")
+				var event := {"eventId": "m%02d-b%d-%d" % [minute + 1, block, part], "type": kind, "startMs": begin + spans[part][0], "endMs": begin + spans[part][1], "laneIndex": lane}
+				if kind == "hold":
+					event.cadenceMin = 60 + lane * 4
+					event.cadenceMax = int(event.cadenceMin) + 20
+				if not events.is_empty() and kind == "cruise" and events[-1].type == kind and events[-1].laneIndex == lane and events[-1].endMs == event.startMs:
+					events[-1].endMs = event.endMs
+				else:
+					events.append(event)
+			previous_lane = lane
+	return {"schemaVersion": 1, "courseVersion": 4, "generatorVersion": 2, "courseId": id,
 		"title": "Random / %06d" % (seed_value % 1000000) if random_track else NAMES[index],
 		"family": "random" if random_track else "catalog", "durationMs": minutes * 60000,
 		"theme": THEMES[(seed_value / 97) % 8] if random_track else THEMES[index % 8],
 		"background": BACKGROUNDS[(seed_value / 193) % 4] if random_track else BACKGROUNDS[(index / 3) % 4],
-		"distanceBased": true, "maxSpeedKph": 60, "maxCadenceRpm": 140, "roadLengthMeters": minutes * 1000 + 300, "seed": seed_value, "description": PATTERNS[pattern], "phases": phases, "events": events}
+		"distanceBased": true, "maxSpeedKph": 60, "maxCadenceRpm": 140, "roadLengthMeters": minutes * 1000 + 300, "seed": seed_value, "description": PATTERNS[index % 5], "phases": phases, "events": events}

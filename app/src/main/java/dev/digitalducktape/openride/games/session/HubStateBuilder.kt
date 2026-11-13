@@ -101,7 +101,7 @@ object HubStateBuilder {
             audio = inputs.settings.audio.resolve(),
             camera = HubCamera(inputs.permission, cameraAvailable, inputs.calibrated, inputs.sameDayExtremes),
             catalog = inputs.catalog.games.filter { it.id != GameCatalog.DEMO.id }.map(::catalogGame),
-            circuits = CircuitPresets.ALL.map { preset ->
+            circuits = CircuitPresets.ALL.filter { inputs.catalog.games.any { it.roles.isNotEmpty() } }.map { preset ->
                 val plan = SessionPlans.circuit(preset, Difficulty.STANDARD, ftp, inputs.catalog, cameraGames = cameraAvailable, seed = inputs.circuitSeed)
                 HubCircuit(
                     id = preset.id,

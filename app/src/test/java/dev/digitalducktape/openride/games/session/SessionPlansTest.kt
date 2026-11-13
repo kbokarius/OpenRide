@@ -213,9 +213,9 @@ class SessionPlansTest {
         assertTrue(just.effort)
         assertEquals(45, just.params.int("lane_min_watts"))
         // It joins circuits by its roles alone (#75), camera or not.
-        assertTrue(GameCatalog.WATT_LANE in GameCatalog.DEFAULT.circuitPool(SegmentRole.WORK, cameraGames = false))
-        assertTrue(GameCatalog.WATT_LANE in GameCatalog.DEFAULT.circuitPool(SegmentRole.WARMUP, cameraGames = false))
-        assertFalse(GameCatalog.WATT_LANE in GameCatalog.DEFAULT.circuitPool(SegmentRole.RECOVERY))
+        assertTrue(GameCatalog.WATT_LANE in GameCatalog.LEGACY.circuitPool(SegmentRole.WORK, cameraGames = false))
+        assertTrue(GameCatalog.WATT_LANE in GameCatalog.LEGACY.circuitPool(SegmentRole.WARMUP, cameraGames = false))
+        assertFalse(GameCatalog.WATT_LANE in GameCatalog.LEGACY.circuitPool(SegmentRole.RECOVERY))
         assertEquals(SegmentRole.WORK, GameCatalog.circuitRole(GameCatalog.WATT_LANE))
     }
 
@@ -247,7 +247,7 @@ class SessionPlansTest {
         assertTrue(kart.usesCamera)
         assertTrue(kart.effortInJustRide)
         assertEquals(EndMode.GAME, kart.timedEndMode)
-        assertEquals(kart, GameCatalog.DEFAULT["kart_race"])
+        assertEquals(kart, GameCatalog.LEGACY["kart_race"])
         assertThrows(IllegalArgumentException::class.java) {
             SessionPlans.justRide(kart, JustRideMode.Rounds(3), Difficulty.STANDARD, ftp200)
         }
@@ -270,8 +270,8 @@ class SessionPlansTest {
         assertFalse(pull.usesCamera)
         assertTrue(pull.effortInJustRide)
         assertEquals(EndMode.GAME, pull.timedEndMode)
-        assertEquals(pull, GameCatalog.DEFAULT["the_pull"])
-        assertTrue(SegmentRole.entries.none { role -> GameCatalog.DEFAULT.circuitPool(role).any { it.id == "the_pull" } })
+        assertEquals(pull, GameCatalog.LEGACY["the_pull"])
+        assertTrue(SegmentRole.entries.none { role -> GameCatalog.LEGACY.circuitPool(role).any { it.id == "the_pull" } })
         assertEquals(SegmentRole.FREE, GameCatalog.circuitRole(pull))
 
         fun segment(mode: JustRideMode, d: Difficulty) = SessionPlans.justRide(pull, mode, d, ftp200).segments.single()
@@ -295,7 +295,7 @@ class SessionPlansTest {
 
     @Test
     fun `a custom circuit plays The Pull as a free slot that ends on its own terms`() {
-        val plan = SessionPlans.custom(listOf(slot("dodge_ball", 120), slot("the_pull", 600)), Difficulty.HARD, ftp200, GameCatalog.DEFAULT)
+        val plan = SessionPlans.custom(listOf(slot("dodge_ball", 120), slot("the_pull", 600)), Difficulty.HARD, ftp200, GameCatalog.LEGACY)
         val pull = plan.segments.last()
         assertEquals("the_pull", pull.gameId)
         assertEquals(SegmentRole.FREE, pull.role)
@@ -340,7 +340,7 @@ class SessionPlansTest {
     @Test
     fun `circuit presets add up to the spec's lengths, intro cards included`() {
         val lengths = CircuitPresets.ALL.associate { preset ->
-            preset.id to SessionPlans.circuit(preset, Difficulty.STANDARD, ftp200, GameCatalog.DEFAULT).totalSec
+            preset.id to SessionPlans.circuit(preset, Difficulty.STANDARD, ftp200, GameCatalog.LEGACY).totalSec
         }
 
         assertEquals(mapOf("circuit-20" to 1120, "circuit-30" to 1860, "circuit-45" to 2600), lengths)
@@ -348,7 +348,7 @@ class SessionPlansTest {
 
     @Test
     fun `a circuit never puts two work games back to back, and only work has effort`() {
-        val plan = SessionPlans.circuit(CircuitPresets.FORTY_FIVE, Difficulty.HARD, ftp200, GameCatalog.DEFAULT)
+        val plan = SessionPlans.circuit(CircuitPresets.FORTY_FIVE, Difficulty.HARD, ftp200, GameCatalog.LEGACY)
 
         assertEquals(SegmentRole.WARMUP, plan.segments.first().role)
         assertEquals(SegmentRole.COOLDOWN, plan.segments.last().role)
@@ -365,23 +365,23 @@ class SessionPlansTest {
     @Test
     fun `without camera games a circuit keeps its shape and draws from camera-free pools`() {
         for (seed in 0L until 20L) {
-            val withCamera = SessionPlans.circuit(CircuitPresets.TWENTY, Difficulty.STANDARD, ftp200, GameCatalog.DEFAULT, seed = seed)
-            val without = SessionPlans.circuit(CircuitPresets.TWENTY, Difficulty.STANDARD, ftp200, GameCatalog.DEFAULT, cameraGames = false, seed = seed)
+            val withCamera = SessionPlans.circuit(CircuitPresets.TWENTY, Difficulty.STANDARD, ftp200, GameCatalog.LEGACY, seed = seed)
+            val without = SessionPlans.circuit(CircuitPresets.TWENTY, Difficulty.STANDARD, ftp200, GameCatalog.LEGACY, cameraGames = false, seed = seed)
 
-            assertFalse(without.segments.any { GameCatalog.DEFAULT[it.gameId]!!.usesCamera })
+            assertFalse(without.segments.any { GameCatalog.LEGACY[it.gameId]!!.usesCamera })
             // Same shape: every slot keeps its role, length and effort; only the games change.
             assertEquals(withCamera.segments.map { it.role }, without.segments.map { it.role })
             assertEquals(withCamera.segments.map { it.durationSec }, without.segments.map { it.durationSec })
             assertEquals(withCamera.segments.map { it.effort }, without.segments.map { it.effort })
             assertEquals(withCamera.planId, without.planId)
             // Only camera-free work games play the work slots.
-            val free = GameCatalog.DEFAULT.circuitPool(SegmentRole.WORK, cameraGames = false).map { it.id }.toSet()
+            val free = GameCatalog.LEGACY.circuitPool(SegmentRole.WORK, cameraGames = false).map { it.id }.toSet()
             without.segments.filter { it.role == SegmentRole.WORK }.forEach { assertTrue(it.gameId in free) }
         }
         // With the camera, the camera games play their share: not in every draw now the pool is bigger.
-        val cameraWork = GameCatalog.DEFAULT.circuitPool(SegmentRole.WORK).filter { it.usesCamera }.map { it.id }
+        val cameraWork = GameCatalog.LEGACY.circuitPool(SegmentRole.WORK).filter { it.usesCamera }.map { it.id }
         assertTrue((0L until 20L).any { seed ->
-            SessionPlans.circuit(CircuitPresets.TWENTY, Difficulty.STANDARD, ftp200, GameCatalog.DEFAULT, seed = seed).segments.any { it.gameId in cameraWork }
+            SessionPlans.circuit(CircuitPresets.TWENTY, Difficulty.STANDARD, ftp200, GameCatalog.LEGACY, seed = seed).segments.any { it.gameId in cameraWork }
         })
     }
 
@@ -394,7 +394,7 @@ class SessionPlansTest {
         val saved = SessionRequest.Circuit("circuit-30", Difficulty.HARD).toJson()
         val old = SessionRequest.fromJson(saved.replace(""","cameraGames":true""", ""))
         assertTrue((old as SessionRequest.Circuit).cameraGames)
-        val plan = SessionPlans.forRequest(off, ftp200, GameCatalog.DEFAULT)!!
+        val plan = SessionPlans.forRequest(off, ftp200, GameCatalog.LEGACY)!!
         assertFalse(plan.segments.any { it.gameId == "dodge_ball" })
     }
 
@@ -425,15 +425,15 @@ class SessionPlansTest {
 
     /** Today's games plus fakes for the wave 2 games not registered yet (eleven or more). */
     private val elevenGames = GameCatalog(
-        GameCatalog.DEFAULT.games + listOf(  // a stand-in only until the real game is in the catalog
+        GameCatalog.LEGACY.games + listOf(  // a stand-in only until the real game is in the catalog
             poolGame("power_grid", SegmentRole.WARMUP, SegmentRole.COOLDOWN, SegmentRole.WORK),
             poolGame("glide_path", SegmentRole.WARMUP, SegmentRole.COOLDOWN, SegmentRole.RECOVERY),
             poolGame("gate_crasher", SegmentRole.WORK, camera = true),
             poolGame("ready_for_launch", SegmentRole.WORK, minSec = 90),
-        ).filter { fake -> GameCatalog.DEFAULT[fake.id] == null },
+        ).filter { fake -> GameCatalog.LEGACY[fake.id] == null },
     )
 
-    private val catalogs = listOf(GameCatalog.DEFAULT, elevenGames)
+    private val catalogs = listOf(GameCatalog.LEGACY, elevenGames)
 
     @Test
     fun `the eleven-game fake catalog has eleven games besides the demo`() {
@@ -517,10 +517,10 @@ class SessionPlansTest {
 
     @Test
     fun `pools come from the catalog's roles and leave out the demo and, without the camera, camera games`() {
-        assertEquals(listOf("cadence_karaoke", "watt_lane", "power_grid"), GameCatalog.DEFAULT.circuitPool(SegmentRole.WARMUP).map { it.id })
-        assertEquals(listOf("cadence_karaoke", "power_grid"), GameCatalog.DEFAULT.circuitPool(SegmentRole.COOLDOWN).map { it.id })
-        assertEquals(setOf("dodge_ball", "tug_of_war", "watt_lane", "balloon_pump", "keepy_uppy", "power_grid", "ready_for_launch", "gate_crasher"), GameCatalog.DEFAULT.circuitPool(SegmentRole.WORK).map { it.id }.toSet())
-        assertEquals(listOf("tug_of_war", "watt_lane", "balloon_pump", "keepy_uppy", "power_grid", "ready_for_launch"), GameCatalog.DEFAULT.circuitPool(SegmentRole.WORK, cameraGames = false).map { it.id })
+        assertEquals(listOf("cadence_karaoke", "watt_lane", "power_grid"), GameCatalog.LEGACY.circuitPool(SegmentRole.WARMUP).map { it.id })
+        assertEquals(listOf("cadence_karaoke", "power_grid"), GameCatalog.LEGACY.circuitPool(SegmentRole.COOLDOWN).map { it.id })
+        assertEquals(setOf("dodge_ball", "tug_of_war", "watt_lane", "balloon_pump", "keepy_uppy", "power_grid", "ready_for_launch", "gate_crasher"), GameCatalog.LEGACY.circuitPool(SegmentRole.WORK).map { it.id }.toSet())
+        assertEquals(listOf("tug_of_war", "watt_lane", "balloon_pump", "keepy_uppy", "power_grid", "ready_for_launch"), GameCatalog.LEGACY.circuitPool(SegmentRole.WORK, cameraGames = false).map { it.id })
         assertEquals(setOf("cadence_karaoke", "power_grid", "watt_lane", "glide_path"), elevenGames.circuitPool(SegmentRole.WARMUP).map { it.id }.toSet())
         assertFalse(elevenGames.circuitPool(SegmentRole.WORK, cameraGames = false).any { it.usesCamera })
         assertTrue(SegmentRole.entries.none { role -> elevenGames.circuitPool(role).any { it.id == "the_pull" || it.id == "kart_race" } })
@@ -545,10 +545,10 @@ class SessionPlansTest {
         )
         for (request in requests) assertEquals(request, SessionRequest.fromJson(request.toJson()))
 
-        assertEquals("just-ride:demo:minutes:20", SessionPlans.forRequest(requests[0], ftp200, GameCatalog.DEFAULT)?.planId)
-        assertEquals("circuit-30", SessionPlans.forRequest(requests[2], ftp200, GameCatalog.DEFAULT)?.planId)
-        assertNull(SessionPlans.forRequest(SessionRequest.JustRide("nope", JustRideMode.Open), ftp200, GameCatalog.DEFAULT))
-        assertNull(SessionPlans.forRequest(SessionRequest.JustRide("demo", JustRideMode.Rounds(2)), ftp200, GameCatalog.DEFAULT))
+        assertEquals("just-ride:demo:minutes:20", SessionPlans.forRequest(requests[0], ftp200, GameCatalog.LEGACY)?.planId)
+        assertEquals("circuit-30", SessionPlans.forRequest(requests[2], ftp200, GameCatalog.LEGACY)?.planId)
+        assertNull(SessionPlans.forRequest(SessionRequest.JustRide("nope", JustRideMode.Open), ftp200, GameCatalog.LEGACY))
+        assertNull(SessionPlans.forRequest(SessionRequest.JustRide("demo", JustRideMode.Rounds(2)), ftp200, GameCatalog.LEGACY))
         assertNull(SessionRequest.fromJson("{garbage"))
     }
 
@@ -563,7 +563,7 @@ class SessionPlansTest {
 
     // --- Custom circuits (the Games hub, spec §3.4) ------------------------------------------
 
-    private val catalog = GameCatalog.DEFAULT
+    private val catalog = GameCatalog.LEGACY
     private fun slot(game: String, sec: Int) = CustomSlot(game, sec)
 
     @Test

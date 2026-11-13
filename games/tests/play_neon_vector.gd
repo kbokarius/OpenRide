@@ -37,9 +37,31 @@ func _run() -> void:
 	session._local.hub.begin_visit()
 	await create_timer(1).timeout
 	var hub: Node = current_scene
-	hub.nav.push("game", {"game_id": "neon_vector"})
 	await create_timer(0.5).timeout
 	_check(hub.screen.get_script().resource_path.ends_with("NeonSetup.gd"), "dedicated setup appears")
+	_check(load("res://games/Registry.gd").ids() == ["neon_vector"], "Lane Smash is the sole registered game")
+	_check(hub.state.circuits.is_empty(), "circuits are unavailable")
+	for duration in ["10", "15", "20", "30"]:
+		hub.screen.length_picker.pick(duration)
+		for tier in NeonRules.CURRENT_TIERS:
+			hub.screen._pick_tier(tier)
+			await process_frame
+			await process_frame
+			var controls: Array = hub.screen.length_picker.buttons + hub.screen.tier_buttons.values()
+			var valid := true
+			for i in controls.size():
+				var rect: Rect2 = controls[i].get_global_rect()
+				if duration == "10" and tier == "light": print("LAYOUT ", controls[i].text, " size=", controls[i].size, " rect=", rect, " font=", controls[i].get_theme_font_size("font_size"))
+				valid = valid and rect.end.x <= 1865 and is_equal_approx(controls[i].size.y, 120.0) and controls[i].get_theme_font_size("font_size") == 34
+				for j in range(i + 1, controls.size()):
+					valid = valid and not rect.intersects(controls[j].get_global_rect())
+			_check(valid, "stable controls " + duration + " / " + tier)
+	if "--layout-only" in OS.get_cmdline_user_args():
+		print("LAYOUT checks=", checks, " failures=", failures)
+		quit(0 if failures.is_empty() else 1)
+		return
+	hub.screen.length_picker.pick("20")
+	hub.screen._pick_tier("challenging")
 	await _shot("setup")
 	_check(hub.screen.track_buttons.size() == 25, "25 tracks are listed")
 	hub.screen.length_picker.pick("15")

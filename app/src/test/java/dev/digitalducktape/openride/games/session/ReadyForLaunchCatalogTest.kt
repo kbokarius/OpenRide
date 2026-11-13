@@ -23,7 +23,7 @@ class ReadyForLaunchCatalogTest {
 
     @Test
     fun `it is registered as a work game with no camera`() {
-        val game = GameCatalog.DEFAULT["ready_for_launch"]
+        val game = GameCatalog.LEGACY["ready_for_launch"]
         assertNotNull(game)
         assertEquals("Ready for Launch", game!!.title)
         assertEquals(setOf(SegmentRole.WORK), game.roles)

@@ -6,7 +6,8 @@ var session: Node
 var input_bus: Node
 var out := ""
 var frame_index := 0
-var last_capture := -1000
+var next_capture := 0
+var timestamps: Array[int] = []
 var seen := {}
 
 func _initialize() -> void:
@@ -28,14 +29,13 @@ func _run() -> void:
 	await process_frame
 	session._local.hub.begin_visit()
 	await create_timer(1).timeout
-	current_scene.nav.push("game", {"game_id": "neon_vector"})
 	await create_timer(0.5).timeout
 	var setup: Node = current_scene.screen
 	setup.length_picker.pick("15")
-	setup._pick_track(9)
+	setup._pick_track(0)
 	_seed_best(setup)
 	await setup._load_progress()
-	setup.track_scroll.scroll_vertical = 9 * 194
+	setup.track_scroll.scroll_vertical = 0
 	await create_timer(0.4).timeout
 	if not out.is_empty():
 		await RenderingServer.frame_post_draw
@@ -48,11 +48,12 @@ func _run() -> void:
 	var game: Node = session.director.game
 	while is_instance_valid(game) and session.director.game == game:
 		var t: int = game.rules.elapsed_ms
-		var cycle := fmod(t / 1000.0, 140.0)
-		# The saved rider holds 100 rpm; this rider falls back, passes, then falls back again.
-		var rpm := 80.0 if cycle < 12 else (140.0 if cycle < 30 else (60.0 if cycle < 80 else 130.0))
-		input_bus._sim_cadence = move_toward(input_bus._sim_cadence, rpm, 1.5)
 		var event: Dictionary = game.rules.current_event()
+		var kind := str(event.get("type", "cruise"))
+		var rpm := 85.0 if t < 17000 else 125.0
+		if kind == "hold": rpm = (float(event.cadenceMin) + float(event.cadenceMax)) / 2.0
+		if kind == "burst": rpm = 140.0
+		input_bus._sim_cadence = move_toward(input_bus._sim_cadence, rpm, 3.0)
 		input_bus._sim_resistance = NeonRules.band(int(event.get("laneIndex", game.rules.selected_lane)), game.rules.tier).x + 3
 		if t > 2000 and not game._ghost.is_empty():
 			var gap: float = game.track.ghost_gap
@@ -60,19 +61,31 @@ func _run() -> void:
 			if not seen.has(state):
 				seen[state] = true
 				print("LANE SMASH DEMO ghost=", state, " gap_m=", snappedf(gap, 0.1), " score=", game.rules.score_units / NeonRules.UNIT)
-		if not out.is_empty() and t >= 5000 and t < 95000 and t - last_capture >= 100:
-			last_capture = t
+		if not out.is_empty() and t < 120000 and t >= next_capture:
+			next_capture += 50
 			await RenderingServer.frame_post_draw
 			var picture := root.get_texture().get_image()
 			picture.resize(1280, 720, Image.INTERPOLATE_LANCZOS)
-			picture.save_jpg(out.path_join("frames/%05d.jpg" % frame_index), 0.88)
+			picture.save_jpg(out.path_join("frames/%05d.jpg" % frame_index), 0.90)
+			timestamps.append(t)
 			frame_index += 1
 			if not seen.has("screenshot") and game.track.space.ghost.visible and t > 10000:
 				seen.screenshot = true
 				picture.save_png(out.path_join("ghost.png"))
-		if t >= 95000 and not seen.has("captured"):
-			seen.captured = true
-			print("LANE SMASH DEMO capture complete frames=", frame_index, " impacts=", game.track.space.impact_count)
+			if game.track._completion_age < 0.3 and game.track._completion_age > 0.15:
+				var key: String = game.track._completion_kind + "_complete"
+				if not seen.has(key):
+					seen[key] = true
+					picture.save_png(out.path_join(key + ".png"))
+		if t >= 120000:
+			if not out.is_empty():
+				var timing := FileAccess.open(out.path_join("timestamps.json"), FileAccess.WRITE)
+				timing.store_string(JSON.stringify(timestamps))
+				timing.close()
+			print("LANE SMASH DEMO capture complete frames=", frame_index, " impacts=", game.track.space.impact_count, " sections=", game.track.completed_sections)
+			assert(game.track.completed_sections.cruise > 0 and game.track.completed_sections.hold > 0 and game.track.completed_sections.burst > 0)
+			session.request_end()
+			break
 		await process_frame
 
 func _seed_best(setup: Node) -> void:
@@ -85,7 +98,7 @@ func _seed_best(setup: Node) -> void:
 	assert(NeonRecords.local_request({"action": "save", "record": record}, rider).ok)
 	for t in range(0, int(setup.course.durationMs), 50):
 		var event := rules.current_event()
-		rules.push_sample({"t": t, "seq": t + 1, "cadence": 100, "power": 180,
+		rules.push_sample({"t": t, "seq": t + 1, "cadence": (int(event.cadenceMin) + 10 if event.get("type") == "hold" else (125 if event.get("type") == "burst" else 100)), "power": 200,
 			"resistance": NeonRules.band(int(event.get("laneIndex", 0)), setup.tier).x + 3})
 		rules.advance(t + 50)
 	record.result = rules.result()

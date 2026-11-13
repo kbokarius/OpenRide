@@ -30,14 +30,7 @@ const REJECT_TEXT := {
 	"empty_circuit": "That circuit has no games",
 	"too_long": "That circuit is too long: 90 minutes at most",
 }
-const SCREENS := {
-	HubNav.HOME: preload("res://hub/screens/HomeScreen.gd"),
-	HubNav.GAME: preload("res://hub/screens/GameScreen.gd"),
-	HubNav.CIRCUIT: preload("res://hub/screens/CircuitScreen.gd"),
-	HubNav.SETTINGS: preload("res://hub/screens/SettingsScreen.gd"),
-	HubNav.MY_CIRCUITS: preload("res://hub/screens/MyCircuitsScreen.gd"),
-	HubNav.BUILDER: preload("res://hub/screens/BuilderScreen.gd"),
-}
+
 
 ## The stack the rider left for a plan, restored when they come back (same visit only).
 static var _saved_stack: Array = []
@@ -80,7 +73,7 @@ func _ready() -> void:
 	_screens.size = Vector2(HubTheme.W, HubTheme.H)
 	_screens.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_screens)
-	_waiting = HubTheme.label("Getting your games ready…", HudTheme.MEDIUM, GameTheme.MUTED)
+	_waiting = HubTheme.label("Loading Lane Smash…", HudTheme.MEDIUM, GameTheme.MUTED)
 	_waiting.name = "Waiting"
 	_waiting.size = Vector2(HubTheme.W, HubTheme.H)
 	_waiting.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -194,31 +187,15 @@ func _show_top() -> void:
 		# own signal may still be running in it).
 		screen.visible = false
 		screen.queue_free()
-	var top := nav.top()
-	var id := str(top.id)
-	if id == HubNav.GAME and not HubState.playable(state, HubState.entry(state, str(top.args.get("game_id", "")))):
-		nav.restore([])  # the game left the catalog or lost the camera
-		top = nav.top()
-		id = HubNav.HOME
-	_prefetch(id, top.args)
-	screen = NeonSetup.new() if id == HubNav.GAME and str(top.args.get("game_id", "")) == "neon_vector" else SCREENS[id].new()
-	screen.name = id.to_pascal_case() + "Screen"
-	screen.setup(state, top.args, queue)
-	screen.open.connect(func(sid: String, sargs: Dictionary): nav.push(sid, sargs))
-	screen.back.connect(func(): nav.pop())
+	# This fork has one product. Saved upstream navigation cannot expose other screens.
+	GameRegistry.prefetch(["neon_vector"])
+	screen = NeonSetup.new()
+	screen.name = "LaneSmashScreen"
+	screen.setup(state, {}, queue)
+	screen.back.connect(ask_exit)
 	screen.start.connect(_start)
 	screen.exit_requested.connect(ask_exit)
-	screen.set_ftp_requested.connect(_ask_set_ftp)
-	screen.setting.connect(func(key: String, value: Variant): Session.update_setting(key, value))
 	screen.notice.connect(func(text: String): toast.show_text(text))
-	screen.confirm_requested.connect(_confirm)
-	if screen is HomeScreen:
-		(screen as HomeScreen).camera_explain.connect(_explain_camera)
-		(screen as HomeScreen).calibrate_requested.connect(calibrate)
-	if screen is SettingsScreen:
-		(screen as SettingsScreen).volume_preview.connect(music.preview_volume)
-	# No fade: the bakes draw premultiplied (a faded parent would brighten them), and each
-	# card appears as its bake renders (two a frame) anyway.
 	_screens.add_child(screen)
 
 
@@ -262,12 +239,12 @@ func ask_exit() -> void:
 	for p in visit.get("plans", []):
 		games += (p.get("game_ids", []) as Array).size()
 	if not bool(visit.get("recording", true)):
-		dialog.ask("Exit games?", "This visit isn't being recorded.", "Keep playing", "Exit")
+		dialog.ask("Exit Lane Smash?", "This visit isn't being recorded.", "Keep playing", "Exit")
 	elif float(visit.get("gameplay_sec", 0)) >= 60.0:
-		dialog.ask("Exit games?", "Your ride (%s, %d %s) will be saved." % [HubTheme.clock(float(visit.get("ride_sec", 0))), games,
-			"game" if games == 1 else "games"], "Keep playing", "Exit and save")
+		dialog.ask("Exit Lane Smash?", "Your ride (%s, %d %s) will be saved." % [HubTheme.clock(float(visit.get("ride_sec", 0))), games,
+			"track" if games == 1 else "tracks"], "Keep playing", "Exit and save")
 	else:
-		dialog.ask("Exit games?", "Nothing's been recorded yet.", "Keep playing", "Exit")
+		dialog.ask("Exit Lane Smash?", "Nothing's been recorded yet.", "Keep playing", "Exit")
 	dialog.confirmed.connect(_exit.bind("app"), CONNECT_ONE_SHOT)
 
 

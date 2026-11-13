@@ -256,8 +256,8 @@ func button_style(kind := PRIMARY, pressed := false) -> StyleBoxFlat:
 	s.border_color = edge
 	s.set_border_width_all(4 if kind == SECONDARY else 3)
 	s.border_width_bottom = 7
-	s.content_margin_left = 28
-	s.content_margin_right = 28
+	s.content_margin_left = 12 if clean else 28
+	s.content_margin_right = 12 if clean else 28
 	return _finish_style(s)
 
 

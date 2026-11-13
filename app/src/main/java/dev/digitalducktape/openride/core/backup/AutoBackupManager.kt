@@ -1,5 +1,6 @@
 package dev.digitalducktape.openride.core.backup
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,10 +40,14 @@ class AutoBackupManager(
     private val debounceMs: Long = DEFAULT_DEBOUNCE_MS,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
+    private val initialRestore = CompletableDeferred<Unit>()
+
+    suspend fun awaitInitialRestore() = initialRestore.await()
+
     @OptIn(FlowPreview::class)
     fun start() {
         scope.launch {
-            restoreIfEmpty()
+            try { restoreIfEmpty() } finally { initialRestore.complete(Unit) }
             // The first emission describes the state at launch, and is deliberately *not*
             // dropped: it captures data that predates automatic backups, and dropping it
             // would race with changes that land before collection starts (a conflating

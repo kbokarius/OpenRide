@@ -145,8 +145,9 @@ static func validate(course: Dictionary) -> Array[String]:
 					if distance > 0 and gap < maxi(3000, 1500 * distance):
 						errors.append("Unreachable lane transition before %s" % event.eventId)
 		if event.type in ["charge", "burst"]:
-			if int(event.startMs) - charge_end < 30000 or int(event.endMs) - int(event.startMs) not in range(8000, 15001):
-				errors.append("Charge needs 8–15 s and 30 s recovery")
+			var minimum := 6000 if int(course.courseVersion) >= 4 and event.type == "burst" else 8000
+			if int(event.startMs) - charge_end < 30000 or int(event.endMs) - int(event.startMs) not in range(minimum, 15001):
+				errors.append("Power section needs %d–15 s and 30 s recovery" % (minimum / 1000))
 			charge_end = int(event.endMs)
 			for phase: Dictionary in course.phases:
 				if phase.get("role", "work") != "work" and int(event.startMs) < int(phase.endMs) and int(event.endMs) > int(phase.startMs):

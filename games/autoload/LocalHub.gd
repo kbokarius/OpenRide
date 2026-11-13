@@ -24,8 +24,7 @@ const ROUND_SEC := {"dodge_ball": 90, "tug_of_war": 120, "safe_cracker": 75, "th
 const USES_CAMERA := {"tug_of_war": false}
 ## The display order of the first games (GameCatalog's, without the demo); every other
 ## registered game follows, by id (`order()`).
-const ORDER := ["neon_vector", "kart_race", "dodge_ball", "tug_of_war", "safe_cracker", "cadence_karaoke", "watt_lane", "the_pull",
-	"balloon_pump", "keepy_uppy", "power_grid", "ready_for_launch", "gate_crasher"]
+const ORDER := ["neon_vector"]
 ## CircuitPresets: warm-up, N blocks, cool-down. Shapes only: each slot's game is drawn from its
 ## role's pool (`draw_slots`, as Kotlin's CircuitDraw).
 const WARMUP := {"role": "warmup", "duration_sec": 180}
@@ -168,14 +167,7 @@ static func circuit_role(roles: Array) -> String:
 
 
 func circuits() -> Array:
-	var out: Array = []
-	for id in PRESETS:
-		var slots := _preset_slots(id)
-		var total := 0
-		for slot in slots:
-			total += int(slot.duration_sec) + INTRO_SEC
-		out.append({"id": id, "minutes": int(id.get_slice("-", 1)), "total_sec": total, "slots": slots})
-	return out
+	return []
 
 
 ## The preset's lineup for the next plan (the hub shows the one that plays).

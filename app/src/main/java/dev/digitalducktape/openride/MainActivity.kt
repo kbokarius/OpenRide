@@ -1,106 +1,72 @@
 package dev.digitalducktape.openride
 
 import android.os.Bundle
-import android.view.WindowManager
+import android.view.Gravity
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import dev.digitalducktape.openride.ui.navigation.OpenRideNavHost
-import dev.digitalducktape.openride.ui.theme.OpenRideTheme
-import dev.digitalducktape.openride.ui.designsystem.riderAccent
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import dev.digitalducktape.openride.ui.music.LocalNowPlaying
-import androidx.compose.runtime.collectAsState
+import dev.digitalducktape.openride.games.GameHostActivity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-/**
- * The activity for the whole Compose app (per project scaffold ticket). All screens are
- * destinations within [OpenRideNavHost] rather than separate Activities; the one exception is
- * the mini-games host (`games.GameHostActivity`), which embeds the Godot engine.
- *
- * The [AppContainer] and the app-wide startup (auto-backup, update check, heart-rate manager)
- * belong to [OpenRideApplication], so they are shared with the games host and run once per
- * process rather than once per activity instance.
- */
+/** Lane Smash's launcher. The persistent Godot task owns the entire riding experience. */
 class MainActivity : ComponentActivity() {
+    private var opening = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        hideSystemBars()
-
-        // The WebView class player can make the system re-show the bars on its first video
-        // play (media playback tickles the system UI without any window-focus change, so
-        // onWindowFocusChanged never fires) — leaving the nav bar parked over the metrics
-        // bar. Watching the insets catches every "bars became visible" path and re-hides.
-        ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { _, insets ->
-            if (insets.isVisible(WindowInsetsCompat.Type.systemBars())) hideSystemBars()
-            insets
-        }
-
-        // PRD P0-10: keep the screen on for the duration of an active ride, and let normal
-        // display timeout resume the instant it isn't. Driven from the activity (rather than
-        // a screen-local effect) so the flag can't be left dangling by screen
-        // navigation/recomposition while a ride is still active.
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                appContainer.rideSessionManager.isRideActive.collect { active ->
-                    if (active) {
-                        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    } else {
-                        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    }
-                }
-            }
-        }
-
-        setContent {
-            // The UI colour is the active rider's avatar colour (riderAccent), lime before one is picked.
-            val rider by appContainer.activeProfile.collectAsState()
-            OpenRideTheme(accent = riderAccent(rider?.avatarColor)) {
-                CompositionLocalProvider(LocalNowPlaying provides appContainer.nowPlaying) {
-                    OpenRideNavHost(appContainer = appContainer)
-                }
-            }
-        }
-    }
-
-    /**
-     * The Games hub's invariant (spec §10): no games visit stays live while the rider is in the
-     * app. A rider who left games by Home or back without Exit gets the visit saved now, just
-     * as Exit would (the summary follows through `VisitNavigator`); the next Enter Games starts
-     * a new visit.
-     */
-    override fun onResume() {
-        super.onResume()
-        appContainer.gameVisitManager.endIfLive("app_resumed")
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        // Bars can be restored by the system (dialogs, app switches); re-hide whenever the
-        // window regains focus so the app stays truly full-screen on the bike.
-        if (hasFocus) hideSystemBars()
-    }
-
-    /**
-     * Full-screen kiosk mode: the tablet's OS navigation bar otherwise overlays the app's
-     * own bottom UI (the in-ride metrics bar especially — the app is edge-to-edge and
-     * deliberately doesn't inset for a bar the rider never needs mid-ride). Immersive
-     * sticky: a swipe from the screen edge shows the system bars transiently, over the
-     * app, then they auto-hide again.
-     */
-    private fun hideSystemBars() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowCompat.getInsetsController(window, window.decorView).apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
         }
+        showStatus("Loading Lane Smash…")
+        openLaneSmash()
+    }
+
+    private fun openLaneSmash() {
+        if (opening) return
+        opening = true
+        lifecycleScope.launch {
+            try {
+                // Restore existing history before provisioning a first-install rider.
+                appContainer.autoBackupManager.awaitInitialRestore()
+                val id = appContainer.profileRepository.ensureLaneSmashProfile(
+                    appContainer.activeProfileHolder.activeProfileId.value,
+                )
+                appContainer.activeProfileHolder.setActiveProfile(id)
+                startActivity(GameHostActivity.intent(this@MainActivity))
+                finish() // Only this lightweight launcher finishes; never destroy Godot's task.
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                opening = false
+                showStatus("Couldn't open your saved rides. Please try again.", retry = true)
+            }
+        }
+    }
+
+    private fun showStatus(message: String, retry: Boolean = false) {
+        setContentView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(0xff090f18.toInt())
+            addView(TextView(this@MainActivity).apply {
+                text = "Lane Smash"; textSize = 32f; setTextColor(0xfff0f4ff.toInt())
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = message; textSize = 18f; setTextColor(0xffb8c6e0.toInt())
+                setPadding(24, 24, 24, 24)
+            })
+            if (retry) addView(Button(this@MainActivity).apply {
+                text = "Try again"
+                setOnClickListener { showStatus("Loading Lane Smash…"); openLaneSmash() }
+            })
+        })
     }
 }

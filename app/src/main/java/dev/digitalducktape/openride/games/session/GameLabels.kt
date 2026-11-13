@@ -41,7 +41,7 @@ object GameLabels {
     const val CUSTOM_PREFIX = "custom:"
 
     fun gameTitle(gameId: String, catalog: GameCatalog = GameCatalog.DEFAULT): String =
-        catalog[gameId]?.title ?: gameId.split('_').joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
+        catalog[gameId]?.title ?: GameCatalog.LEGACY[gameId]?.title ?: gameId.split('_').joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
 
     /** One summary line per segment result. */
     data class ResultRow(val title: String, val detail: String, val stars: Int, val skipped: Boolean)

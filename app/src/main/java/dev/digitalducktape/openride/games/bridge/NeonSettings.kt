@@ -30,7 +30,7 @@ data class NeonSettings(val courseId: String, val laneDifficulty: String, val re
         return runCatching { LocalDate.parse(courseId.removePrefix("daily_").substringBeforeLast("_g")) }.isSuccess
     }
 
-    fun planId() = "neon:$courseId:v${if (courseId.startsWith("ls_")) 3 else 2}:$laneDifficulty:f$referencePower:e1:s${if (courseId.startsWith("ls_")) 3 else 2}"
+    fun planId() = "neon:$courseId:v${if (courseId.startsWith("ls_")) 4 else 2}:$laneDifficulty:f$referencePower:e1:s${if (courseId.startsWith("ls_")) 3 else 2}"
 
     fun params() = buildJsonObject {
         put("course_id", courseId)

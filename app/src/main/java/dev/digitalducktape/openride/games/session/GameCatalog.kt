@@ -517,7 +517,10 @@ class GameCatalog(games: List<GameDeclaration>) {
         )
 
         /** Every registered game. Each game issue adds its declaration here. */
-        val DEFAULT = GameCatalog(
+        val DEFAULT = GameCatalog(listOf(NEON_VECTOR))
+
+        /** Archived upstream declarations, retained only for framework regression tests. */
+        val LEGACY = GameCatalog(
             listOf(DEMO, NEON_VECTOR, DODGE_BALL, TUG_OF_WAR, SAFE_CRACKER, CADENCE_KARAOKE, KART_RACE, WATT_LANE, THE_PULL, BALLOON_PUMP, KEEPY_UPPY, POWER_GRID, READY_FOR_LAUNCH, GATE_CRASHER),
         )
     }

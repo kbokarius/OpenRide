@@ -37,7 +37,7 @@ class HubStateBuilderTest {
         cameraFailed = cameraFailed,
         calibrated = "",
         sameDayExtremes = false,
-        catalog = GameCatalog.DEFAULT,
+        catalog = GameCatalog.LEGACY,
         gameBests = gameBests,
         planBests = planBests,
         recording = true,
@@ -45,6 +45,15 @@ class HubStateBuilderTest {
         visitResults = visitResults,
         visitPlans = visitPlans,
     )
+
+    @Test
+    fun `Lane Smash is the only available game and has no circuits`() {
+        val state = HubStateBuilder.build(inputs().copy(catalog = GameCatalog.DEFAULT))
+        assertEquals(listOf("neon_vector"), state.catalog.map { it.id })
+        assertEquals("Lane Smash", state.catalog.single().title)
+        assertTrue(state.circuits.isEmpty())
+        assertNull(GameCatalog.DEFAULT["kart_race"])
+    }
 
     @Test
     fun `the rider comes from the profile, with the FTP nudge only when FTP is unset`() {
@@ -118,7 +127,7 @@ class HubStateBuilderTest {
         assertEquals(20, on.minutes)
         assertEquals(1120, on.totalSec)
         // A camera game is in some draws, not all, now the work pool is bigger.
-        val cameraGames = GameCatalog.DEFAULT.games.filter { it.usesCamera }.map { it.id }
+        val cameraGames = GameCatalog.LEGACY.games.filter { it.usesCamera }.map { it.id }
         assertTrue((1L..20L).any { seed ->
             HubStateBuilder.build(inputs().copy(circuitSeed = seed)).circuits.first { it.id == "circuit-20" }.slots.any { it.gameId in cameraGames }
         })
@@ -133,7 +142,7 @@ class HubStateBuilderTest {
         val ftp = FtpBasis.of(inputs().profile?.ftp)
         for (seed in listOf(1L, 2L, 99L)) {
             val shown = HubStateBuilder.build(inputs().copy(circuitSeed = seed)).circuits.first { it.id == "circuit-45" }
-            val played = SessionPlans.forRequest(SessionRequest.Circuit("circuit-45"), ftp, GameCatalog.DEFAULT, circuitSeed = seed)!!
+            val played = SessionPlans.forRequest(SessionRequest.Circuit("circuit-45"), ftp, GameCatalog.LEGACY, circuitSeed = seed)!!
             assertEquals(played.segments.map { it.gameId }, shown.slots.map { it.gameId })
         }
     }

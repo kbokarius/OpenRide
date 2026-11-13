@@ -4,22 +4,7 @@ extends RefCounted
 ## `res://games/<game_id>/`, with a scene whose root extends `Game`, plus one line below.
 ## The game_id is the contract's `game_id` and must match the game's `info().id`.
 
-const GAMES := {
-	"neon_vector": "res://games/neon_vector/NeonVector.tscn",
-	"demo": "res://games/demo/Demo.tscn",
-	"dodge_ball": "res://games/dodge_ball/DodgeBall.tscn",
-	"tug_of_war": "res://games/tug_of_war/TugOfWar.tscn",
-	"safe_cracker": "res://games/safe_cracker/SafeCracker.tscn",
-	"cadence_karaoke": "res://games/cadence_karaoke/CadenceKaraoke.tscn",
-	"kart_race": "res://games/kart_race/KartRace.tscn",
-	"watt_lane": "res://games/watt_lane/WattLane.tscn",
-	"the_pull": "res://games/the_pull/ThePull.tscn",
-	"balloon_pump": "res://games/balloon_pump/BalloonPump.tscn",
-	"keepy_uppy": "res://games/keepy_uppy/KeepyUppy.tscn",
-	"power_grid": "res://games/power_grid/PowerGrid.tscn",
-	"ready_for_launch": "res://games/ready_for_launch/ReadyForLaunch.tscn",
-	"gate_crasher": "res://games/gate_crasher/GateCrasher.tscn",
-}
+const GAMES := {"neon_vector": "res://games/neon_vector/NeonVector.tscn"}
 
 static var _infos := {}
 ## Background loading (the bike's "first launch / starting a game takes too long", 2026-10-20):
