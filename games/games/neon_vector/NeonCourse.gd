@@ -29,7 +29,11 @@ static func load_course(id: String) -> Dictionary:
 
 
 static func fingerprint(course: Dictionary) -> String:
-	return JSON.stringify(course, "", true, true).sha256_text()
+	# Visual path/opacity cannot change ride eligibility or hide previous best scores.
+	# Removing only this new field preserves every pre-presentation comparison hash.
+	var scoring_course := course.duplicate()
+	scoring_course.erase("presentation")
+	return JSON.stringify(scoring_course, "", true, true).sha256_text()
 
 
 static func choices(event: Dictionary) -> Array:
@@ -77,6 +81,8 @@ static func validate(course: Dictionary) -> Array[String]:
 		errors.append("Events and phases must be arrays")
 	if not errors.is_empty():
 		return errors
+	if course.has("presentation") and not LaneSmashPath.valid(course.presentation, float(course.get("roadLengthMeters", 0))):
+		errors.append("Invalid presentation path")
 	var phase_end: int = 0
 	for phase: Variant in course.phases:
 		if not phase is Dictionary or not phase.get("name") is String or not _integer(phase.get("startMs")) or not _integer(phase.get("endMs")):

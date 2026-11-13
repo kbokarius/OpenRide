@@ -4,16 +4,15 @@ uniform float flow_time = 0.0;
 uniform float resistance = 0.0;
 uniform float intensity = 1.0;
 uniform int style = 0;
-uniform vec2 portal_center = vec2(0.0, 0.04);
-uniform mat3 camera_basis = mat3(1.0);
+uniform mat3 portal_basis = mat3(1.0);
 uniform vec3 primary : source_color = vec3(0.25, 0.6, 0.9);
 uniform vec3 secondary : source_color = vec3(0.65, 0.25, 0.9);
 void sky() {
     // Constant low-cost lighting cubemap; flowing detail only renders on screen.
     if (AT_CUBEMAP_PASS) { COLOR = primary * 0.025; }
     else {
-        vec3 ray = transpose(camera_basis) * EYEDIR;
-        vec2 p = vec2(ray.x, ray.y) / max(0.2, -ray.z) * 0.7 - portal_center;
+        vec3 ray = transpose(portal_basis) * EYEDIR;
+        vec2 p = vec2(ray.x, ray.y) / max(0.2, -ray.z) * 0.7;
         float radius = max(length(p), 0.008);
         float angle = atan(p.y, p.x);
         float depth = -log(radius);

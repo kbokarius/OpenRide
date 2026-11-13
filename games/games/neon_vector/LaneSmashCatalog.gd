@@ -76,4 +76,5 @@ static func generate(minutes: int, seed_value: int, index: int, id: String, rand
 		"family": "random" if random_track else "catalog", "durationMs": minutes * 60000,
 		"theme": THEMES[(seed_value / 97) % 8] if random_track else THEMES[index % 8],
 		"background": BACKGROUNDS[(seed_value / 193) % 4] if random_track else BACKGROUNDS[(index / 3) % 4],
+		"presentation": LaneSmashPath.generate(seed_value, minutes * 1000 + 300),
 		"distanceBased": true, "maxSpeedKph": 60, "maxCadenceRpm": 140, "roadLengthMeters": minutes * 1000 + 300, "seed": seed_value, "description": PATTERNS[index % 5], "phases": phases, "events": events}

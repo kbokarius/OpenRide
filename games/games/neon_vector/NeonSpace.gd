@@ -5,7 +5,7 @@ extends Node3D
 
 const SPEED := 18.0
 const LANE_WIDTH := 3.0
-const ROAD_STEPS := 192
+const ROAD_STEPS := 384
 const STEP := 1.5
 const MARKERS := 112
 const GOLD := Color("ffd369")
@@ -38,7 +38,6 @@ var environment_id := ""
 var _structures: LaneSmashEnvironment
 var sections: LaneSmashSections
 var portal_distance := 250.0
-var _portal_ahead := -1.0
 var _road_material: ShaderMaterial
 var _line_material: ShaderMaterial
 var impact_count := 0
@@ -83,7 +82,7 @@ func _ready() -> void:
 	camera = Camera3D.new()
 	camera.fov = 68
 	camera.near = 0.2
-	camera.far = 1200
+	camera.far = 4000
 	add_child(camera)
 	camera.make_current()
 	var box := BoxMesh.new()
@@ -91,6 +90,9 @@ func _ready() -> void:
 	_road_material = ShaderMaterial.new()
 	_road_material.shader = preload("res://games/neon_vector/coaster_road.gdshader")
 	_line_material = _road_material.duplicate()
+	_road_material.render_priority = -10
+	_line_material.render_priority = -9
+	_line_material.set_shader_parameter("opacity", 0.94)
 	_line_material.set_shader_parameter("glow", 0.65)
 	_road = _mesh(ArrayMesh.new(), _road_material)
 	_rails = _mesh(ArrayMesh.new(), _line_material)
@@ -144,8 +146,8 @@ func prepare_terrain(course: Dictionary) -> void:
 	var id := "%s:%s:%s" % [course.get("courseId", ""), course.get("courseVersion", 0), reduced_motion]
 	if id == _terrain_id: return
 	_terrain_id = id
-	_portal_ahead = -1.0
-	coaster.build(float(course.get("roadLengthMeters", int(course.get("durationMs", 0)) / 1000.0 * _unit_speed)), int(course.get("seed", 17)), reduced_motion)
+	coaster.build(float(course.get("roadLengthMeters", int(course.get("durationMs", 0)) / 1000.0 * _unit_speed)), int(course.get("seed", 17)), reduced_motion, course.get("presentation", {}))
+	_road_material.set_shader_parameter("opacity", coaster.route.opacity)
 	_road_index = -999999
 
 func path(s: float) -> Vector3:
@@ -168,19 +170,16 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 	distance = rules.road_distance()
 	var resistance_fraction: float = (float(rules.latest.get("resistance", NeonRules.TIERS[rules.tier])) - NeonRules.TIERS[rules.tier]) / 41.0
 	_structures.update_environment(str(rules.course.get("background", "orbital")), _accent, float(rules.latest.get("cadence", 0)), resistance_fraction, delta, reduced_motion)
-	var basis := road_basis(distance)
+	var basis := coaster.at(distance).basis
 	# Follow the full orientation, including upside-down loops and rolls; the rider
 	# retains its padding above the fixed lane-number dock.
-	camera.position = path(distance) + basis.z * 12 + basis.y * 6.0
-	camera.look_at(path(distance) - basis.z * 34 + basis.y * 1.6, basis.y)
-	_structures.material.set_shader_parameter("camera_basis", camera.basis)
+	camera.position = coaster.at(distance).origin + basis.z * 12 + basis.y * 6.0
+	camera.look_at(coaster.at(distance).origin - basis.z * 34 + basis.y * 1.6, basis.y)
 	_update_horizon(delta)
 	var index := floori(distance / STEP)
 	if index != _road_index:
 		_road_index = index
 		_road_geometry(index)
-	var portal := camera.to_local(path(portal_distance))
-	_structures.material.set_shader_parameter("portal_center", Vector2(portal.x, portal.y) / maxf(0.2, -portal.z) * 0.7)
 	var target := pose(distance, (lane - 2.5) * LANE_WIDTH, 0.05)
 	rider.transform = target
 	rider.animate(float(rules.latest.get("cadence", 0)), delta)
@@ -208,8 +207,8 @@ func _road_geometry(index: int) -> void:
 	var bases: Array[Basis] = []
 	for i in ROAD_STEPS + 1:
 		var s := (index + i - 16) * STEP
-		centers.append(path(s))
-		bases.append(road_basis(s))
+		centers.append(coaster.at(s).origin)
+		bases.append(coaster.at(s).basis)
 	var strips: Array = []
 	for lane in 6:
 		strips.append([float(lane - 3) * LANE_WIDTH, float(lane - 2) * LANE_WIDTH, -0.015, Color("121a32").lerp(_accent, 0.035 if lane % 2 else 0.07)])
@@ -222,29 +221,29 @@ func _road_geometry(index: int) -> void:
 	_rails.mesh = _continuous_mesh(centers, bases, strips, (index - 16) * STEP)
 
 
-func _horizon_ahead() -> float:
-	# A continuous distance + curvature budget cannot jump between disconnected
-	# visible spans when a loop crosses a screen boundary.
-	var previous := road_basis(distance).z
+func _update_horizon(_delta: float) -> void:
+	# Visibility follows the actual fixed curve. Nothing changes a road vertex.
+	# A continuous curvature budget fades the distant road before it turns behind us.
+	var previous := coaster.at(distance).basis.z
 	var cost := 0.0
-	for step in range(1, 61):
-		var forward := road_basis(distance + step * 4.0).z
-		var next_cost := cost + 4.0 / 240.0 + previous.angle_to(forward) / 0.98
+	var ahead := 480.0
+	for i in range(1, 121):
+		var forward := coaster.at(distance + i * 4.0).basis.z
+		var next_cost := cost + 4.0 / 480.0 + previous.angle_to(forward) / 1.3
 		if next_cost >= 1.0:
-			return (step - 1) * 4.0 + 4.0 * (1.0 - cost) / (next_cost - cost)
+			ahead = (i - 1) * 4.0 + 4.0 * (1.0 - cost) / (next_cost - cost)
+			break
 		cost = next_cost
 		previous = forward
-	return 240.0
-
-
-func _update_horizon(delta: float) -> void:
-	var target := _horizon_ahead()
-	_portal_ahead = target if _portal_ahead < 0 or delta <= 0 else lerpf(_portal_ahead, target, 1.0 - exp(-delta * 5.0))
-	portal_distance = distance + _portal_ahead
-	var point := path(portal_distance)
+	portal_distance = distance + ahead
 	for material in [_road_material, _line_material]:
 		material.set_shader_parameter("road_end", portal_distance)
-		material.set_shader_parameter("portal_point", point)
+		material.set_shader_parameter("fade_start", distance + ahead * 0.62)
+	var forward := (path(portal_distance) - camera.position).normalized()
+	var raw_right := coaster.at(portal_distance).basis.x
+	var right := (raw_right - forward * raw_right.dot(forward)).normalized()
+	var portal_basis := Basis(right, right.cross(forward).normalized(), -forward)
+	_structures.material.set_shader_parameter("portal_basis", portal_basis)
 
 
 static func _continuous_mesh(centers: PackedVector3Array, bases: Array[Basis], strips: Array, start: float) -> ArrayMesh:

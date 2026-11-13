@@ -1,12 +1,13 @@
 shader_type spatial;
-render_mode unshaded, cull_disabled, depth_draw_never, blend_mix;
+render_mode world_vertex_coords, unshaded, cull_disabled, depth_draw_never, blend_mix;
 uniform vec4 tint : source_color = vec4(0.43, 1.0, 0.82, 1.0);
 uniform float power_zone = 0.0;
 uniform float charge = 0.0;
 uniform float intensity = 0.0;
 uniform float flow = 0.0;
 uniform float visible_alpha = 1.0;
-uniform float road_end = 100000.0;
+uniform float road_end = 480.0;
+uniform float fade_start = 300.0;
 varying float road_s;
 void vertex() { road_s = UV2.x; }
 void fragment() {
@@ -27,5 +28,5 @@ void fragment() {
     }
     ALBEDO = color;
     EMISSION = color * (0.12 + intensity * power_zone * 0.4);
-    ALPHA = clamp(alpha * caps * visible_alpha, 0.0, 0.92) * (1.0 - smoothstep(road_end - 18.0, road_end, road_s));
+    ALPHA = clamp(alpha * caps * visible_alpha, 0.0, 0.92) * (1.0 - smoothstep(fade_start, road_end, road_s));
 }

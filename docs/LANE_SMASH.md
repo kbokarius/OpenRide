@@ -44,7 +44,7 @@ The ghost is your highest-scoring completed ride on the same exact course and re
 
 Eight immediately available palettes are assigned to named tracks: **Arctic, Cobalt, Copper, Titanium, Petrol, Amber, Ember and Glacier**. Four flowing psychedelic backgrounds replace the floating scenery: **Prismatic flow, Kaleidoscope, Liquid aurora and Vortex**. Cadence controls flow speed; resistance smoothly changes the pattern and colors. Random generation varies both palette and environment; saved replays retain the exact combination. There are no cosmetic unlocks or rider trails.
 
-The optional original **Night Drive** soundtrack is a 128 BPM dark electronic loop. Switch it off in **Settings & history** before starting. All gameplay instructions remain visual. **Reduced** background motion slows and dims the effect and uses gentle curves without inversions. Normal motion includes vertical loops, full rolls and twisting climbs, independent of lane resistance. The visible road narrows into the background’s hole, which follows its endpoint through every turn.
+The optional original **Night Drive** soundtrack is a 128 BPM dark electronic loop. Switch it off in **Settings & history** before starting. All gameplay instructions remain visual. **Reduced** background motion slows and dims the effect and uses gentle curves without inversions. Normal motion includes vertical loops, full rolls and twisting climbs, independent of lane resistance. The slightly transparent road is a fixed 3D course: the camera travels along its curves instead of reshaping the road toward a moving endpoint. Lane lines and scoring objects stay clear while the background shows through the surface. Each named track has a repeatable route; generated tracks get their own seeded curves, loops and twists. New ride snapshots save that route. The psychedelic opening follows the view down the real course, with longer, smoother transitions. Reduced motion uses gentle curves without inversions.
 
 ## Uninterrupted rides and saved data
 
@@ -56,7 +56,7 @@ Attempts save before play, every five active seconds, on interruption and before
 
 Return through recent apps or the **Lane Smash** app icon after switching away. Both lead to the same persistent game activity. **Exit** returns to the tablet launcher.
 
-Backups include course snapshots, scores and completed ghost traces. Settings such as music are local preferences. Old NEON VECTOR snapshots retain their original scoring and comparison identity; new tracks use course version 4 / generator version 2. This revision does not change Room schema 9.
+Backups include course snapshots, scores and completed ghost traces. Settings such as music are local preferences. Old NEON VECTOR snapshots retain their original scoring and comparison identity; new tracks use course version 4 / generator version 2. Presentation paths have their own version and do not change score or ghost eligibility. This revision does not change Room schema 9.
 
 ## Installing the fork on the Bike
 
@@ -65,13 +65,13 @@ This is an app installation, not a replacement operating system. The original Bi
 1. On the Bike, check **Settings → Device Settings → About tablet** for the model, Android version and build. Firmware may arrange these labels differently. Do not start a firmware update just to inspect them.
 2. On the Mac, open [OpenPelo](https://github.com/doudar/Openpelo/releases). Follow its **Developer Mode Guide** for that tablet, enable **USB debugging**, and connect a USB data cable to the tablet's data port. Leave the Bike's sensor cable connected.
 3. Accept **Allow USB debugging** on the tablet. In OpenPelo, choose the Bike under **Target Device**; use **Refresh Devices** if needed.
-4. Choose **Install local APK**, then select the signed `openride-neon-13.apk` supplied with this fork. The normal **Compatible applications → OpenRide** catalog entry installs upstream, not this game build.
+4. Choose **Install local APK**, then select the signed `openride-neon-14.apk` supplied with this fork. The normal **Compatible applications → OpenRide** catalog entry installs upstream, not this game build.
 5. Open **Lane Smash** on the Bike. It opens directly into the track selector and reuses or creates a local rider automatically. Pedal and turn the knob to verify live cadence, power and resistance before starting a 10-minute Light ride.
 6. Complete a 10-minute ride, then reopen the app to confirm its saved score and ghost. Test End Ride on a separate attempt. Follow with a full ride before relying on it for daily use.
 
 The fork package is `dev.digitalducktape.openride.neon`, with real sensors enabled, a dedicated signing key and a `kbokarius/OpenRide` update channel. It can coexist with upstream OpenRide. This task does not reset the tablet, disable Peloton apps, change the home app, install onto the Bike, or cancel a membership.
 
-For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**. The former Profile and App updates controls are removed. This revision uses version code 13 and keeps the same package/signing identity. No fork release is automatically published by a local build.
+For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**. The former Profile and App updates controls are removed. This revision uses version code 14 and keeps the same package/signing identity. No fork release is automatically published by a local build.
 
 Update this fork in place: do not uninstall it or clear its app data, since that can remove locally stored history. Automatic backups remain enabled, but the former manual Profile controls are removed. Do not uninstall upstream to resolve a signature mismatch. The dedicated fork avoids that conflict. More firmware-specific context and sources: [installation research](research/lanebreak/04-installation.md).
 
@@ -87,4 +87,4 @@ Update this fork in place: do not uninstall it or clear its app data, since that
 - `LaneSmashCatalog.gd` defines the named/seeded courses. Legacy JSON remains exported for saved replays. Keep the generator version and course hash stable unless deliberately versioning content.
 - `godot --path games -s res://tests/demo_lane_smash.gd` opens an automated desktop ride with an isolated completed ghost. It uses simulated sensor values and separate demonstration history.
 
-Lane Smash is the only selectable game; other game assets are excluded from the APK. See [revision 5 specification](specs/lane-smash-v5.md) and [validation](specs/lane-smash-v5-validation.md).
+Lane Smash is the only selectable game; other game assets are excluded from the APK. See [revision 6 specification](specs/lane-smash-v6.md) and [validation](specs/lane-smash-v6-validation.md).

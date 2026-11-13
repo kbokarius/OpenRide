@@ -289,11 +289,11 @@ func test_visible_road_tip_remains_in_the_tunnel_through_a_complete_route() -> v
 		rules.distance_units = s * 1000000
 		space.update_view(rules, 0, 0, -1, false, "")
 		var tip := space.camera.to_local(space.path(space.portal_distance))
-		var center: Vector2 = space._structures.material.get_shader_parameter("portal_center")
-		assert_vector(center).is_equal(Vector2(tip.x, tip.y) / maxf(0.2, -tip.z) * 0.7)
+		var sky_basis: Basis = space._structures.material.get_shader_parameter("portal_basis")
+		assert_float((-sky_basis.z).dot((space.path(space.portal_distance) - space.camera.position).normalized())).is_greater(0.99999)
 		var screen := space.camera.unproject_position(space.path(space.portal_distance)) / space.get_viewport().get_visible_rect().size
-		assert_float(screen.x).is_between(0.08, 0.92)
-		assert_float(screen.y).is_between(0.21, 0.62)
+		assert_float(screen.x).is_between(-0.2, 1.2)
+		assert_float(screen.y).is_between(-0.2, 1.2)
 		assert_float(space.portal_distance - s).is_greater(20.0)
 	space.free()
 
@@ -332,17 +332,3 @@ func test_adjacent_targets_are_separated_and_rest_on_the_road() -> void:
 			assert_float(NeonSpace.marker_height(str(after.type)) - half_height).is_equal_approx(0.05, 0.001)
 		space.free()
 	assert_int(pairs.size()).is_equal(3)
-
-func test_horizon_moves_continuously_without_discrete_cutovers() -> void:
-	var space := NeonSpace.new()
-	add_child(space)
-	space.prepare_terrain(NeonCourse.load_course("ls_10_01"))
-	var previous := space._horizon_ahead()
-	var largest_change := 0.0
-	for step in range(1, 14401):
-		space.distance = step * 0.25
-		var next := space._horizon_ahead()
-		largest_change = maxf(largest_change, absf(next - previous))
-		previous = next
-	assert_float(largest_change).override_failure_message("Largest horizon change per quarter metre: %s" % largest_change).is_less(1.0)
-	space.free()

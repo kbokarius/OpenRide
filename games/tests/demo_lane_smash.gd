@@ -13,6 +13,8 @@ var upside_down_frames := 0
 var portal_error := 0.0
 var previous_portal := Vector2.ZERO
 var max_portal_step := 0.0
+var min_portal := Vector2.ONE
+var max_portal := Vector2.ZERO
 
 func _initialize() -> void:
 	_run.call_deferred()
@@ -56,7 +58,9 @@ func _run() -> void:
 		if space.road_basis(space.distance).y.y < -0.9: upside_down_frames += 1
 		var tip := space.camera.to_local(space.path(space.portal_distance))
 		var expected := Vector2(tip.x, tip.y) / maxf(0.2, -tip.z) * 0.7
-		var actual: Vector2 = space._structures.material.get_shader_parameter("portal_center")
+		var sky_basis: Basis = space._structures.material.get_shader_parameter("portal_basis")
+		var core := space.camera.to_local(space.camera.position - sky_basis.z * 100)
+		var actual := Vector2(core.x, core.y) / maxf(0.2, -core.z) * 0.7
 		portal_error = maxf(portal_error, expected.distance_to(actual))
 		if t > 1000: max_portal_step = maxf(max_portal_step, previous_portal.distance_to(actual))
 		previous_portal = actual
@@ -84,6 +88,9 @@ func _run() -> void:
 			if not seen.has("screenshot") and game.track.space.ghost.visible and t > 10000:
 				seen.screenshot = true
 				picture.save_png(out.path_join("ghost.png"))
+			var uv := space.camera.unproject_position(space.path(space.portal_distance)) / space.get_viewport().get_visible_rect().size
+			min_portal = min_portal.min(uv)
+			max_portal = max_portal.max(uv)
 			if space.road_basis(space.distance).y.y < -0.9 and not seen.has("inverted"):
 				seen.inverted = true
 				picture.save_png(out.path_join("inverted.png"))
@@ -102,7 +109,7 @@ func _run() -> void:
 				var timing := FileAccess.open(out.path_join("timestamps.json"), FileAccess.WRITE)
 				timing.store_string(JSON.stringify(timestamps))
 				timing.close()
-			print("LANE SMASH DEMO capture complete frames=", frame_index, " impacts=", game.track.space.impact_count, " sections=", game.track.completed_sections, " inverted_frames=", upside_down_frames, " portal_error=", portal_error, " largest_portal_step=", max_portal_step)
+			print("LANE SMASH DEMO capture complete frames=", frame_index, " impacts=", game.track.space.impact_count, " sections=", game.track.completed_sections, " inverted_frames=", upside_down_frames, " portal_error=", portal_error, " largest_portal_step=", max_portal_step, " portal_min=", min_portal, " portal_max=", max_portal)
 			assert(upside_down_frames > 30 and portal_error < 0.00001)
 			assert(game.track.completed_sections.cruise > 0 and game.track.completed_sections.hold > 0 and game.track.completed_sections.burst > 0)
 			session.request_end()
