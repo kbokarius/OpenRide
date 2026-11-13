@@ -2,6 +2,8 @@
 
 Research date: **November 13, 2026 (America/Los_Angeles)**. Status: **research only; no implementation or bike installation**.
 
+Follow-up: the requested pre-build specification is now in [structured Markdown](../../specs/lane-ride-v1.md) and [PDF](../../specs/lane-ride-v1.pdf). It incorporates the owner's clarification that difficulty determines the resistance endpoints across the lanes. [Five optional improvement ideas](../../specs/lane-ride-enhancements.md) are kept outside the baseline scope.
+
 ## Recommendation
 
 Build an original, silent, lane-based cycling game inside OpenRide, after a compatibility trial on the intended bike. OpenRide supplies much of the difficult device integration, but it does **not** currently contain a direct Lanebreak replacement. Its existing games could satisfy someone seeking general cycling games; they do not reproduce the resistance-controlled, multi-lane experience requested here.

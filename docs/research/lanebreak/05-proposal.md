@@ -2,6 +2,8 @@
 
 Status: proposal only. No implementation has begun.
 
+**Superseded by the November 13 implementation specification:** [Lane Ride v1](../../specs/lane-ride-v1.md) and its [PDF](../../specs/lane-ride-v1.pdf). The newer spec requires four difficulty presets that set the resistance envelope; it replaces the earlier three-tier suggestion below. This file remains as the initial research record.
+
 ## Product scope
 
 Create one original game inside OpenRide's Games hub that delivers resistance-controlled lane riding, visible challenges, points and repeatable workouts. No subscription, music service, camera, trainer video or online leaderboard is needed for the requested first version.
