@@ -169,7 +169,7 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 	prepare_terrain(rules.course)
 	distance = rules.road_distance()
 	var resistance_fraction: float = (float(rules.latest.get("resistance", NeonRules.TIERS[rules.tier])) - NeonRules.TIERS[rules.tier]) / 41.0
-	_structures.update_environment(str(rules.course.get("background", "orbital")), _accent, float(rules.latest.get("cadence", 0)), resistance_fraction, delta, reduced_motion)
+	_structures.update_environment(str(rules.course.get("background", "orbital")), _accent, distance, resistance_fraction, delta, reduced_motion)
 	var basis := coaster.at(distance).basis
 	# Follow the full orientation, including upside-down loops and rolls; the rider
 	# retains its padding above the fixed lane-number dock.

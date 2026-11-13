@@ -6,10 +6,10 @@ var tier := "challenging"
 var reference_power := 150
 var selected_index := 0
 var random_seed := 0
-var look := GameTheme.new(Color("79b8d5"), Color("0b1019"), 0.0, false, true)
+var look := LaneSmashMenuTheme.new()
 var course: Dictionary = {}
 var tier_buttons: Dictionary = {}
-var track_buttons: Array[Button] = []
+var track_buttons: Array[LaneSmashTrackCard] = []
 var _track_keys := {}
 var _track_rows: Array[Dictionary] = []
 var length_picker: Segmented
@@ -28,12 +28,26 @@ var _replay_id := ""
 var _replay_course: Dictionary = {}
 
 func build() -> void:
-	var background := ColorRect.new()
-	background.color = Color("090f18")
+	var background := LaneSmashMenuTheme.gradient(Color("102431"), Color("080f1a"))
 	background.size = size
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
+	var control_panel := Panel.new()
+	control_panel.position = Vector2(1122, 148)
+	control_panel.size = Vector2(766, 914)
+	control_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var panel_style := look.panel_style(Color("101f2d"))
+	panel_style.border_color = Color("294351")
+	control_panel.add_theme_stylebox_override("panel", panel_style)
+	add_child(control_panel)
+	var divider := ColorRect.new()
+	divider.position = Vector2(56, 148)
+	divider.size = Vector2(1040, 2)
+	divider.color = Color("365467")
+	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(divider)
 	var bar := top_bar("Lane Smash", look)
+	look.style_button(bar.get_node("Back"), GameTheme.SECONDARY)
 	bar.get_node("Title").text = "Lane Smash"
 	bar.get_node("Back").text = "Exit"
 	var spacer := Control.new()
@@ -126,10 +140,10 @@ func _rebuild_tracks() -> void:
 	track_list.add_child(random_button)
 	for item in _track_rows:
 		var index := track_buttons.size()
-		var button := look.button("%02d    %s\n         %s" % [index + 1, item.title, item.description], func(): _pick_track(index), GameTheme.SECONDARY)
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		button.custom_minimum_size = Vector2(1016, 170)
-		button.add_theme_font_size_override("font_size", 34)
+		var button := LaneSmashTrackCard.new()
+		button.preview_clip = track_scroll
+		button.configure(item, index, look, func(): _pick_track(index))
+		button.reduced_motion = GameOptions.get_value(GameRegistry.info("neon_vector"), "motion", rider_id) == "reduced"
 		track_list.add_child(button)
 		track_buttons.append(button)
 	track_scroll.scroll_vertical = 0
@@ -158,9 +172,7 @@ func _refresh_course() -> void:
 	course = _replay_course.duplicate(true) if not _replay_course.is_empty() else NeonCourse.load_course(id)
 	for i in track_buttons.size():
 		var row: Dictionary = _track_rows[i]
-		track_buttons[i].text = "%02d    %s  /  %s\n         %s\n         %s" % [i + 1, row.title, LaneSmashEnvironment.TITLES[row.background], row.description, _score_text(row.id)]
-		look.style_button(track_buttons[i], GameTheme.PRIMARY if i == selected_index and random_seed == 0 and _replay_id.is_empty() else GameTheme.SECONDARY)
-		track_buttons[i].add_theme_font_size_override("font_size", 34)
+		track_buttons[i].set_summary(_score_text(row.id), i == selected_index and random_seed == 0 and _replay_id.is_empty())
 	for key in tier_buttons:
 		look.style_button(tier_buttons[key], GameTheme.PRIMARY if key == tier else GameTheme.SECONDARY)
 		tier_buttons[key].add_theme_font_size_override("font_size", 34)
@@ -199,6 +211,7 @@ func _load_progress() -> void:
 
 
 func _close_panel() -> void:
+	for card in track_buttons: card.set_process(true)
 	if is_instance_valid(_panel):
 		_panel.queue_free()
 		_panel = null
@@ -213,11 +226,12 @@ func handle_back() -> bool:
 
 func _modal(title: String) -> VBoxContainer:
 	_close_panel()
+	for card in track_buttons: card.set_process(false)
 	_panel = Control.new()
 	_panel.size = Vector2(1920, 1080)
 	add_child(_panel)
 	var shade := ColorRect.new()
-	shade.color = Color(0.035, 0.05, 0.12, 1.0)
+	shade.color = Color("0c1926")
 	shade.size = _panel.size
 	_panel.add_child(shade)
 	var heading := look.label(title, 48)
@@ -246,8 +260,12 @@ func _open_extras() -> void:
 	var info := GameRegistry.info("neon_vector")
 	for key in ["ghost", "motion", "music"]:
 		var row := OptionRow.new(info.option_spec(key), GameOptions.get_value(info, key, rider_id), 1700, look)
-		row.changed.connect(func(k: String, v: String): GameOptions.set_value(info, k, v, rider_id))
+		row.changed.connect(func(k: String, v: String):
+			GameOptions.set_value(info, k, v, rider_id)
+			if k == "motion":
+				for card in track_buttons: card.reduced_motion = v == "reduced")
 		box.add_child(row)
+		if row.segmented != null: row.segmented.animate_selection = false
 	box.add_child(look.label("RECENT RIDES · tap one to replay its saved course", 40))
 	var history: Array = _progress.get("history", [])
 	if history.is_empty():

@@ -181,19 +181,27 @@ func test_current_ranges_and_uninterrupted_zero_cadence() -> void:
 	assert_int(rules.distance_units).is_zero()
 	assert_int(rules.score_units).is_zero()
 
-func test_background_reacts_smoothly_to_cadence_and_resistance() -> void:
+func test_background_travel_matches_rules_at_different_speeds_and_stops() -> void:
 	var sky := LaneSmashEnvironment.new()
 	sky.configure(Environment.new())
-	sky.update_environment("reactor", Color("5ba5df"), 60, 0.2, 0, false)
-	sky.update_environment("reactor", Color("5ba5df"), 60, 0.2, 1, false)
-	var slow := sky.flow_time
-	sky.update_environment("reactor", Color("5ba5df"), 140, 1, 0, false)
-	sky.update_environment("reactor", Color("5ba5df"), 140, 1, 1, false)
-	assert_float(sky.flow_time - slow).is_greater(slow)
+	for cadence in [0, 60, 140, 200]:
+		var rules := NeonRules.new()
+		rules.configure(NeonCourse.load_course("ls_30_01"), "challenging", 150)
+		for t in range(0, 3000, 50):
+			rules.push_sample({"t": t, "seq": t + 1, "cadence": cadence, "power": 150, "resistance": 33})
+			rules.advance(t + 50)
+			sky.update_environment("reactor", Color("5ba5df"), rules.road_distance(), 0.2, 0.05, false)
+			assert_float(sky.material.get_shader_parameter("travel_m")).is_equal_approx(rules.road_distance(), 0.0001)
+		var before: float = sky.material.get_shader_parameter("travel_m")
+		# Rendering extra frames or switching reduced motion must not advance distance.
+		for frame in 20:
+			sky.update_environment("reactor", Color("5ba5df"), rules.road_distance(), 0.2, 0.016, true)
+		assert_float(sky.material.get_shader_parameter("travel_m")).is_equal(before)
+		assert_float(before).is_equal_approx(minf(cadence, 140) / 140.0 * 50.0, 0.002)
+	# A 30-minute ride at the speed cap retains metre precision without phase wrapping.
+	sky.update_environment("reactor", Color("5ba5df"), 30000.25, 1.0, 0, false)
+	assert_float(sky.material.get_shader_parameter("travel_m")).is_equal(30000.25)
 	assert_float(sky.resistance_mix).is_equal(1.0)
-	var before := sky.flow_time
-	sky.update_environment("reactor", Color("5ba5df"), 140, 1, 1, true)
-	assert_float(sky.flow_time - before).is_less(slow)
 	sky.free()
 
 func test_all_tracks_change_lanes_frequently_with_short_holds_and_equal_effort_budgets() -> void:
