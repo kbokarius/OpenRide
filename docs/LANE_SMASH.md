@@ -69,7 +69,9 @@ Backups include course snapshots, scores and completed ghost traces. Settings su
 
 ## Installing the fork on the Bike
 
-This is an app installation, not a replacement operating system. The original Bike's non-rotating screen does not identify its tablet generation. This build needs **Android 10 or later** and an ARM64 tablet. Physical compatibility and sustained performance remain to be verified on the user's Bike.
+This is an app installation, not a replacement operating system. The original Bike's non-rotating screen does not identify its tablet generation. This build needs **Android 10 or later** and an ARM64 tablet. Sustained riding performance must be checked on the actual tablet.
+
+**First installation update, November 13, 2026:** code 20 was installed and launched on the owner's PLTN-RB1VQ, Android 11 / RQ.260424.A, ARM64. The selector displayed **Bike connected · ready**. Live pedalling and sustained ride performance remain untested; see the [device installation record](research/lanebreak/08-first-install-followup.md).
 
 1. On the Bike, check **Settings → Device Settings → About tablet** for the model, Android version and build. Firmware may arrange these labels differently. Do not start a firmware update just to inspect them.
 2. On the Mac, open [OpenPelo](https://github.com/doudar/Openpelo/releases). Follow its **Developer Mode Guide** for that tablet, enable **USB debugging**, and connect a USB data cable to the tablet's data port. Leave the Bike's sensor cable connected.

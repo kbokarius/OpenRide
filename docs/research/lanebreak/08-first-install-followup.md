@@ -8,7 +8,21 @@ On November 13, 2026, the owner confirmed **Android 11, build RQ.260424.A**, on 
 
 [OpenRide issue #47](https://github.com/digitalducktape/OpenRide/issues/47) contains an October 23 report of upstream OpenRide installed through OpenPelo on a Gen 2 `PLTN-RB1VQ` tablet running this exact Android/build combination. That is supporting evidence for installation, not confirmation of this owner's model or a Lane Smash sensor/performance test. The issue's failure concerns enabling a HOME alias, not installing the APK.
 
-Next: try the existing Build number seven-tap developer access, then enable USB debugging and authorize the Mac. If the control is absent or blocked, record what the tablet displays before recommending any reset. Once connected, read `ro.product.model` and `ro.product.cpu.abilist` to establish the remaining hardware details. No reset or firmware update is established as necessary.
+The subsequent USB connection confirmed **PLTN-RB1VQ / RB1VQ**, Android 11, `RQ.260424.A`, and **arm64-v8a** directly from the tablet. USB debugging was already authorized. No reset or firmware update was needed.
+
+## First physical installation — November 13, 2026
+
+- Built current revision 12 from commit `561183e9ecc893062f2be5b65816ceef987054b7` using the existing signed `neonReal` configuration. Gradle build/lint completed successfully; verified ARM64, package/version, signing certificate and the APK's embedded game pack.
+- Installer: `openride-neon-20.apk`, code **20**, version **1.2.0-lane-smash.12**, package `dev.digitalducktape.openride.neon`; 204,153,545 bytes.
+- APK SHA-256: `b9f2e1d79babecdda2f886a3d4910868b5952a11778bc160428dd5adc785d5df`.
+- Certificate SHA-256: `45820456eab35d1a56adbc29d2ef7f09369b94d41f101868f5bb354ac3903773` (unchanged).
+- No prior fork package was present. `adb install -r` returned **Success**. Starting MainActivity returned **Status: ok** and opened the persistent GameHostActivity.
+- A physical-tablet screenshot showed the Lane Smash track selector, animated track previews and **Bike connected · ready**. This indicates fresh decoded sensor data, not just a successful service bind. Physical display: 1920×1080, density 240.
+- The app remained running through the initial inspection. OpenGL ES 3.0 context initialized. The unused Bike+ binder returned null, which is expected on this model; readiness came through the original Bike sensor path. Startup logs also contained vendor/linker warnings and a Godot `xr/shaders/enabled` warning. No fatal exception was observed in the inspected application log.
+- Live nonzero cadence/power, knob changes, 3D riding performance, completed-score persistence and sustained thermal stability are **not yet verified on this bike**. No ride was started as part of installation.
+- No factory reset, firmware change, Peloton-package disabling, default-launcher change or app-data clearing was performed. The app was left open at its selector.
+
+The user-facing installer and first-launch screenshot were saved in the task's outputs directory. Serial numbers and account data are intentionally absent from these public notes.
 
 ## Historical installer at the time of the initial follow-up
 
