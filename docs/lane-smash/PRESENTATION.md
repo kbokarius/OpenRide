@@ -116,7 +116,7 @@ The bike's tablet has little to spare: upstream's measurements on it (docs/GAMES
 | Tier | 3D view | Edges | Bloom and grade | Sky | Extras |
 | --- | --- | --- | --- | --- | --- |
 | High | the full screen (0.9 of it on the bike) | MSAA 2× on a desktop, plus the lens pass's smoothing | the engine's | drawn at full size | everything, plus slight colour fringing at speed |
-| Balanced (the bike's default) | 0.80 of the screen (was 0.72) | smoothed in the lens pass | two small passes added in the lens pass | drawn at half size each way | everything |
+| Balanced (Auto's initial tablet tier) | 0.80 of the screen (was 0.72) | smoothed in the lens pass | two small passes added in the lens pass | drawn at half size each way | everything |
 | Performance | 0.66 (was 0.62) | smoothed in the lens pass | none; graded in the lens pass | half size | no light streaks, pools of light, rail curtains, trail or stars |
 
 Revision 13 moved three things out of the engine's hands to make that affordable:
@@ -127,7 +127,7 @@ Revision 13 moved three things out of the engine's hands to make that affordable
 
 The road's pulses went from six to four alive at once (the road, rail and curtain shaders loop over them for every pixel). These are savings by construction and by a desktop profile (`tests/profile_lane_smash_gpu.gd`); the tablet's own frame rate has not been measured.
 
-**Settings → Graphics**: **Auto** (default), **High** or **Performance**. Auto starts on High (Balanced on the tablet). `LaneSmashGovernor` watches four-second windows of riding; after two in a row under 50 fps it steps down one tier, remembers that for the next ride, and never steps back up mid-ride. A single long frame (over 0.2 s) is left out of the count: before revision 13 one hitch could pull a window under the floor and cost the rest of the ride, and every ride after it, its resolution. The tier an earlier build settled on is forgotten once, since the cost of every tier changed. Every surface is unshaded and lit in its own shader; there are no engine lights or fog. Each material is drawn once behind the intro so shaders compile before scored riding.
+**Settings → Graphics**: **High** (default from revision 17), **Auto** or **Performance**. High holds the highest existing preset throughout the ride and ignores Auto's remembered tier. Explicit saved choices remain respected. Auto starts on High (Balanced on the tablet), or its remembered tier. `LaneSmashGovernor` watches four-second windows of riding; after two in a row under 50 fps it steps down one tier, remembers that for the next ride, and never steps back up mid-ride. A single long frame (over 0.2 s) is left out of the count: before revision 13 one hitch could pull a window under the floor and cost the rest of the ride, and every ride after it, its resolution. The tier an earlier build settled on is forgotten once, since the cost of every tier changed. Every surface is unshaded and lit in its own shader; there are no engine lights or fog. Each material is drawn once behind the intro so shaders compile before scored riding.
 
 ## Soundtrack
 

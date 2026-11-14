@@ -48,3 +48,7 @@ No changes to difficulty ranges, resistance decoding, calibration or cadence ban
 - APK SHA-256: `211afd03e519d5fb8723f1855294d8d1cb324e4b363fa94b2d4f8480bf14376d` (204,193,605 bytes).
 - A silent five-second real-renderer demo shows a wrong-lane shot, rapid drop and −1,800 popup using simulated sensors.
 - No installation or on-bike verification was performed for revision 16. Desktop rendering and simulated sensor tests do not establish tablet performance under a real ride.
+
+## Physical installation follow-up — November 14, 2026
+
+At the owner's subsequent request, installed revision 16/code 24 over revision 15/code 23 using `adb install -r`. The original first-install timestamp was retained; no uninstall or data clear was performed. Package metadata confirmed `1.2.0-lane-smash.16`. MainActivity launched successfully, and the physical screen showed the track selector and **Bike connected · ready**. No ride was started. Revision 17 supersedes this installation at the owner's request to default to High graphics.

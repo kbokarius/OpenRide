@@ -47,7 +47,7 @@ func info() -> GameInfo:
 		{"key": "music", "label": "Music", "choices": ["on", "off"], "labels": ["On", "Off"], "default": "on", "kind": "segmented"},
 		{"key": "sfx", "label": "Sound effects", "choices": ["on", "off"], "labels": ["On", "Off"], "default": "on", "kind": "segmented"},
 		{"key": "motion", "label": "Background motion", "choices": ["full", "reduced"], "labels": ["Full", "Reduced"], "default": "full", "kind": "segmented"},
-		{"key": "graphics", "label": "Graphics", "choices": ["auto", "high", "performance"], "labels": ["Auto", "High", "Performance"], "default": "auto", "kind": "segmented"},
+		{"key": "graphics", "label": "Graphics", "choices": ["auto", "high", "performance"], "labels": ["Auto", "High", "Performance"], "default": "high", "kind": "segmented"},
 	]
 	i.summary_stats = [
 		{"key": "completion_percent", "label": "course targets", "suffix": "%"},
