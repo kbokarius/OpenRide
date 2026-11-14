@@ -29,7 +29,7 @@ func info() -> GameInfo:
 	var i := GameInfo.new()
 	i.id = "neon_vector"
 	i.title = "Lane Smash"
-	i.how_to = "Turn resistance to change lanes. Collect points, match cadence targets and build power in the marked lane."
+	i.how_to = "Turn resistance to change lanes. Collect points, match cadence targets and build power in the marked lane. Avoid red bombs: each hit costs up to 100 points."
 	i.supports = ["minutes"]
 	i.min_sec = 300
 	i.max_sec = 1800
@@ -107,10 +107,6 @@ func _on_start() -> void:
 
 func _begin_ride() -> void:
 	_save_busy = true
-	var progress := await NeonRecords.request({"action": "state"}, _rider)
-	if not bool(progress.get("ok", false)):
-		_storage_failed(progress)
-		return
 
 	var replay_id := str(params.get("replay_attempt_id", ""))
 	if not replay_id.is_empty():

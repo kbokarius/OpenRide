@@ -94,3 +94,22 @@ func test_v2_courses_keep_scoring_frequent_and_all_three_mechanics() -> void:
 			types[event.type] = true
 		assert_int(active * 100 / int(course.durationMs)).is_equal(85)
 		assert_bool(types.has_all(["cruise", "hold", "burst"])).is_true()
+
+func test_rejects_unbounded_or_malformed_distance_geometry_before_allocating() -> void:
+	for invalid in [0, -1, INF, NAN, 1000000000000, "bad", {}, []]:
+		var course := NeonCourse.load_course("ls_10_01")
+		course.roadLengthMeters = invalid
+		assert_array(NeonCourse.validate(course)).is_not_empty()
+	for invalid in [1, "true", {}, []]:
+		var course := NeonCourse.load_course("ls_10_01")
+		course.distanceBased = invalid
+		assert_array(NeonCourse.validate(course)).is_not_empty()
+
+	for invalid in [null, true, "1", {}, [], INF, NAN]:
+		for key in ["schemaVersion", "maxSpeedKph", "maxCadenceRpm"]:
+			var course := NeonCourse.load_course("ls_10_01")
+			course[key] = invalid
+			assert_array(NeonCourse.validate(course)).is_not_empty()
+		var course := NeonCourse.load_course("ls_10_01")
+		course.presentation.version = invalid
+		assert_array(NeonCourse.validate(course)).is_not_empty()

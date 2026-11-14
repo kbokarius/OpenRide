@@ -83,7 +83,11 @@ class NeonRecords(
                         put("bestScoreUnits", row.bestScoreUnits ?: -1)
                     })
                 } })
-                put("history", buildJsonArray { dao.history(profile).forEach { add(payload(it, details = false)) } })
+                put("history", buildJsonArray {
+                    dao.historyIds(profile).forEach { id ->
+                        dao.get(id)?.let { add(payload(it, details = false)) }
+                    }
+                })
             }
             "best" -> buildJsonObject {
                 put("ok", true)
@@ -122,18 +126,25 @@ class NeonRecords(
             require(duration in 300_000..1_800_000 && elapsed in 0..duration && score in 0..10_000_000_000_000L)
             require(status in setOf("pending", "completed", "ended", "interrupted"))
             require(status != "completed" || elapsed == duration)
+            val scoringVersion = result["scoringVersion"]?.jsonPrimitive?.int ?: 1
+            require(scoringVersion in 1..4)
+            val earned = if (scoringVersion >= 4) result.getValue("earnedScoreUnits").jsonPrimitive.long else score
+            val penalty = if (scoringVersion >= 4) result.getValue("penaltyUnits").jsonPrimitive.long else 0L
+            require(earned in 0..10_000_000_000_000L && penalty in 0..earned && earned - penalty == score)
             val ghost = record["ghost"]?.jsonArray.orEmpty()
             require(ghost.size <= 18_001)
             var last = -1L
             var lastScore = 0L
             var lastDistance = 0L
+            var rowSize = 0
             ghost.forEach {
                 val tick = it.jsonArray
-                require(tick.size in 3..4)
+                require(tick.size in 3..4 && (rowSize == 0 || tick.size == rowSize))
+                rowSize = tick.size
                 val t = tick[0].jsonPrimitive.long
                 val lane = tick[1].jsonPrimitive.int
                 val points = tick[2].jsonPrimitive.long
-                require(t > last && t in 0..elapsed && lane in -1..5 && points in lastScore..score)
+                require(t > last && t in 0..elapsed && lane in -1..5 && points in (if (scoringVersion >= 4) 0 else lastScore)..earned)
                 if (tick.size == 4) {
                     val distance = tick[3].jsonPrimitive.long
                     require(distance in lastDistance..(kotlin.math.ceil(t * 60.0 / 3.6).toLong() + 2))
@@ -151,6 +162,7 @@ class NeonRecords(
                 put("updatedMs", JsonPrimitive(row.updatedMs))
                 put("result", JsonObject(data.getValue("result").jsonObject.toMutableMap().apply {
                     put("status", JsonPrimitive(row.status))
+                    if (!details) remove("events")
                     if (row.status != "completed") put("stars", JsonPrimitive(0))
                 }))
                 if (!details) { remove("ghost"); remove("course") }

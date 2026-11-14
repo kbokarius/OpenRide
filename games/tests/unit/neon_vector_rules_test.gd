@@ -140,3 +140,51 @@ func test_v1_comparison_identity_is_preserved_after_scoring_upgrade() -> void:
 	var original := JSON.stringify(["rider", NeonCourse.fingerprint(data), "intermediate", 1, 1, 150.0], "", true, true).sha256_text()
 	assert_str(r.comparison_key("rider")).is_equal(original)
 	assert_int(r.scoring_version).is_equal(1)
+
+
+func _bomb_course() -> Dictionary:
+	var course := NeonCourse.load_course("ls_10_01")
+	course.events = [_event("cruise", 0, 600000, 0)]
+	course.hazards = [{"hazardId": "test-bomb", "hitMs": 60000, "laneIndex": 1, "penaltyPoints": 100}]
+	return course
+
+func test_bomb_contact_deducts_once_at_front_wheel_and_is_frame_rate_independent() -> void:
+	var results := []
+	for fps in [30, 60, 120]:
+		var r := NeonRules.new()
+		assert_array(r.configure(_bomb_course(), "challenging", 150)).is_empty()
+		_run(r, 59000, 140, 150, 33, fps)
+		_run(r, 59990, 140, 150, 40, fps)
+		var before := r.score_units
+		assert_int(r.penalty_units).is_zero()
+		_run(r, 60010, 140, 150, 40, fps)
+		assert_bool(r.hazard_states[0].hit).is_true()
+		assert_int(r.penalty_units).is_equal(100 * NeonRules.UNIT)
+		assert_int(r.score_units).is_equal(before - 100 * NeonRules.UNIT)
+		_run(r, 61000, 140, 150, 40, fps)
+		assert_int(r.penalty_units).is_equal(100 * NeonRules.UNIT)
+		results.append(r.score_units)
+	assert_int(results[0]).is_equal(results[1])
+	assert_int(results[1]).is_equal(results[2])
+
+func test_bombs_leave_target_lane_clear_and_cannot_make_points_negative() -> void:
+	for lane in [0, 1, 2]:
+		var r := NeonRules.new()
+		r.configure(_bomb_course(), "challenging", 150)
+		_run(r, 61000, 140, 150, 33 + lane * 7)
+		assert_bool(r.hazard_states[0].resolved).is_true()
+		assert_bool(r.hazard_states[0].hit).is_equal(lane == 1)
+		assert_int(r.penalty_units).is_zero()
+		assert_int(r.score_units).is_greater_equal(0)
+		if lane == 0: assert_int(r.score_units).is_greater(0)
+
+func test_saved_v4_course_keeps_its_previous_scoring_identity() -> void:
+	var course := _bomb_course()
+	course.erase("hazards")
+	course.courseVersion = 4
+	course.generatorVersion = 2
+	var r := NeonRules.new()
+	assert_array(r.configure(course, "challenging", 150)).is_empty()
+	assert_int(r.scoring_version).is_equal(3)
+	var key := JSON.stringify(["rider", NeonCourse.fingerprint(course), "challenging", 1, 3, 150.0], "", true, true).sha256_text()
+	assert_str(r.comparison_key("rider")).is_equal(key)

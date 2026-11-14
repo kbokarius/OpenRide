@@ -28,7 +28,8 @@ The five overall ranges match the published Lanebreak Bike update; the equal sev
 - **Mint arrows:** stay in the target lane and between the displayed minimum and maximum rpm. Both endpoints count. A soft mint gradient stays attached to the section beneath the raised arrows.
 - **Violet power sections:** accumulate output in the target lane. The floor charges and brightens as energy builds, with faster pulses at higher cadence and a growing triangular finish gate. One point is awarded per five joules: ten valid seconds at 150 W earns 300 points. There is no maximum-cadence target or power-score ceiling.
 - Bars and arrows sit on the road without hovering; adjacent sections leave a clear space between the final target and the next section’s first target. Gold bars, arrows and the power section’s finish gate shatter when the front wheel touches them. The visual collision does not award points by itself: the correct lane, cadence and output rules still apply. Objects in other lanes remain intact.
-- Stars rate how well you met the targets encountered during your ride. Complete the full selected duration and reach 25%, 60% or 90% for one, two or three stars. Extra burst output cannot replace missed lane/cadence targets.
+- **Red bombs:** avoid them. A front-wheel hit removes up to **100 points**, shows the amount lost in red and triggers a flash, shockwave and debris. Your score cannot fall below zero. Bombs never occupy the active scoring lane.
+- Stars rate how well you met the targets encountered during your ride. Complete the full selected duration and reach 25%, 60% or 90% for one, two or three stars. Extra burst output cannot replace missed lane/cadence targets. Bombs lower your points but do not directly change the star percentage.
 
 Sections now alternate low effort, climbing, easing back and recovery. Lane targets change every 20–47 seconds at 60–140 rpm (about 35 seconds at 80 rpm); cadence sections last 6–14 seconds. Every track has the same target-effort budget per road minute, with different ordering and target placement. Actual output depends on the rider. Each section’s final target explodes at its scoring endpoint and shows the earned +points at that spot. The number floats, fades and travels behind you with that point on the road; it does not add a second bonus.
 
@@ -56,7 +57,7 @@ Attempts save before play, every five active seconds, on interruption and before
 
 Return through recent apps or the **Lane Smash** app icon after switching away. Both lead to the same persistent game activity. **Exit** returns to the tablet launcher.
 
-Backups include course snapshots, scores and completed ghost traces. Settings such as music are local preferences. Old NEON VECTOR snapshots retain their original scoring and comparison identity; new tracks use course version 4 / generator version 2. Presentation paths have their own version and do not change score or ghost eligibility. This revision does not change Room schema 9.
+Backups include course snapshots, scores and completed ghost traces. Settings such as music are local preferences. Old NEON VECTOR snapshots retain their original scoring and comparison identity; new bomb tracks use course version 5 / generator version 3 / scoring version 4. Old bomb-free bests remain in history and can be replayed, but new bomb tracks use separate score comparisons. Presentation paths have their own version and do not change score or ghost eligibility. This revision does not change Room schema 9.
 
 ## Installing the fork on the Bike
 
@@ -65,17 +66,17 @@ This is an app installation, not a replacement operating system. The original Bi
 1. On the Bike, check **Settings → Device Settings → About tablet** for the model, Android version and build. Firmware may arrange these labels differently. Do not start a firmware update just to inspect them.
 2. On the Mac, open [OpenPelo](https://github.com/doudar/Openpelo/releases). Follow its **Developer Mode Guide** for that tablet, enable **USB debugging**, and connect a USB data cable to the tablet's data port. Leave the Bike's sensor cable connected.
 3. Accept **Allow USB debugging** on the tablet. In OpenPelo, choose the Bike under **Target Device**; use **Refresh Devices** if needed.
-4. Choose **Install local APK**, then select the signed `openride-neon-15.apk` supplied with this fork. The normal **Compatible applications → OpenRide** catalog entry installs upstream, not this game build.
+4. Choose **Install local APK**, then select the signed `openride-neon-16.apk` supplied with this fork. The normal **Compatible applications → OpenRide** catalog entry installs upstream, not this game build.
 5. In OpenPelo, open **Tools → Installed App Manager**, search for **Lane Smash**, and click **Launch**. The Bike should show the track selector. Pedal until it reports ready, start a 10-minute Light ride, and verify that the top-left rpm, W and resistance values respond to pedalling and the knob.
 6. Complete a 10-minute ride, then reopen the app to confirm its saved score and ghost. Test End Ride on a separate attempt. Follow with a full ride before relying on it for daily use.
 
-For daily access without the Mac, a tablet launcher such as **Lawnchair** can display the Lane Smash app icon. OpenPelo offers it under **Compatible applications → Launchers**; after installation, use **Tools → Set Default Launcher → Lawnchair → Set Default**. This changes the home screen to the launcher, not directly to Lane Smash. The signed revision-6 build has its HOME alias disabled and no accessible control to enable it; the removed upstream Profile setting is not available. Direct automatic startup requires an app change or a separately verified device-specific setup. Do not use the old debug-only `run-as` instructions with this non-debuggable installer.
+For daily access without the Mac, a tablet launcher such as **Lawnchair** can display the Lane Smash app icon. OpenPelo offers it under **Compatible applications → Launchers**; after installation, use **Tools → Set Default Launcher → Lawnchair → Set Default**. This changes the home screen to the launcher, not directly to Lane Smash. The current signed build has its HOME alias disabled and no accessible control to enable it; the removed upstream Profile setting is not available. Direct automatic startup requires an app change or a separately verified device-specific setup. Do not use the old debug-only `run-as` instructions with this non-debuggable installer.
 
 OpenPelo's generic Developer Mode Guide includes **Firmware Reset**. First confirm the tablet model, Android version and build, and try existing developer access. A reset is not established as necessary for this user's tablet; if USB debugging is missing or blocked, stop before resetting and obtain instructions for that exact firmware. Leave the Bike sensor cable connected.
 
 The fork package is `dev.digitalducktape.openride.neon`, with real sensors enabled, a dedicated signing key and a `kbokarius/OpenRide` update channel. It can coexist with upstream OpenRide. This task does not reset the tablet, disable Peloton apps, change the home app, install onto the Bike, or cancel a membership.
 
-For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**. The former Profile and App updates controls are removed. This revision uses version code 15 and keeps the same package/signing identity. No fork release is automatically published by a local build.
+For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**. The former Profile and App updates controls are removed. This revision uses version code 16 and keeps the same package/signing identity. No fork release is automatically published by a local build.
 
 Update this fork in place: do not uninstall it or clear its app data, since that can remove locally stored history. Automatic backups remain enabled, but the former manual Profile controls are removed. Do not uninstall upstream to resolve a signature mismatch. The dedicated fork avoids that conflict. More firmware-specific context and sources: [installation research](research/lanebreak/04-installation.md).
 
@@ -91,4 +92,4 @@ Update this fork in place: do not uninstall it or clear its app data, since that
 - `LaneSmashCatalog.gd` defines the named/seeded courses. Legacy JSON remains exported for saved replays. Keep the generator version and course hash stable unless deliberately versioning content.
 - `godot --path games -s res://tests/demo_lane_smash.gd` opens an automated desktop ride with an isolated completed ghost. It uses simulated sensor values and separate demonstration history.
 
-Lane Smash is the only selectable game; other game assets are excluded from the APK. See [revision 7 specification](specs/lane-smash-v7.md) and [validation](specs/lane-smash-v7-validation.md).
+Lane Smash is the only selectable game; other game assets are excluded from the APK. See [revision 8 specification](specs/lane-smash-v8.md) and [validation](specs/lane-smash-v8-validation.md).

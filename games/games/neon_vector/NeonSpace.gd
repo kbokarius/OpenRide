@@ -5,7 +5,8 @@ extends Node3D
 
 const SPEED := 18.0
 const LANE_WIDTH := 3.0
-const ROAD_STEPS := 384
+const ROAD_CHUNK_STEPS := 96
+const ROAD_CHUNK_COUNT := 5
 const STEP := 1.5
 const MARKERS := 112
 const GOLD := Color("ffd369")
@@ -19,13 +20,19 @@ var world_id := ""
 var reduced_motion := false
 var distance := 0.0
 var coaster := LaneSmashCoaster.new()
-var _road: MeshInstance3D
-var _rails: MeshInstance3D
+var _road_chunks: Array[Dictionary] = []
+var road_mesh_builds := 0
+var _terrain_course: Dictionary = {}
+var _terrain_reduced := false
+var _terrain_revision := 0
 var _bars: MultiMeshInstance3D
 var _arrows: MultiMeshInstance3D
 var _crystals: MultiMeshInstance3D
 var _shards: MultiMeshInstance3D
 var _impacts: Array[Dictionary] = []
+var _shockwaves: Array[Dictionary] = []
+var _rings: MultiMeshInstance3D
+var _flashes: MultiMeshInstance3D
 var _collected := {}
 var _previous_distance := -1.0
 var _previous_ms := -1
@@ -37,6 +44,7 @@ var _rim_light: DirectionalLight3D
 var environment_id := ""
 var _structures: LaneSmashEnvironment
 var sections: LaneSmashSections
+var bombs: LaneSmashBombs
 var portal_distance := 250.0
 var _road_material: ShaderMaterial
 var _line_material: ShaderMaterial
@@ -94,8 +102,8 @@ func _ready() -> void:
 	_line_material.render_priority = -9
 	_line_material.set_shader_parameter("opacity", 0.94)
 	_line_material.set_shader_parameter("glow", 0.65)
-	_road = _mesh(ArrayMesh.new(), _road_material)
-	_rails = _mesh(ArrayMesh.new(), _line_material)
+	for i in ROAD_CHUNK_COUNT:
+		_road_chunks.append({"index": -999999, "road": _mesh(ArrayMesh.new(), _road_material), "rails": _mesh(ArrayMesh.new(), _line_material)})
 	_bars = _instances(box, MARKERS, _material(Color.WHITE, 0.8, true, true))
 	_arrows = _instances(_chevron(), MARKERS, _material(Color.WHITE, 0.6, true, true))
 	var crystal := PrismMesh.new()
@@ -103,6 +111,15 @@ func _ready() -> void:
 	_crystals = _instances(crystal, MARKERS, _material(Color.WHITE, 1.0, true, true))
 	_shards = _instances(box, 192, _material(Color.WHITE, 1.2, true, true))
 	_shards.multimesh.visible_instance_count = 0
+	_rings = _instances(_ring(0.88, 1.0), 12, _material(Color.WHITE, 1.8, true, true))
+	var flash := SphereMesh.new()
+	flash.radius = 0.5
+	flash.height = 1.0
+	flash.radial_segments = 12
+	flash.rings = 6
+	_flashes = _instances(flash, 12, _material(Color.WHITE, 2.0, true, true))
+	_rings.multimesh.visible_instance_count = 0
+	_flashes.multimesh.visible_instance_count = 0
 
 	_rider_material = _material(Color("132a48"), 0.08)
 	_rim_material = _material(_accent, 1.25)
@@ -119,6 +136,9 @@ func _ready() -> void:
 	sections = LaneSmashSections.new()
 	sections.space = self
 	add_child(sections)
+	bombs = LaneSmashBombs.new()
+	bombs.space = self
+	add_child(bombs)
 	set_world("arctic")
 	# Exercise every material during the host's three-second intro. Mobile GL can
 	# otherwise compile the first ghost/arrow/crystal shader during scored gameplay.
@@ -139,16 +159,24 @@ func set_world(id: String) -> void:
 	_rim_material.emission = _accent
 	if rider: rider.tint(_accent)
 	if ghost: ghost.tint(_accent)
-	_road_index = -999999
+	_invalidate_road()
 
 
 func prepare_terrain(course: Dictionary) -> void:
-	var id := "%s:%s:%s" % [course.get("courseId", ""), course.get("courseVersion", 0), reduced_motion]
-	if id == _terrain_id: return
-	_terrain_id = id
+	# Rules replace their immutable course dictionary when a saved snapshot is loaded.
+	# IDs alone are insufficient: saved presentation data may differ from the generator.
+	if is_same(course, _terrain_course) and reduced_motion == _terrain_reduced: return
+	_terrain_course = course
+	_terrain_reduced = reduced_motion
+	_terrain_revision += 1
+	_terrain_id = str(_terrain_revision)
 	coaster.build(float(course.get("roadLengthMeters", int(course.get("durationMs", 0)) / 1000.0 * _unit_speed)), int(course.get("seed", 17)), reduced_motion, course.get("presentation", {}))
 	_road_material.set_shader_parameter("opacity", coaster.route.opacity)
+	_invalidate_road()
+
+func _invalidate_road() -> void:
 	_road_index = -999999
+	for chunk in _road_chunks: chunk.index = -999999
 
 func path(s: float) -> Vector3:
 	return coaster.at(s).origin
@@ -176,7 +204,7 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 	camera.position = coaster.at(distance).origin + basis.z * 12 + basis.y * 6.0
 	camera.look_at(coaster.at(distance).origin - basis.z * 34 + basis.y * 1.6, basis.y)
 	_update_horizon(delta)
-	var index := floori(distance / STEP)
+	var index := floori((distance - 24.0) / (ROAD_CHUNK_STEPS * STEP))
 	if index != _road_index:
 		_road_index = index
 		_road_geometry(index)
@@ -197,28 +225,35 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 		ghost.animate(ghost_cadence, delta)
 	_events(rules, lane)
 	sections.update_view(rules, delta, lane)
+	bombs.update_view(rules)
 	_animate_impacts(delta)
 
 
-func _road_geometry(index: int) -> void:
-	# Shared sample positions and normals, indexed quads: no overlapping boxes or
-	# transverse seams. Both road and lane lines follow the exact same continuous spline.
-	var centers := PackedVector3Array()
-	var bases: Array[Basis] = []
-	for i in ROAD_STEPS + 1:
-		var s := (index + i - 16) * STEP
-		centers.append(coaster.at(s).origin)
-		bases.append(coaster.at(s).basis)
-	var strips: Array = []
-	for lane in 6:
-		strips.append([float(lane - 3) * LANE_WIDTH, float(lane - 2) * LANE_WIDTH, -0.015, Color("121a32").lerp(_accent, 0.035 if lane % 2 else 0.07)])
-	_road.mesh = _continuous_mesh(centers, bases, strips, (index - 16) * STEP)
-	strips.clear()
-	for edge in 7:
-		var center := (edge - 3) * LANE_WIDTH
-		var width := 0.06 if edge in [0, 6] else 0.025
-		strips.append([center - width, center + width, 0.025, _accent if edge in [0, 6] else _accent.darkened(0.65)])
-	_rails.mesh = _continuous_mesh(centers, bases, strips, (index - 16) * STEP)
+func _road_geometry(first: int) -> void:
+	# Five fixed sections cover at least 24 m behind and 552 m ahead. Recycle only
+	# the section that leaves view, about once every 8.6 s at maximum speed.
+	for index in range(first, first + ROAD_CHUNK_COUNT):
+		var chunk: Dictionary = _road_chunks[posmod(index, ROAD_CHUNK_COUNT)]
+		if int(chunk.index) == index: continue
+		chunk.index = index
+		var start := index * ROAD_CHUNK_STEPS * STEP
+		var centers := PackedVector3Array()
+		var bases: Array[Basis] = []
+		for i in ROAD_CHUNK_STEPS + 1:
+			var frame := coaster.at(start + i * STEP)
+			centers.append(frame.origin)
+			bases.append(frame.basis)
+		var strips: Array = []
+		for lane in 6:
+			strips.append([float(lane - 3) * LANE_WIDTH, float(lane - 2) * LANE_WIDTH, -0.015, Color("121a32").lerp(_accent, 0.035 if lane % 2 else 0.07)])
+		chunk.road.mesh = _continuous_mesh(centers, bases, strips, start)
+		strips.clear()
+		for edge in 7:
+			var center := (edge - 3) * LANE_WIDTH
+			var width := 0.06 if edge in [0, 6] else 0.025
+			strips.append([center - width, center + width, 0.025, _accent if edge in [0, 6] else _accent.darkened(0.65)])
+		chunk.rails.mesh = _continuous_mesh(centers, bases, strips, start)
+		road_mesh_builds += 1
 
 
 func _update_horizon(_delta: float) -> void:
@@ -390,13 +425,34 @@ func _events(rules: NeonRules, visual_lane: float) -> void:
 
 func _explode(at: Vector3, color: Color, count := 12, force := 1.0) -> void:
 	impact_count += 1
+	var basis := road_basis(distance)
+	if _shockwaves.size() >= 12: _shockwaves.pop_front()
+	_shockwaves.append({"origin": at, "basis": basis, "color": color, "age": 0.0, "force": force})
 	for i in count:
 		if _impacts.size() >= 192: _impacts.pop_front()
 		var angle := i * TAU / float(count) + impact_count * 0.8 + sin(i * 4.13) * 0.3
 		var spread := 2.0 + fposmod(sin(i * 12.9898 + impact_count) * 43758.5453, 1.0) * 3.0
-		_impacts.append({"origin": at, "velocity": road_basis(distance) * Vector3(cos(angle) * spread, 1.5 + fposmod(sin(i * 17.13) * 3758.2, 1.0) * 3.6, sin(angle) * spread) * force, "gravity": -road_basis(distance).y * 3.0, "age": 0.0, "color": color})
+		_impacts.append({"origin": at, "velocity": basis * Vector3(cos(angle) * spread, 1.5 + fposmod(sin(i * 17.13) * 3758.2, 1.0) * 3.6, sin(angle) * spread) * force, "gravity": -basis.y * 3.0, "age": 0.0, "color": color})
 
 func _animate_impacts(delta: float) -> void:
+	for i in range(_shockwaves.size() - 1, -1, -1):
+		_shockwaves[i].age += delta
+		if float(_shockwaves[i].age) > 0.6: _shockwaves.remove_at(i)
+	for i in _shockwaves.size():
+		var wave: Dictionary = _shockwaves[i]
+		var age := float(wave.age)
+		var scale := (0.15 + 5.0 * (1.0 - pow(1.0 - age / 0.6, 2))) * float(wave.force)
+		var tint: Color = wave.color
+		tint.a = pow(1.0 - age / 0.6, 2) * 0.7
+		_rings.multimesh.set_instance_transform(i, Transform3D(wave.basis.scaled_local(Vector3(scale, 0.12, scale)), wave.origin))
+		_rings.multimesh.set_instance_color(i, tint)
+		var flash_size := maxf(0.001, (1.0 - age / 0.22) * float(wave.force) * 1.5)
+		_flashes.multimesh.set_instance_transform(i, Transform3D(wave.basis.scaled_local(Vector3.ONE * flash_size), wave.origin))
+		tint = tint.lerp(Color.WHITE, 0.7)
+		tint.a = maxf(0, 1.0 - age / 0.22) * 0.8
+		_flashes.multimesh.set_instance_color(i, tint)
+	_rings.multimesh.visible_instance_count = _shockwaves.size()
+	_flashes.multimesh.visible_instance_count = _shockwaves.size()
 	for i in range(_impacts.size() - 1, -1, -1):
 		_impacts[i].age += delta
 		if float(_impacts[i].age) > 0.65: _impacts.remove_at(i)

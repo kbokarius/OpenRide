@@ -151,6 +151,8 @@ class NeonRecordsTest {
         fun decode(trace: String) = NeonRecords.decode(JsonObject(source.toMutableMap().apply { put("ghost", Json.parseToJsonElement(trace)) }), rider, 0)
         assertNotNull(decode("[[100,0,0,1000],[200,1,20,2000]]"))
         assertNotNull(decode("[[100,0,0],[200,1,20]]"))
+        assertThrows(IllegalArgumentException::class.java) { decode("[[100,0,0,1000],[200,1,20]]") }
+        assertThrows(IllegalArgumentException::class.java) { decode("[[100,0,0],[200,1,20,2000]]") }
         assertThrows(IllegalArgumentException::class.java) { decode("[[100,0,0,1000],[200,1,20,900]]") }
         assertThrows(IllegalArgumentException::class.java) { decode("[[100,0,0,2000]]") }
     }
@@ -173,4 +175,51 @@ class NeonRecordsTest {
         assertFalse(dao.history(rider).any { it.comparisonKey == stats.comparisonKey })
         assertTrue(dao.trackStats(rider).any { it.comparisonKey == stats.comparisonKey && it.bestScoreUnits == 800L })
     }
+    @Test fun `menu history excludes heavy traces and matches history ordering`() = runTest {
+        val row = record(status = "completed", elapsed = 600000, score = 100)
+        val data = Json.parseToJsonElement(row.payloadJson).jsonObject.toMutableMap()
+        data["result"] = JsonObject(data.getValue("result").jsonObject.toMutableMap().apply {
+            put("events", Json.parseToJsonElement("[{\"eventId\":\"sample\",\"scoreUnits\":100}]"))
+        })
+        val detailed = row.copy(payloadJson = JsonObject(data).toString())
+        dao.save(record())
+        dao.save(detailed)
+        assertEquals(dao.history(rider).map { it.attemptId }, dao.historyIds(rider))
+        val records = NeonRecords(dao, backgroundScope, { rider })
+        val history = records.execute("""{"action":"state"}""", rider).getValue("history").jsonArray.single().jsonObject
+        assertFalse(history.containsKey("ghost"))
+        assertFalse(history.containsKey("course"))
+        assertFalse(history.getValue("result").jsonObject.containsKey("events"))
+        assertTrue(NeonRecords.payload(detailed).getValue("result").jsonObject.containsKey("events"))
+    }
+
+    @Test fun `bomb losses save and replay while earned and penalty totals cannot roll back`() = runTest {
+        fun bombRow(earned: Long, penalty: Long, elapsed: Long, status: String = "pending"): NeonAttempt {
+            val source = Json.parseToJsonElement(record(status = status, elapsed = elapsed, score = earned - penalty).payloadJson).jsonObject
+            val data = JsonObject(source.toMutableMap().apply {
+                put("result", JsonObject(source.getValue("result").jsonObject.toMutableMap().apply {
+                    put("scoringVersion", JsonPrimitive(4)); put("earnedScoreUnits", JsonPrimitive(earned)); put("penaltyUnits", JsonPrimitive(penalty))
+                }))
+                if (elapsed >= 2000) put("ghost", Json.parseToJsonElement("[[1000,0,200,1000],[2000,1,100,2000]]"))
+            })
+            return NeonRecords.decode(data, rider, 0)
+        }
+        dao.save(bombRow(0, 0, 0))
+        dao.save(bombRow(200, 0, 1000))
+        dao.save(bombRow(200, 100, 2000))
+        assertEquals(100L, dao.get("a".repeat(32))!!.scoreUnits)
+        var rejected = false
+        try { dao.save(bombRow(200, 90, 2100)) } catch (_: IllegalArgumentException) { rejected = true }
+        assertTrue(rejected)
+        // Keep the historical ghost maximum valid while decreasing only gross earnings.
+        dao.save(bombRow(220, 100, 2200))
+        rejected = false
+        try { dao.save(bombRow(210, 100, 2300)) } catch (_: IllegalArgumentException) { rejected = true }
+        assertTrue(rejected)
+        val final = bombRow(220, 100, 600000, "completed")
+        dao.save(final)
+        assertEquals(final, dao.best(rider, final.comparisonKey))
+        assertEquals(final.payloadJson, dao.get(final.attemptId)!!.payloadJson)
+    }
+
 }

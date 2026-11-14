@@ -73,14 +73,31 @@ static func validate(course: Dictionary) -> Array[String]:
 	for field in ["courseId", "title", "family"]:
 		if not course.get(field) is String or str(course.get(field, "")).is_empty():
 			errors.append("Missing %s" % field)
-	if course.get("schemaVersion") != VERSION or not _integer(course.get("courseVersion")) or int(course.get("courseVersion", 0)) < 1:
+	if not _integer(course.get("schemaVersion")) or int(course.schemaVersion) != VERSION or not _integer(course.get("courseVersion")) or int(course.get("courseVersion", 0)) < 1:
 		errors.append("Unsupported course version")
-	if not _integer(course.get("durationMs")) or int(course.get("durationMs", 0)) <= 0 or int(course.get("durationMs", 0)) % 10 != 0:
+	if not _integer(course.get("durationMs")) or int(course.get("durationMs", 0)) <= 0 or int(course.get("durationMs", 0)) > 1800000 or int(course.get("durationMs", 0)) % 10 != 0:
 		errors.append("Duration must be positive whole 10 ms ticks")
 	if not course.get("events") is Array or not course.get("phases") is Array:
 		errors.append("Events and phases must be arrays")
 	if not errors.is_empty():
 		return errors
+	# Reject malformed/unbounded render allocations before a saved course reaches 3D.
+	if course.events.size() > 4096 or course.phases.size() > 4096:
+		errors.append("Course contains too many sections")
+	if course.has("distanceBased") and not course.distanceBased is bool:
+		errors.append("Invalid distance mode")
+	if course.has("seed") and not _integer(course.seed):
+		errors.append("Invalid track seed")
+	if course.has("roadLengthMeters"):
+		if not LaneSmashPath._number(course.roadLengthMeters) or float(course.roadLengthMeters) <= 0 or float(course.roadLengthMeters) > 33000:
+			errors.append("Invalid road length")
+	if not errors.is_empty(): return errors
+	if bool(course.get("distanceBased", false)):
+		if not _integer(course.get("maxSpeedKph")) or int(course.maxSpeedKph) != 60 or not _integer(course.get("maxCadenceRpm")) or int(course.maxCadenceRpm) != 140:
+			errors.append("Unsupported distance speed limits")
+		if not LaneSmashPath._number(course.get("roadLengthMeters")) or float(course.roadLengthMeters) < float(course.durationMs) / 60.0:
+			errors.append("Road does not cover maximum ride distance")
+	if not errors.is_empty(): return errors
 	if course.has("presentation") and not LaneSmashPath.valid(course.presentation, float(course.get("roadLengthMeters", 0))):
 		errors.append("Invalid presentation path")
 	var phase_end: int = 0
@@ -138,6 +155,10 @@ static func validate(course: Dictionary) -> Array[String]:
 				errors.append("Unsupported charge ratios")
 	if not errors.is_empty():
 		return errors
+	if course.has("hazards") and (int(course.courseVersion) < 5 or not bool(course.get("distanceBased", false)) or not LaneSmashHazards.valid(course.hazards, course.events, int(course.durationMs))):
+		errors.append("Invalid bomb hazards")
+	if int(course.courseVersion) >= 5 and not course.has("hazards"):
+		errors.append("Missing bomb hazards")
 	var previous: Dictionary = {}
 	var charge_end: int = -30000
 	for event: Dictionary in course.events:

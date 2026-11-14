@@ -78,3 +78,39 @@ func test_invalid_saved_route_is_rejected() -> void:
 	course = NeonCourse.load_course("ls_10_01")
 	course.presentation.path[2].yaw = "bad"
 	assert_array(NeonCourse.validate(course)).contains(["Invalid presentation path"])
+
+func test_saved_route_replaces_generated_route_even_with_the_same_course_id() -> void:
+	var generated := NeonCourse.load_course("ls_10_01")
+	var saved := generated.duplicate(true)
+	saved.presentation = LaneSmashPath.generate(123456, saved.roadLengthMeters)
+	var expected := LaneSmashCoaster.new()
+	expected.build(saved.roadLengthMeters, saved.seed, false, saved.presentation)
+	var space := NeonSpace.new()
+	add_child(space)
+	space.prepare_terrain(generated)
+	assert_float(space.path(500).distance_to(expected.at(500).origin)).is_greater(1.0)
+	space.prepare_terrain(saved)
+	assert_float(space.path(500).distance_to(expected.at(500).origin)).is_less(0.001)
+	space.free()
+
+func test_road_sections_reuse_meshes_and_share_exact_boundary_vertices() -> void:
+	var rules := NeonRules.new()
+	rules.configure(NeonCourse.load_course("ls_10_01"), "challenging", 150)
+	var space := NeonSpace.new()
+	add_child(space)
+	for at in range(0, 400):
+		rules.distance_units = at * 1000000
+		space.update_view(rules, 1.0 / 60, 0, -1, false, "")
+	assert_int(space._road_chunks.size()).is_equal(5)
+	assert_int(space.road_mesh_builds).is_less_equal(8)
+	var chunks := space._road_chunks.duplicate()
+	chunks.sort_custom(func(a, b): return a.index < b.index)
+	for i in range(chunks.size() - 1):
+		for key in ["road", "rails"]:
+			var a: PackedVector3Array = chunks[i][key].mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+			var b: PackedVector3Array = chunks[i + 1][key].mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+			var stride := (NeonSpace.ROAD_CHUNK_STEPS + 1) * 2
+			for strip in a.size() / stride:
+				for side in 2:
+					assert_vector(a[(strip + 1) * stride - 2 + side]).is_equal(b[strip * stride + side])
+	space.free()

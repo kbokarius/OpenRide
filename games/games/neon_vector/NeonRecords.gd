@@ -38,8 +38,9 @@ static func local_request(data: Dictionary, rider_id: String) -> Dictionary:
 	if DirAccess.make_dir_recursive_absolute(path) != OK:
 		return failure("Could not open ride storage.")
 	if _recovered_path != path:
-		for record in _all():
-			if record.result.status == "pending":
+		for id in _ids():
+			var record := _read(id)
+			if not record.is_empty() and record.result.status == "pending":
 				record.result.status = "interrupted"
 				record.result.stars = 0
 				if not _atomic_write(record):
@@ -56,7 +57,7 @@ static func local_request(data: Dictionary, rider_id: String) -> Dictionary:
 					return failure("Ride identity changed.")
 				if old.result.status != "pending":
 					return {"ok": true, "status": old.result.status, "attemptId": old.attemptId}
-				if int(record.result.activeDurationMs) < int(old.result.activeDurationMs) or int(record.result.scoreUnits) < int(old.result.scoreUnits):
+				if int(record.result.activeDurationMs) < int(old.result.activeDurationMs) or _earned(record.result) < _earned(old.result) or _penalty(record.result) < _penalty(old.result):
 					return failure("Checkpoint moved backwards.")
 			elif record.result.status != "pending":
 				return failure("Ride must start before its result is saved.")
@@ -71,7 +72,8 @@ static func local_request(data: Dictionary, rider_id: String) -> Dictionary:
 			var rows: Array[Dictionary] = []
 			var completions := 0
 			var best: Dictionary = {}
-			for record in _all():
+			for id in _ids():
+				var record := _read(id)
 				if record.get("riderId", "") != rider_id:
 					continue
 				if record.result.status == "completed":
@@ -79,6 +81,11 @@ static func local_request(data: Dictionary, rider_id: String) -> Dictionary:
 						completions += 1
 					if record.comparisonKey == data.get("key", "") and (best.is_empty() or int(record.result.scoreUnits) > int(best.result.scoreUnits)):
 						best = record
+				if data.action == "best": continue
+				# Keep at most one full trace while reading; menu history needs metadata only.
+				record.erase("ghost")
+				record.erase("course")
+				record.result.erase("events")
 				rows.append(record)
 			if data.action == "best":
 				return {"ok": true, "record": best}
@@ -92,15 +99,12 @@ static func local_request(data: Dictionary, rider_id: String) -> Dictionary:
 				if row.result.status == "completed":
 					track_stats[key].bestScoreUnits = maxi(int(track_stats[key].bestScoreUnits), int(row.result.scoreUnits))
 			rows = rows.slice(0, 50)
-			for row in rows:
-				row.erase("ghost")
-				row.erase("course")
 			return {"ok": true, "completions": completions, "history": rows, "trackStats": track_stats}
 	return failure("Unknown ride storage request.")
 
 
 static func valid_record(record: Dictionary) -> bool:
-	if int(record.get("version", -1)) != 1 or not record.has_all(["attemptId", "comparisonKey", "result", "course", "riderId"]):
+	if not NeonCourse._integer(record.get("version")) or int(record.version) != 1 or not record.has_all(["attemptId", "comparisonKey", "result", "course", "riderId"]):
 		return false
 	if not _hex(str(record.attemptId), 32) or not _hex(str(record.comparisonKey), 64):
 		return false
@@ -121,19 +125,30 @@ static func valid_record(record: Dictionary) -> bool:
 		return false
 	if result.status == "completed" and elapsed != duration:
 		return false
+	var version: Variant = result.get("scoringVersion", 1)
+	if not NeonCourse._integer(version) or int(version) not in range(1, 5): return false
+	var gross := score
+	if int(version) >= 4:
+		for field in ["earnedScoreUnits", "penaltyUnits"]:
+			if not NeonCourse._integer(result.get(field)) or int(result[field]) < 0 or int(result[field]) > 10000000000000: return false
+		gross = int(result.earnedScoreUnits)
+		if gross - int(result.penaltyUnits) != score: return false
 	var ghost = record.get("ghost", [])
 	if not ghost is Array or ghost.size() > 18001:
 		return false
 	var last_time := -1
 	var last_score := 0
 	var last_distance := 0
+	var row_size := 0
 	for tick in ghost:
 		if not tick is Array or tick.size() not in [3, 4]:
 			return false
+		if row_size != 0 and tick.size() != row_size: return false
+		row_size = tick.size()
 		for value in tick:
 			if not (value is int or value is float) or not is_finite(float(value)) or float(value) != floorf(float(value)):
 				return false
-		if int(tick[0]) <= last_time or int(tick[0]) > elapsed or int(tick[1]) < -1 or int(tick[1]) > 5 or int(tick[2]) < last_score or int(tick[2]) > score:
+		if int(tick[0]) <= last_time or int(tick[0]) > elapsed or int(tick[1]) < -1 or int(tick[1]) > 5 or int(tick[2]) < (0 if int(version) >= 4 else last_score) or int(tick[2]) > gross:
 			return false
 		if tick.size() == 4:
 			if int(tick[3]) < last_distance or int(tick[3]) > ceili(float(tick[0]) * NeonRules.MAX_SPEED_MPS) + 2:
@@ -148,14 +163,11 @@ static func _hex(value: String, length: int) -> bool:
 	return value.length() == length and value.is_valid_hex_number(false)
 
 
-static func _all() -> Array[Dictionary]:
-	var rows: Array[Dictionary] = []
+static func _ids() -> Array[String]:
+	var ids: Array[String] = []
 	for file in DirAccess.get_files_at(path):
-		if file.ends_with(".json"):
-			var record := _read(file.trim_suffix(".json"))
-			if not record.is_empty():
-				rows.append(record)
-	return rows
+		if file.ends_with(".json"): ids.append(file.trim_suffix(".json"))
+	return ids
 
 
 static func _read(id: String) -> Dictionary:
@@ -179,3 +191,9 @@ static func _atomic_write(record: Dictionary) -> bool:
 	var error := file.get_error()
 	file.close()
 	return error == OK and DirAccess.rename_absolute(temporary, target) == OK
+
+static func _penalty(result: Dictionary) -> int:
+	return int(result.get("penaltyUnits", 0)) if int(result.get("scoringVersion", 1)) >= 4 else 0
+
+static func _earned(result: Dictionary) -> int:
+	return int(result.scoreUnits) + _penalty(result)

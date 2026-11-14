@@ -3,6 +3,7 @@ package dev.digitalducktape.openride.core.data
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.*
 
 /** Independently durable: a course is saved before the enclosing Games visit ends. */
 @Serializable
@@ -48,9 +49,20 @@ abstract class NeonAttemptDao {
         }
         require(old.profileId == row.profileId && old.comparisonKey == row.comparisonKey && old.courseId == row.courseId) { "Attempt identity changed" }
         if (old.status != "pending") return old
-        require(row.elapsedMs >= old.elapsedMs && row.scoreUnits >= old.scoreUnits) { "Checkpoint moved backwards" }
+        val before = checkpointTotals(old)
+        val after = checkpointTotals(row)
+        require(row.elapsedMs >= old.elapsedMs && after.first >= before.first && after.second >= before.second) { "Checkpoint moved backwards" }
         update(row)
         return row
+    }
+
+    private fun checkpointTotals(row: NeonAttempt): Pair<Long, Long> {
+        val result = Json.parseToJsonElement(row.payloadJson).jsonObject.getValue("result").jsonObject
+        if ((result["scoringVersion"]?.jsonPrimitive?.int ?: 1) < 4) return row.scoreUnits to 0L
+        val earned = result.getValue("earnedScoreUnits").jsonPrimitive.long
+        val penalty = result.getValue("penaltyUnits").jsonPrimitive.long
+        require(earned >= 0 && penalty in 0..earned && earned - penalty == row.scoreUnits)
+        return earned to penalty
     }
 
     // On a new process, pending attempts become history, never resumable gameplay or records.
@@ -59,6 +71,10 @@ abstract class NeonAttemptDao {
 
     @Query("SELECT * FROM neon_attempts WHERE profileId IS :profileId ORDER BY updatedMs DESC, attemptId DESC LIMIT 50")
     abstract suspend fun history(profileId: Long?): List<NeonAttempt>
+
+    // Load full snapshots one at a time when producing the lightweight menu history.
+    @Query("SELECT attemptId FROM neon_attempts WHERE profileId IS :profileId ORDER BY updatedMs DESC, attemptId DESC LIMIT 50")
+    abstract suspend fun historyIds(profileId: Long?): List<String>
 
     @Query("SELECT * FROM neon_attempts WHERE profileId IS :profileId AND comparisonKey = :key AND status = 'completed' ORDER BY scoreUnits DESC, updatedMs ASC LIMIT 1")
     abstract suspend fun best(profileId: Long?, key: String): NeonAttempt?

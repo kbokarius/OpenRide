@@ -39,7 +39,7 @@ static func generate(seed_value: int, length: float) -> Dictionary:
 	return {"version": VERSION, "roadOpacity": 0.74, "path": points}
 
 static func valid(data: Variant, length: float) -> bool:
-	if not data is Dictionary or data.get("version") != VERSION: return false
+	if not data is Dictionary or not _number(data.get("version")) or float(data.version) != VERSION: return false
 	if not _number(data.get("roadOpacity")) or float(data.roadOpacity) < 0.5 or float(data.roadOpacity) > 1: return false
 	if not data.get("path") is Array or data.path.size() < 3 or data.path.size() > 256: return false
 	var previous := -1.0
@@ -48,7 +48,10 @@ static func valid(data: Variant, length: float) -> bool:
 		if not node is Dictionary: return false
 		for field in ["distanceMeters", "yaw", "pitch", "roll"]:
 			if not _number(node.get(field)): return false
+		for field in ["yaw", "pitch", "roll"]:
+			if absf(float(node[field])) > 2048.0: return false
 		var at := float(node.distanceMeters)
+		if at > length + 2500.0: return false
 		if i == 0 and at != 0: return false
 		if i == 1 and at < 80: return false
 		if i > 1 and at - previous < MIN_SPAN: return false
@@ -64,8 +67,13 @@ func load_config(data: Dictionary, seed_value: int, length: float) -> void:
 	opacity = float(data.roadOpacity)
 
 func orientation(distance: float, reduced: bool) -> Basis:
-	var index := 0
-	while index + 2 < nodes.size() and distance >= float(nodes[index + 1].distanceMeters): index += 1
+	var low := 0
+	var high := nodes.size() - 2
+	while low < high:
+		var mid := (low + high + 1) / 2
+		if distance >= float(nodes[mid].distanceMeters): low = mid
+		else: high = mid - 1
+	var index := low
 	var a: Dictionary = nodes[index]
 	var b: Dictionary = nodes[index + 1]
 	var t := clampf((distance - float(a.distanceMeters)) / (float(b.distanceMeters) - float(a.distanceMeters)), 0, 1)

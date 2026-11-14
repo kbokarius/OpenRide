@@ -71,7 +71,7 @@ func _ready() -> void:
 
 
 func update_view(delta: float) -> void:
-	if rules and space:
+	if rules and rules._configured and space:
 		var raw := float(rules.latest.get("resistance", NeonRules.TIERS[rules.tier]))
 		var lane := clampf(floorf((raw - NeonRules.TIERS[rules.tier]) / 7.0), 0.0, 5.0)
 		visual_lane = lerpf(visual_lane, lane, 1.0 - exp(-delta * 12.0)) if delta > 0 else lane
@@ -112,7 +112,7 @@ func _draw() -> void:
 		if not space.camera.is_position_behind(position_3d):
 			var screen := space.camera.unproject_position(position_3d) * Vector2(1920, 1080) / Vector2(view.size)
 			var alpha := smoothstep(0.0, 0.08, _completion_age) * (1.0 - smoothstep(0.65, 1.4, _completion_age))
-			var color := GOLD if _completion_kind == "cruise" else (HOLD if _completion_kind == "hold" else CHARGE)
+			var color := LaneSmashBombs.COLOR if _completion_kind == "bomb" else (GOLD if _completion_kind == "cruise" else (HOLD if _completion_kind == "hold" else CHARGE))
 			var width := _font.get_string_size(_completion_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 46).x
 			var at := screen - Vector2(width / 2, 0)
 			draw_string_outline(_font, at, _completion_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 46, 7, Color(0.015, 0.025, 0.05, alpha))
@@ -187,3 +187,11 @@ func _update_completions(delta: float) -> void:
 		completed_sections[_completion_kind] = int(completed_sections.get(_completion_kind, 0)) + 1
 		_completion_anchor = space.section_completed(_completion_kind, int(event.laneIndex), int(event.endMs))
 		_completion_up = space.road_basis(int(event.endMs) / 1000.0 * space._unit_speed).y
+
+	var hit := space.bombs.take_feedback(rules)
+	if not hit.is_empty():
+		_completion_kind = "bomb"
+		_completion_text = "−%d" % int(hit.points) if int(hit.points) > 0 else "BOMB HIT"
+		_completion_age = 0.0
+		_completion_anchor = hit.anchor
+		_completion_up = hit.up

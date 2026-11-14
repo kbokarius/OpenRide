@@ -8,7 +8,7 @@ const TICK := 10
 const CURRENT_TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35}
 const TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35,
 	"beginner": 20, "intermediate": 24, "advanced": 30, "expert": 34}
-const SCORING_VERSION := 3
+const SCORING_VERSION := 4
 const MAX_SPEED_MPS := 60.0 / 3.6
 const MAX_CADENCE := 140.0
 var distance_units := 0 # micrometres, integer integration independent of render rate
@@ -23,6 +23,9 @@ var tier := "challenging"
 var reference_power := 150.0
 var elapsed_ms := 0
 var score_units := 0
+var penalty_units := 0
+var hazard_states: Array[Dictionary] = []
+var _hazard_cursor := 0
 var base_units := 0
 var max_units := 0
 var max_base_units := 0
@@ -60,6 +63,7 @@ static func band(lane: int, difficulty_id: String) -> Vector2i:
 
 
 func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[String]:
+	_configured = false
 	var errors := NeonCourse.validate(data)
 	if not TIERS.has(difficulty_id):
 		errors.append("Unknown resistance difficulty")
@@ -76,8 +80,13 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	speed_kph = 0
 	distance_based = bool(course.get("distanceBased", false))
 	score_units = 0
+	penalty_units = 0
+	_hazard_cursor = 0
+	hazard_states.clear()
+	for hazard: Dictionary in course.get("hazards", []):
+		hazard_states.append({"hit": false, "resolved": false, "penaltyUnits": 0})
 	base_units = 0
-	scoring_version = SCORING_VERSION if distance_based else (1 if int(course.courseVersion) == 1 else 2)
+	scoring_version = (SCORING_VERSION if int(course.courseVersion) >= 5 else 3) if distance_based else (1 if int(course.courseVersion) == 1 else 2)
 	max_units = NeonCourse.maximum(course, false, reference_power)
 	max_base_units = NeonCourse.maximum(course, true, reference_power)
 	if distance_based:
@@ -207,6 +216,7 @@ func _tick() -> void:
 		travel_step = floori(exact_travel)
 		_distance_remainder = exact_travel - travel_step
 		distance_units += travel_step
+	_apply_hazards()
 	var position_ms := road_time_ms()
 	while _event_cursor < course.events.size() and int(course.events[_event_cursor].endMs) <= position_ms:
 		_event_cursor += 1
@@ -286,6 +296,7 @@ func result(status: String = "completed") -> Dictionary:
 	return {"status": "completed" if complete else ("ended" if status == "completed" else status),
 		"activeDurationMs": elapsed_ms, "distanceMm": distance_units / 1000, "scoreUnits": score_units, "maxScoreUnits": max_units,
 		"baseUnits": base_units, "maxBaseUnits": max_base_units, "stars": stars,
+		"earnedScoreUnits": score_units + penalty_units, "penaltyUnits": penalty_units,
 		"events": event_states.duplicate(true), "courseId": course.get("courseId", ""),
 		"courseVersion": course.get("courseVersion", 1), "courseHash": NeonCourse.fingerprint(course),
 		"difficulty": tier, "referencePower": reference_power, "scoringVersion": scoring_version,
@@ -307,3 +318,18 @@ func _section_credit(state: Dictionary, event: Dictionary, maximum: int, travel_
 	state.validTravelUnits += travel_step
 	var length_units := roundi((int(event.endMs) - int(event.startMs)) * MAX_SPEED_MPS * 1000)
 	return mini(maximum, maximum * int(state.validTravelUnits) / length_units)
+
+func _apply_hazards() -> void:
+	var hazards: Array = course.get("hazards", [])
+	while _hazard_cursor < hazards.size() and road_time_ms() >= int(hazards[_hazard_cursor].hitMs):
+		var hazard: Dictionary = hazards[_hazard_cursor]
+		var state: Dictionary = hazard_states[_hazard_cursor]
+		state.resolved = true
+		if selected_lane == int(hazard.laneIndex):
+			state.hit = true
+			# Whole visible points only; score never drops below zero.
+			var loss := mini(int(hazard.penaltyPoints), score_units / UNIT) * UNIT
+			state.penaltyUnits = loss
+			penalty_units += loss
+			score_units -= loss
+		_hazard_cursor += 1

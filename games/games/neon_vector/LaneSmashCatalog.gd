@@ -1,6 +1,6 @@
 class_name LaneSmashCatalog
 extends RefCounted
-## Frozen generator v2. IDs fully describe reproducible content; snapshots preserve replays.
+## Frozen generator v3. IDs fully describe reproducible content; snapshots preserve replays.
 const LENGTHS := [10, 15, 20, 30]
 const NAMES := ["Nightfall", "Vector Run", "Cold Circuit", "Apex Protocol", "Iron Horizon", "Deep Current", "Solar Array", "Black Meridian", "Velocity", "Carbon Ridge", "Arc Reactor", "Zero Gravity", "Afterburn", "Steel Pulse", "Blue Shift", "Outer Ring", "Ion Storm", "Altitude", "Dark Matter", "Redline", "Titan", "Slipstream", "Overdrive", "Summit Relay", "Event Horizon"]
 const PATTERNS := ["Rolling", "Cadence", "Power", "Climbing", "Mixed"]
@@ -71,10 +71,11 @@ static func generate(minutes: int, seed_value: int, index: int, id: String, rand
 				else:
 					events.append(event)
 			previous_lane = lane
-	return {"schemaVersion": 1, "courseVersion": 4, "generatorVersion": 2, "courseId": id,
+	return {"schemaVersion": 1, "courseVersion": 5, "generatorVersion": 3, "courseId": id,
 		"title": "Random / %06d" % (seed_value % 1000000) if random_track else NAMES[index],
 		"family": "random" if random_track else "catalog", "durationMs": minutes * 60000,
 		"theme": THEMES[(seed_value / 97) % 8] if random_track else THEMES[index % 8],
 		"background": BACKGROUNDS[(seed_value / 193) % 4] if random_track else BACKGROUNDS[(index / 3) % 4],
 		"presentation": LaneSmashPath.generate(seed_value, minutes * 1000 + 300),
+		"hazards": LaneSmashHazards.generate(events, seed_value),
 		"distanceBased": true, "maxSpeedKph": 60, "maxCadenceRpm": 140, "roadLengthMeters": minutes * 1000 + 300, "seed": seed_value, "description": PATTERNS[index % 5], "phases": phases, "events": events}

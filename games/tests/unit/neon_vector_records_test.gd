@@ -6,6 +6,7 @@ var _old_path := ""
 func before_test() -> void:
 	_old_path = NeonRecords.path
 	NeonRecords.path = "user://test_neon_%s" % NeonRecords.new_id()
+	DirAccess.make_dir_recursive_absolute(NeonRecords.path)
 
 
 func after_test() -> void:
@@ -109,3 +110,60 @@ func test_invalid_record_identity_ghost_and_backward_checkpoints_are_rejected() 
 	record.ghost = []
 	record.comparisonKey = "b".repeat(64)
 	assert_bool(_save(record).ok).is_false()
+
+func test_ghost_rows_cannot_mix_legacy_and_distance_formats() -> void:
+	var record := _record()
+	record.result.activeDurationMs = 200
+	record.ghost = [[100, 0, 0, 1000], [200, 0, 0]]
+	assert_bool(NeonRecords.valid_record(record)).is_false()
+	record.ghost = [[100, 0, 0], [200, 0, 0, 2000]]
+	assert_bool(NeonRecords.valid_record(record)).is_false()
+
+func test_history_omits_heavy_payloads_but_replay_and_best_preserve_them() -> void:
+	var record := _record()
+	record.result.events = [{"eventId": "sample", "scoreUnits": 100}]
+	_finish(record)
+	var history := NeonRecords.local_request({"action": "state"}, "1")
+	assert_bool(history.history[0].has("course")).is_false()
+	assert_bool(history.history[0].has("ghost")).is_false()
+	assert_bool(history.history[0].result.has("events")).is_false()
+	var best := NeonRecords.local_request({"action": "best", "key": record.comparisonKey}, "1")
+	assert_array(best.record.ghost).is_equal(JSON.parse_string(JSON.stringify(record.ghost)))
+	assert_array(best.record.result.events).is_equal(JSON.parse_string(JSON.stringify(record.result.events)))
+	var replay := NeonRecords.local_request({"action": "get", "attemptId": record.attemptId}, "1")
+	assert_dict(replay.record.course).is_equal(JSON.parse_string(JSON.stringify(record.course)))
+
+
+func test_bomb_checkpoints_allow_net_losses_but_not_earned_or_penalty_rollback() -> void:
+	var record := _record()
+	record.result.merge({"scoringVersion": 4, "earnedScoreUnits": 0, "penaltyUnits": 0})
+	assert_bool(_save(record).ok).is_true()
+	record.result.merge({"activeDurationMs": 1000, "scoreUnits": 200, "earnedScoreUnits": 200}, true)
+	assert_bool(_save(record).ok).is_true()
+	record.result.merge({"activeDurationMs": 2000, "scoreUnits": 100, "penaltyUnits": 100}, true)
+	record.ghost = [[1000, 0, 200, 1000], [2000, 1, 100, 2000]]
+	assert_bool(_save(record).ok).is_true()
+	var bad := record.duplicate(true)
+	bad.result.earnedScoreUnits = 190
+	bad.result.scoreUnits = 90
+	bad.ghost = []
+	assert_bool(_save(bad).ok).is_false()
+	bad = record.duplicate(true)
+	bad.result.penaltyUnits = 90
+	bad.result.scoreUnits = 110
+	assert_bool(_save(bad).ok).is_false()
+	record.result.status = "completed"
+	record.result.activeDurationMs = 600000
+	assert_bool(_save(record).ok).is_true()
+	var best := NeonRecords.local_request({"action": "best", "key": record.comparisonKey}, "1")
+	assert_int(int(best.record.result.scoreUnits)).is_equal(100)
+	assert_array(best.record.ghost).is_equal(JSON.parse_string(JSON.stringify(record.ghost)))
+	var legacy := record.duplicate(true)
+	legacy.result.scoringVersion = 3
+	assert_bool(NeonRecords.valid_record(legacy)).is_false()
+
+func test_malformed_record_versions_are_rejected_without_type_errors() -> void:
+	for value in [null, "1", true, {}, [], INF, NAN]:
+		var record := _record()
+		record.version = value
+		assert_bool(NeonRecords.valid_record(record)).is_false()

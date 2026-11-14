@@ -10,6 +10,8 @@ var seed_value := 0
 var route := LaneSmashPath.new()
 
 func build(length: float, course_seed: int, reduced_motion: bool, presentation: Dictionary = {}) -> void:
+	# Bound allocations even for callers outside the validated ride path.
+	length = clampf(length, 0, 33000) if is_finite(length) else 0.0
 	reduced = reduced_motion
 	seed_value = course_seed
 	route.load_config(presentation, course_seed, length)

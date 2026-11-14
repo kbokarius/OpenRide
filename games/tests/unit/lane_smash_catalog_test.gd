@@ -340,3 +340,32 @@ func test_adjacent_targets_are_separated_and_rest_on_the_road() -> void:
 			assert_float(NeonSpace.marker_height(str(after.type)) - half_height).is_equal_approx(0.05, 0.001)
 		space.free()
 	assert_int(pairs.size()).is_equal(3)
+
+
+func test_all_tracks_have_reproducible_bombs_outside_the_scoring_lane() -> void:
+	for minutes in LaneSmashCatalog.LENGTHS:
+		var ids: Array = LaneSmashCatalog.tracks(minutes).map(func(t): return t.id)
+		for seed_value in [1, 17, 12345, 2147483646]: ids.append(LaneSmashCatalog.random_id(minutes, seed_value))
+		for id: String in ids:
+			var course := NeonCourse.load_course(id)
+			assert_array(course.hazards).is_not_empty()
+			assert_bool(LaneSmashHazards.valid(course.hazards, course.events, course.durationMs)).is_true()
+			assert_array(course.hazards).is_equal(NeonCourse.load_course(id).hazards)
+			var bad := course.duplicate(true)
+			for event: Dictionary in bad.events:
+				if bad.hazards[0].hitMs >= event.startMs and bad.hazards[0].hitMs < event.endMs:
+					bad.hazards[0].laneIndex = event.laneIndex
+			assert_array(NeonCourse.validate(bad)).is_not_empty()
+
+func test_explosion_pools_are_bounded_and_expire() -> void:
+	var space := NeonSpace.new()
+	add_child(space)
+	space.prepare_terrain(NeonCourse.load_course("ls_10_01"))
+	for i in 100: space._explode(Vector3.ZERO, LaneSmashBombs.COLOR, 60, 2.5)
+	assert_int(space._impacts.size()).is_equal(192)
+	assert_int(space._shockwaves.size()).is_equal(12)
+	space._animate_impacts(0.7)
+	assert_int(space._impacts.size()).is_zero()
+	assert_int(space._shockwaves.size()).is_zero()
+	assert_int(space._rings.multimesh.visible_instance_count).is_zero()
+	space.free()

@@ -273,7 +273,7 @@ func _open_extras() -> void:
 	for record: Dictionary in history:
 		var result: Dictionary = record.result
 		var date := Time.get_date_string_from_unix_time(int(record.get("updatedMs", 0)) / 1000)
-		var text := "%s · %s · %s\n%s · %d points · %d stars · %s" % [date, result.get("title", result.courseId), str(result.status).capitalize(), HubTheme.clock(int(result.activeDurationMs) / 1000.0), int(result.scoreUnits) / NeonRules.UNIT, int(result.get("stars", 0)), str(result.difficulty).capitalize()]
+		var text := "%s · %s · %s\n%s · %d points · %d stars · %s" % [date, result.get("title", result.courseId), str(result.status).capitalize(), HubTheme.clock(int(result.activeDurationMs) / 1000.0), int(result.scoreUnits) / NeonRules.UNIT, int(result.get("stars", 0)), str(result.get("difficulty", "challenging")).capitalize()]
 		var replay := look.button(text, func(): _replay(str(record.attemptId)), GameTheme.SECONDARY)
 		replay.custom_minimum_size = Vector2(1700, 160)
 		replay.add_theme_font_size_override("font_size", 34)
@@ -285,15 +285,23 @@ func _replay(id: String) -> void:
 	if not bool(reply.get("ok", false)):
 		notice.emit(str(reply.get("error", "Saved ride not found.")))
 		return
-	var record: Dictionary = reply.record
-	var errors := NeonCourse.validate(record.get("course", {}))
+	var record: Dictionary = reply.get("record", {})
+	if not NeonRecords.valid_record(record):
+		notice.emit("This saved ride is damaged and cannot be replayed.")
+		return
+	var saved_tier := str(record.result.get("difficulty", "challenging"))
+	var saved_power: Variant = record.result.get("referencePower", 150)
+	if not NeonRules.TIERS.has(saved_tier) or not LaneSmashPath._number(saved_power) or float(saved_power) < 1 or float(saved_power) > 2000:
+		notice.emit("This saved ride has invalid difficulty settings.")
+		return
+	var errors := NeonCourse.validate(record.course)
 	if not errors.is_empty():
 		notice.emit("This saved course cannot be played by this version.")
 		return
 	_replay_id = id
 	_replay_course = record.course
-	tier = str(record.result.difficulty)
-	reference_power = int(record.result.referencePower)
+	tier = saved_tier
+	reference_power = int(saved_power)
 	minutes = int(record.course.durationMs) / 60000
 	_close_panel()
 	_refresh_course()
