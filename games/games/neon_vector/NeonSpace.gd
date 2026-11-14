@@ -5,6 +5,13 @@ signal target_hit(kind: String)
 ## The camera moves through that space; scoring never depends on camera/mesh positions.
 
 const SPEED := 18.0
+## World metres drawn per road metre. The rules measure the ride in road metres (60 km/h at
+## 140 rpm); the picture spreads the road out threefold, so the bike covers three times the
+## ground on screen: about 77 mph at 96 rpm and 112 mph flat out, still exactly proportional
+## to cadence. Anything measured along the road in this file is in road metres unless it says
+## world; sizes of things (the bike, a marker, a mine) are world metres and are divided by
+## STRETCH where they are added to a road distance.
+const STRETCH := 3.0
 const LANE_WIDTH := 3.0
 const ROAD_CHUNK_STEPS := 96
 const ROAD_CHUNK_COUNT := 5
@@ -67,6 +74,23 @@ var barrage_view: LaneSmashBarrageSpace
 var gunfire_view: LaneSmashGunfire
 var portal_distance := 250.0
 var music_pulse := 0.0  ## 0..1 beat envelope from the jukebox; zero when music is silent
+var music := Vector4.ZERO  ## eased bass, mids, treble and kick swell; zero when music is silent
+var music_bands := PackedFloat32Array()  ## the jukebox's eight live bands, or empty
+var music_beats := 0  ## the jukebox's kick counter: each new kick sends a pulse down the seams
+## Pulses of light that run ahead along the lane seams. One launches from the bike on every
+## kick of the music (a soft, steady rhythm stands in when nothing is playing).
+const WAVES := 6
+const WAVE_SPEED := 190.0  ## world m/s ahead of the bike
+const WAVE_LIFE := 2.0     ## seconds; by then a pulse is past the visible road
+const WAVE_IDLE_EVERY := 0.9
+var _wave_front := PackedFloat32Array()  ## world metres along the route
+var _wave_gain := PackedFloat32Array()
+var _wave_age := PackedFloat32Array()
+var _wave_power := PackedFloat32Array()
+var _wave_next := 0
+var _wave_wait := 0.0
+var _beats_seen := -1
+var _seams := Vector4.ZERO  ## eased bass, low mids, high mids, treble: one per seam from the centre out
 var _road_material: ShaderMaterial
 var _line_material: ShaderMaterial
 var _curtain_material: ShaderMaterial
@@ -207,6 +231,7 @@ func prepare_terrain(course: Dictionary) -> void:
 	_terrain_reduced = reduced_motion
 	_terrain_revision += 1
 	_terrain_id = str(_terrain_revision)
+	coaster.stretch = STRETCH
 	coaster.build(float(course.get("roadLengthMeters", int(course.get("durationMs", 0)) / 1000.0 * _unit_speed)), int(course.get("seed", 17)), reduced_motion, course.get("presentation", {}))
 	_road_material.set_shader_parameter("opacity", coaster.route.opacity)
 	_invalidate_road()
@@ -242,15 +267,17 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 	prepare_terrain(rules.course)
 	distance = rules.road_distance()
 	var resistance_fraction: float = (float(rules.latest.get("resistance", NeonRules.TIERS[rules.tier])) - NeonRules.TIERS[rules.tier]) / 41.0
-	_structures.update_environment(str(rules.course.get("background", "orbital")), palette_accent, distance, resistance_fraction, delta, reduced_motion)
+	# The sky streams past at the speed the road does on screen.
+	_structures.update_environment(str(rules.course.get("background", "orbital")), palette_accent, distance * STRETCH, resistance_fraction, delta, reduced_motion)
 	# Follow the full orientation, including upside-down loops and rolls; the rider
 	# retains its padding above the fixed lane-number dock.
 	camera.transform = camera_pose(distance)
 	_apply_shake(delta)
-	_flow += delta * (26.0 + rules.speed_kph / 3.6 * 1.4)
+	_flow += delta * (30.0 + rules.speed_kph / 3.6 * STRETCH * 0.4)
+	_update_waves(delta, rules.speed_kph / 3.6 * STRETCH)
 	_update_horizon(delta)
 	scenery.update_view(distance, portal_distance, distance + (portal_distance - distance) * 0.62,
-		0.25 + 0.75 * rules.barrage.normal_alpha(rules.elapsed_ms), music_pulse, lite)
+		0.25 + 0.75 * rules.barrage.normal_alpha(rules.elapsed_ms), music_pulse, lite, music)
 	var index := floori((distance - 24.0) / (ROAD_CHUNK_STEPS * STEP))
 	if index != _road_index:
 		_road_index = index
@@ -260,12 +287,12 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 	rider.steer(lane, delta)
 	rider.animate(float(rules.latest.get("cadence", 0)), delta)
 	_update_trail(lane, clampf(float(rules.latest.get("cadence", 0)) / NeonRules.MAX_CADENCE, 0.0, 1.0))
-	var ghost_at := ghost_distance if ghost_distance >= 0 else distance + 3.5
+	var ghost_at := ghost_distance if ghost_distance >= 0 else distance + 3.5 / STRETCH
 	var ghost_gap := ghost_at - distance
 	ghost.visible = (show_ghost and ghost_lane >= 0 and ghost_gap > -5 and ghost_gap < minf(85.0, portal_distance - distance - 24.0) and absf(ghost_gap) > 1.4) or _warming
 	if ghost.visible:
 		ghost.set_opacity(smoothstep(-5.0, -1.5, ghost_gap) * (1.0 - smoothstep(50.0, 85.0, ghost_gap)) * smoothstep(1.4, 4.5, absf(ghost_gap)) * (1.0 - smoothstep(portal_distance - 48.0, portal_distance - 24.0, ghost_at)))
-		ghost.transform = pose(distance + 3.5 if _warming else ghost_at, ((2.5 if _warming else ghost_lane) - 2.5) * LANE_WIDTH, 0.05)
+		ghost.transform = pose(distance + 3.5 / STRETCH if _warming else ghost_at, ((2.5 if _warming else ghost_lane) - 2.5) * LANE_WIDTH, 0.05)
 		ghost.animate(ghost_cadence, delta)
 	_events(rules, lane)
 	sections.update_view(rules, delta, lane)
@@ -274,6 +301,45 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 	gunfire_view.update_view(rules, delta, lane)
 	_animate_impacts(delta)
 	fx.update_view(delta, camera.global_position)
+
+
+## Moves the seam pulses and launches new ones. A kick launches a pulse from the bike's front
+## wheel, as strong as the bass is; with no kicks arriving (silence, a breakdown, Reduced
+## motion) a soft pulse leaves at a steady rhythm so the road never goes dead. Each seam's
+## steady glow follows one part of the spectrum, eased so it swells instead of flickering.
+func _update_waves(delta: float, speed: float) -> void:
+	if _wave_front.size() != WAVES:
+		for list: PackedFloat32Array in [_wave_front, _wave_gain, _wave_age, _wave_power]:
+			list.resize(WAVES)
+			list.fill(0.0)
+		_wave_front.fill(-100000.0)
+		_wave_age.fill(WAVE_LIFE)
+	if delta <= 0.0: return
+	var targets := Vector4.ZERO
+	if music_bands.size() >= 8 and not reduced_motion:
+		targets = Vector4(maxf(music_bands[0], music_bands[1]), (music_bands[2] + music_bands[3]) * 0.5,
+			(music_bands[4] + music_bands[5]) * 0.5, (music_bands[6] + music_bands[7]) * 0.5)
+	for i in 4:
+		_seams[i] = lerpf(_seams[i], targets[i], 1.0 - exp(-delta * (7.0 if targets[i] > _seams[i] else 2.4)))
+	_wave_wait += delta
+	var power := 0.0
+	if music_beats != _beats_seen:
+		if _beats_seen >= 0 and not reduced_motion and _wave_wait > 0.16:
+			power = 0.55 + 0.45 * clampf(music.x * 1.5, 0.0, 1.0)
+		_beats_seen = music_beats
+	if power == 0.0 and _wave_wait > WAVE_IDLE_EVERY:
+		power = 0.32 + 0.3 * clampf(music.y + music.z, 0.0, 1.0)
+	if power > 0.0:
+		_wave_wait = 0.0
+		_wave_front[_wave_next] = distance * STRETCH + 2.0
+		_wave_age[_wave_next] = 0.0
+		_wave_power[_wave_next] = power
+		_wave_next = (_wave_next + 1) % WAVES
+	for i in WAVES:
+		_wave_age[i] += delta
+		_wave_front[i] += delta * (WAVE_SPEED + speed)
+		# A pulse brightens as it pulls away, so it never flashes right beside the bike.
+		_wave_gain[i] = _wave_power[i] * smoothstep(0.0, 0.16, _wave_age[i]) * (1.0 - smoothstep(WAVE_LIFE * 0.55, WAVE_LIFE, _wave_age[i]))
 
 
 ## The 3D view's optional cost. `bloom` is the glow pass and its grade; `lite_mode` drops the
@@ -305,24 +371,31 @@ func _apply_shake(delta: float) -> void:
 
 ## A ribbon of light from the tail lamp, laid along the route the bike actually took. It is
 ## rebuilt from at most TRAIL_POINTS samples, shortens as the rider slows and vanishes at rest.
+## Samples are 1.6 world metres apart, so the ribbon reaches about 35 m behind the bike.
 func _update_trail(lane: float, effort: float) -> void:
 	var lateral := (lane - 2.5) * LANE_WIDTH
+	var spacing := 1.6 / STRETCH
 	if _trail_points.is_empty() or distance < _trail_points[-1].x - 0.01:
 		_trail_points.clear()
 		_trail_points.append(Vector2(distance, lateral))
-	elif distance - _trail_points[-1].x >= 0.9:
-		_trail_points.append(Vector2(distance, lateral))
-		if _trail_points.size() > TRAIL_POINTS: _trail_points.pop_front()
+	elif distance - _trail_points[-1].x >= spacing:
+		# A fast frame can cover more than one sample; never leave a gap in the ribbon.
+		var steps := mini(TRAIL_POINTS, floori((distance - _trail_points[-1].x) / spacing))
+		var from := _trail_points[-1]
+		for step in steps:
+			var t := (step + 1) / float(steps)
+			_trail_points.append(Vector2(lerpf(from.x, distance, t), lerpf(from.y, lateral, t)))
+		while _trail_points.size() > TRAIL_POINTS: _trail_points.pop_front()
 	_trail_mesh.clear_surfaces()
 	_trail.visible = not lite and not reduced_motion and effort > 0.05 and _trail_points.size() >= 2
 	if not _trail.visible: return
-	var tail := LaneSmashBike.DESIGN_REAR * LaneSmashBike.SCALE + 1.0
+	var tail := (LaneSmashBike.DESIGN_REAR * LaneSmashBike.SCALE + 1.0) / STRETCH
 	var height := 1.80 * LaneSmashBike.SCALE
 	_trail_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
 	for i in _trail_points.size() + 1:
 		var at := Vector2(distance, lateral) if i == _trail_points.size() else _trail_points[i]
 		var s := at.x - tail
-		var age := clampf((distance - at.x) / (TRAIL_POINTS * 0.9), 0.0, 1.0)
+		var age := clampf((distance - at.x) / (TRAIL_POINTS * spacing), 0.0, 1.0)
 		var frame := coaster.at(s)
 		var centre := frame.origin + frame.basis.x * at.y + frame.basis.y * height
 		var half := frame.basis.x * (0.26 * (1.0 - age * 0.7))
@@ -384,10 +457,16 @@ func _update_horizon(_delta: float) -> void:
 		previous = forward
 	portal_distance = distance + ahead
 	for material in [_road_material, _line_material, _curtain_material]:
-		material.set_shader_parameter("road_end", portal_distance)
-		material.set_shader_parameter("fade_start", distance + ahead * 0.62)
+		# The road's shaders work in world metres along the route (their ticks and segments are
+		# real sizes), so the horizon is handed over in the same unit.
+		material.set_shader_parameter("road_end", portal_distance * STRETCH)
+		material.set_shader_parameter("fade_start", (distance + ahead * 0.62) * STRETCH)
 		material.set_shader_parameter("flow", _flow)
 		material.set_shader_parameter("pulse", music_pulse)
+		material.set_shader_parameter("music", music)
+		material.set_shader_parameter("seams", _seams)
+		material.set_shader_parameter("wave_front", _wave_front)
+		material.set_shader_parameter("wave_gain", _wave_gain)
 	var forward := (path(portal_distance) - camera.position).normalized()
 	var raw_right := coaster.at(portal_distance).basis.x
 	var right := (raw_right - forward * raw_right.dot(forward)).normalized()
@@ -418,7 +497,7 @@ static func _continuous_mesh(centers: PackedVector3Array, bases: Array[Basis], s
 				vertices.append(centers[i] + bases[i].x * lateral + bases[i].y * float(strip[side * 2 + 1]))
 				normals.append((bases[i].x * facing.x + bases[i].y * facing.y).normalized())
 				colors.append(strip[4])
-				uvs.append(Vector2(start + i * STEP, lateral if lateral_uv else float(side)))
+				uvs.append(Vector2((start + i * STEP) * STRETCH, lateral if lateral_uv else float(side)))
 				var right := bases[i].x
 				tangents.append_array(PackedFloat32Array([right.x, right.y, right.z, 1.0]))
 			if i > 0:
@@ -441,6 +520,8 @@ static func marker_height(kind: String) -> float:
 	return 0.13 if kind == "cruise" else (0.05 if kind == "hold" else 0.65)
 
 
+## How far ahead of the bike's origin the front tyre meets a marker of this kind, in world
+## metres (divide by STRETCH before adding it to a road distance).
 static func wheel_contact_reach(kind: String) -> float:
 	# At ground height the curved tire reaches slightly less far than at its axle.
 	var top := 0.21 if kind == "cruise" else (0.41 if kind == "hold" else LaneSmashBike.AXLE_HEIGHT)
@@ -450,7 +531,7 @@ static func wheel_contact_reach(kind: String) -> float:
 
 func finish_distance(kind: String, end_ms: int) -> float:
 	var extent := 0.6325 if kind == "hold" else (0.16 if kind == "cruise" else 0.05)
-	return end_ms / 1000.0 * _unit_speed + wheel_contact_reach(kind) + extent
+	return end_ms / 1000.0 * _unit_speed + (wheel_contact_reach(kind) + extent) / STRETCH
 
 
 func section_completed(kind: String, lane: int, at_ms: int) -> Vector3:
@@ -512,8 +593,8 @@ func _events(rules: NeonRules, visual_lane: float) -> void:
 				if final_item: anchor = finish_distance(kind, at)
 				if anchor > portal_distance - 18.0: break
 				var front_extent := 0.92 if bucket == "hold" else back_extent
-				var contact := anchor - wheel_contact_reach(bucket) - back_extent
-				if not rules.barrage.active and not _collected.has(key) and _previous_distance >= 0 and now - _previous_ms <= 250 and _previous_distance + 0.38 <= anchor + front_extent and distance >= contact and absf(visual_lane - lane) < 0.38:
+				var contact := anchor - (wheel_contact_reach(bucket) + back_extent) / STRETCH
+				if not rules.barrage.active and not _collected.has(key) and _previous_distance >= 0 and now - _previous_ms <= 250 and _previous_distance + 0.38 / STRETCH <= anchor + front_extent / STRETCH and distance >= contact and absf(visual_lane - lane) < 0.38:
 					_collected[key] = at
 					_explode(pose(anchor, lateral, 0.65).origin, color)
 					target_hit.emit(bucket)

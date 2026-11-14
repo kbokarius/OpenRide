@@ -154,11 +154,13 @@ func test_front_wheel_shatters_all_marker_types_once_without_awarding_invalid_po
 			var anchor := first_ms / 1000.0 * NeonRules.MAX_SPEED_MPS
 			var lane := float(event.laneIndex) if correct_lane else fmod(float(event.laneIndex) + 2, 6)
 			# Start in front of the tire-contact plane, then cross the curved tire-contact boundary.
-			# The axle/body remains well behind the marker when it must disappear.
-			rules.distance_units = roundi((anchor - 2.5) * 1000000)
+			# The axle/body remains well behind the marker when it must disappear. The tyre's
+			# reach is a world size; the road is drawn NeonSpace.STRETCH to one.
+			var reach := (NeonSpace.wheel_contact_reach(kind) + 0.6325) / NeonSpace.STRETCH
+			rules.distance_units = roundi((anchor - reach - 0.25) * 1000000)
 			space.update_view(rules, 0, lane, -1, false, "")
 			assert_int(space.impact_count).is_zero()
-			rules.distance_units = roundi((anchor - 1.4) * 1000000)
+			rules.distance_units = roundi((anchor - reach * 0.6) * 1000000)
 			space.update_view(rules, 0.05, lane, -1, false, "")
 			assert_int(space.impact_count).is_equal(1 if correct_lane else 0)
 			space.update_view(rules, 0, lane, -1, false, "")
@@ -229,7 +231,10 @@ func test_all_tracks_change_lanes_frequently_with_short_holds_and_equal_effort_b
 				budgets[0] += span * lane
 				budgets[1] += span
 				if event.type == "hold":
-					assert_int(span).is_equal(6000)
+					assert_int(span).is_equal(LaneSmashCatalog.HOLD_MS)
+					# Twenty-wide bands; light lanes spin faster than heavy ones.
+					assert_int(int(event.cadenceMax) - int(event.cadenceMin)).is_equal(20)
+					assert_int(int(event.cadenceMin)).is_between(65, 95)
 					budgets[2] += span * (int(event.cadenceMin) + 10)
 				if event.type == "burst": budgets[3] += span
 			assert_int(lanes.size()).is_equal(6)
@@ -369,3 +374,66 @@ func test_explosion_pools_are_bounded_and_expire() -> void:
 	assert_int(space._shockwaves.size()).is_zero()
 	assert_int(space._rings.multimesh.visible_instance_count).is_zero()
 	space.free()
+
+
+func test_resistance_lanes_match_the_published_lanebreak_ranges() -> void:
+	# Peloton's five Bike levels, lowest to highest resistance (Pelo Buddy, 22 June 2023; see
+	# docs/research/lanebreak/06-difficulty-ranges.md).
+	var published := {"light": [15, 56], "moderate": [20, 61], "hard": [25, 66], "challenging": [30, 71], "extreme": [35, 76]}
+	assert_array(NeonRules.CURRENT_TIERS.keys()).contains_exactly_in_any_order(published.keys())
+	for tier: String in published:
+		assert_int(NeonRules.band(0, tier).x).is_equal(published[tier][0])
+		assert_int(NeonRules.band(5, tier).y).is_equal(published[tier][1])
+		for lane in 6:
+			var band := NeonRules.band(lane, tier)
+			# Six lanes of seven values each, with no gaps between them.
+			assert_int(band.y - band.x).is_equal(6)
+			if lane > 0: assert_int(band.x).is_equal(NeonRules.band(lane - 1, tier).y + 1)
+			for resistance in range(band.x, band.y + 1):
+				assert_int(NeonRules.lane_for(resistance, tier)).is_equal(lane)
+		assert_int(NeonRules.lane_for(published[tier][0] - 1, tier)).is_equal(-1)
+		assert_int(NeonRules.lane_for(published[tier][1] + 1, tier)).is_equal(-1)
+	# Lanes read from Lanebreak itself, on its original four levels (kept here for saved
+	# rides). The numbers at each lane's edges in Pelo Buddy's review footage: Expert (34-75)
+	# 34|40, 41|47 and 48|54, its first three lanes; Intermediate (24-65) 24|30 and 38|44, its
+	# first and third. A beta screenshot shows 51-57, the fourth lane on Advanced (30-71).
+	# All six are seven wide and fall exactly where this subdivision puts them.
+	assert_vector(NeonRules.band(0, "expert")).is_equal(Vector2i(34, 40))
+	assert_vector(NeonRules.band(1, "expert")).is_equal(Vector2i(41, 47))
+	assert_vector(NeonRules.band(2, "expert")).is_equal(Vector2i(48, 54))
+	assert_vector(NeonRules.band(0, "intermediate")).is_equal(Vector2i(24, 30))
+	assert_vector(NeonRules.band(2, "intermediate")).is_equal(Vector2i(38, 44))
+	assert_vector(NeonRules.band(3, "advanced")).is_equal(Vector2i(51, 57))
+	assert_vector(NeonRules.band(3, "challenging")).is_equal(Vector2i(51, 57))
+
+
+func test_cadence_targets_follow_the_effort_and_bursts_are_spaced() -> void:
+	# Light lanes are fast spins, heavy lanes are climbs.
+	for lane in range(1, 6):
+		assert_int(LaneSmashCatalog.WORK_CADENCE[lane]).is_less_equal(LaneSmashCatalog.WORK_CADENCE[lane - 1])
+	assert_int(LaneSmashCatalog.WORK_CADENCE[0] - LaneSmashCatalog.WORK_CADENCE[5]).is_greater_equal(20)
+	for id: String in ["ls_10_01", "ls_15_13", "ls_20_07", "ls_30_25", LaneSmashCatalog.random_id(15, 4242)]:
+		var course := LaneSmashCatalog.load_track(id)
+		var last_burst_end := -100000
+		var bursts := 0
+		for event: Dictionary in course.events:
+			var minute := int(event.startMs) / 60000
+			var recovering := minute % 4 == 3
+			var easy := recovering or int(event.startMs) < 20000
+			var lane := int(event.laneIndex)
+			if event.type == "hold":
+				var expected: int = LaneSmashCatalog.EASY_CADENCE if easy else LaneSmashCatalog.WORK_CADENCE[lane]
+				assert_int(int(event.cadenceMin)).override_failure_message("%s %s" % [id, event.eventId]).is_equal(expected)
+				assert_int(int(event.cadenceMax)).is_equal(expected + 20)
+			if event.type == "burst":
+				# Never while recovering, and never closer together than the legs can repeat.
+				assert_bool(recovering).override_failure_message("%s %s" % [id, event.eventId]).is_false()
+				assert_int(int(event.startMs) - last_burst_end).is_greater_equal(30000)
+				last_burst_end = int(event.endMs)
+				bursts += 1
+			# The recovery minute really is light: the two lowest lanes only.
+			if recovering: assert_int(lane).override_failure_message("%s %s" % [id, event.eventId]).is_less_equal(1)
+		# One burst a minute, two in the hardest minute of each four, none in the recovery minute.
+		var expected_bursts := 0
+		for minute in int(course.durationMs) / 60000: expected_bursts += [1, 2, 1, 0][minute % 4]
+		assert_int(bursts).override_failure_message(id).is_equal(expected_bursts)

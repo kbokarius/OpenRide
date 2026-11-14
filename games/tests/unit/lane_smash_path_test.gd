@@ -84,6 +84,7 @@ func test_saved_route_replaces_generated_route_even_with_the_same_course_id() ->
 	var saved := generated.duplicate(true)
 	saved.presentation = LaneSmashPath.generate(123456, saved.roadLengthMeters)
 	var expected := LaneSmashCoaster.new()
+	expected.stretch = NeonSpace.STRETCH  # the ride draws the route this many world metres per road metre
 	expected.build(saved.roadLengthMeters, saved.seed, false, saved.presentation)
 	var space := NeonSpace.new()
 	add_child(space)

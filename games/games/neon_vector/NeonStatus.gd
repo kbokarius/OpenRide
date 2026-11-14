@@ -81,6 +81,13 @@ func _draw() -> void:
 	draw_style_box(_backing, Rect2(Vector2.ZERO, size))
 
 
+## The backing's edge colour, which the ride pulses with the music.
+func set_edge(color: Color) -> void:
+	if _backing == null or _backing.border_color.is_equal_approx(color): return
+	_backing.border_color = color
+	queue_redraw()
+
+
 func refresh() -> void:
 	if rules == null:
 		return

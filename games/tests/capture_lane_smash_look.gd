@@ -111,6 +111,7 @@ func _run() -> void:
 	var last_second := -1
 	var notes := {}
 	var last_kind := ""
+	var last_beat := -1
 	for frame in frames:
 		var target := begin + floori((frame + 1) * 1000.0 / 30 / 10) * 10
 		while next_sample < target:
@@ -127,6 +128,13 @@ func _run() -> void:
 			jukebox.treble = 0.35 + 0.3 * sin(seconds * 2.3 + 1.0)
 			jukebox.level = 0.55 + 0.3 * kick
 			jukebox.flow = seconds * 0.9
+			# The eight live bands and the kick counter, which the road's seams read.
+			for b in jukebox.bands.size():
+				jukebox.bands[b] = clampf(0.35 + 0.6 * kick if b < 2 else 0.42 + 0.34 * sin(seconds * (0.9 + b * 0.35) + b), 0.0, 1.0)
+			var beat_index := floori(seconds * 128.0 / 60.0)
+			if beat_index != last_beat:
+				last_beat = beat_index
+				jukebox.beat_count += 1
 		track.update_view(1.0 / 30)
 		status.refresh()
 		status._process(1.0 / 30)

@@ -6,7 +6,9 @@ uniform float road_end = 480.0;
 uniform float fade_start = 300.0;
 uniform float rider_s = 0.0;
 uniform float presence = 1.0;
+uniform vec2 behind = vec2(-11.0, -6.0);  // road metres behind the rider over which a streak goes out
 uniform float pulse = 0.0;
+uniform vec4 music = vec4(0.0);  // eased bass, mids, treble, kick
 varying float course_s;
 void vertex() {
 	course_s = INSTANCE_CUSTOM.x;
@@ -15,7 +17,7 @@ void fragment() {
 	vec2 p = UV * 2.0 - 1.0;
 	float core = pow(clamp(1.0 - p.x * p.x, 0.0, 1.0), 2.0) * pow(clamp(1.0 - p.y * p.y, 0.0, 1.0), 1.5);
 	// Streaks stay lit until they are behind the chase camera (12.5 m behind the rider).
-	float fade = (1.0 - smoothstep(fade_start, road_end, course_s)) * smoothstep(-30.0, -18.0, course_s - rider_s);
-	ALBEDO = COLOR.rgb * (1.0 + pulse * 0.8);
+	float fade = (1.0 - smoothstep(fade_start, road_end, course_s)) * smoothstep(behind.x, behind.y, course_s - rider_s);
+	ALBEDO = COLOR.rgb * (1.0 + pulse * 0.8 + music.z * 0.9);
 	ALPHA = COLOR.a * core * fade * presence;
 }

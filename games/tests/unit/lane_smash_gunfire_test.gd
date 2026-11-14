@@ -43,7 +43,7 @@ func _in_hold(rules: NeonRules, hold: Dictionary) -> bool:
 func test_new_tracks_use_course_eight_and_scoring_seven() -> void:
 	var course := NeonCourse.load_course(TRACK)
 	assert_int(int(course.courseVersion)).is_equal(8)
-	assert_int(int(course.generatorVersion)).is_equal(4)
+	assert_int(int(course.generatorVersion)).is_equal(5)
 	var rules := NeonRules.new()
 	assert_array(rules.configure(course, "challenging", 150)).is_empty()
 	assert_int(rules.scoring_version).is_equal(7)
@@ -116,6 +116,10 @@ func test_a_stopped_rider_is_capped_per_section_and_never_goes_negative() -> voi
 	var rules := _rules()
 	var hold := _first_hold(rules)
 	var middle := (float(hold.cadenceMin) + float(hold.cadenceMax)) * 0.5
+	# Arrive with only a little on the board (the lead-in ridden mostly in the wrong lane), so
+	# the rounds that land cost more than the ride has earned.
+	var wrong := (int(hold.laneIndex) + 3) % 6
+	while rules.road_time_ms() < int(hold.startMs) - 1500: _ride(rules, rules.elapsed_ms + 50, func(_r, _t): return middle, 50, wrong)
 	while not _in_hold(rules, hold): _ride(rules, rules.elapsed_ms + 50, func(_r, _t): return middle)
 	var earned := rules.score_units
 	assert_int(earned).is_greater(0)

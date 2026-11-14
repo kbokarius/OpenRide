@@ -6,9 +6,29 @@ Each 10/15/20/30-minute duration has the same 25 names with duration-specific se
 
 Names: Nightfall, Vector Run, Cold Circuit, Apex Protocol, Iron Horizon, Deep Current, Solar Array, Black Meridian, Velocity, Carbon Ridge, Arc Reactor, Zero Gravity, Afterburn, Steel Pulse, Blue Shift, Outer Ring, Ion Storm, Altitude, Dark Matter, Redline, Titan, Slipstream, Overdrive, Summit Relay, Event Horizon.
 
-Only one lane has scoring targets at a time. Courses begin low, build, ease back, recover and repeat with varied lane ordering. A four-minute spatial pattern uses low lanes, high lanes, an easing phase and recovery; each minute has three 20-road-second lane blocks. Tracks share authored resistance exposure and section-time budgets while varying ordering/placement. Actual joules and points vary with sensor input.
+Only one lane has scoring targets at a time. Courses begin low, build, ease back, recover and repeat with varied lane ordering. A four-minute spatial pattern (generator 5) runs as intervals; each road-minute has three 20-road-second lane blocks:
 
-Ordinary target lanes change every 20–47 seconds at 60–140 rpm; cadence zones span six road-seconds, about 6–14 actual seconds at those cadences, and every cadence zone is strafed by machine-gun fire (below). A 35-second Incoming Fire section temporarily replaces lane targets. The full audit enforces a 60-second maximum for ordinary target-lane changes, resetting that check during attacks.
+| Road-minute | Lanes | Role |
+| --- | --- | --- |
+| 1 of 4 | 1 → 2 → 3 | Build (the very first block of a ride is the warm-up) |
+| 2 of 4 | 4, 5 and 6 in a varied order | The hardest minute |
+| 3 of 4 | 5, 4 and 3 in a varied order | Ease back |
+| 4 of 4 | 2 → 1 → 2 | Recovery |
+
+Each block is a lead-in of gold bars, an eight-road-second cadence section, then either more gold bars or a six-road-second Power Burst. Bursts come once a road-minute and twice in the hardest minute (its first and last blocks), which puts them 40 road-seconds apart through the work, and never in the recovery minute. A burst block runs its cadence section straight into the burst.
+
+Cadence targets follow the kind of effort, not the lane number. Every band is 20 rpm wide:
+
+| Section | Lane 1 | Lane 2 | Lane 3 | Lane 4 | Lane 5 | Lane 6 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Work | 95–115 | 90–110 | 85–105 | 80–100 | 70–90 | 65–85 |
+| Warm-up and recovery | 75–95 | 75–95 | — | — | — | — |
+
+Light lanes are fast spins and heavy lanes are climbs, so effort still rises with the lane without asking for a sprint cadence against the heaviest resistance. (Generator 4 used `60 + 4 × lane` to `+20`, which was a slow 60–80 in the lightest lane and 80–100 against the heaviest.) Twenty-wide bands and the 65–105 span match the Lanebreak cadence targets reported in [the range research](../research/lanebreak/06-difficulty-ranges.md).
+
+Tracks share authored resistance exposure and section-time budgets while varying ordering/placement. Actual joules and points vary with sensor input.
+
+Ordinary target lanes change every 20–47 seconds at 60–140 rpm (about 29 seconds at 95 rpm); cadence zones span eight road-seconds, about 11–15 actual seconds when ridden inside their band, and every cadence zone is strafed by machine-gun fire (below). A 35-second Incoming Fire section temporarily replaces lane targets. The full audit enforces a 60-second maximum for ordinary target-lane changes, resetting that check during attacks.
 
 ## Steering and speed
 
@@ -20,13 +40,15 @@ Ordinary target lanes change every 20–47 seconds at 60–140 rpm; cadence zone
 | Challenging, default | 30–71 |
 | Extreme | 35–76 |
 
-Each range has six equal seven-value lanes. Lane `n` (1–6) starts at `difficulty minimum + 7 × (n−1)` and ends six values later. The displayed endpoints are inclusive. Out-of-range, fractional or invalid resistance does not select a scoring lane. A new lane must settle for 150 ms. Difficulty does not alter the course, visual grade or physical knob automatically.
+Each range has six equal seven-value lanes. Lane `n` (1–6) starts at `difficulty minimum + 7 × (n−1)` and ends six values later. The five ranges are Lanebreak's published Bike levels, and the seven-value lanes agree with every individual Lanebreak lane found (six, five of them read from the game's own display in review footage) (see [the range research](../research/lanebreak/06-difficulty-ranges.md)); `lane_smash_catalog_test.gd` pins the whole table. The displayed endpoints are inclusive. Out-of-range, fractional or invalid resistance does not select a scoring lane. A new lane must settle for 150 ms. Difficulty does not alter the course, visual grade or physical knob automatically.
 
-Game speed = `clamp(cadence / 140, 0, 1) × 60 km/h`, displayed in mph. Maximum is 37.3 mph. Position advances from that speed; faster riders encounter more sections during the same active duration. Roads are `minutes × 1,000 + 300` metres long, exceeding the maximum reachable distance. Higher cadence cannot overrun the road. This is a game-speed scale, not an estimate of physical road cycling speed.
+Rules speed = `clamp(cadence / 140, 0, 1) × 60 km/h`. Position advances from that speed; faster riders encounter more sections during the same active duration. Roads are `minutes × 1,000 + 300` rules-metres long, exceeding the maximum reachable distance. Higher cadence cannot overrun the road.
+
+The picture draws every rules-metre as **three** world metres (`NeonSpace.STRETCH`), so the road, scenery and sky pass three times faster than before for the same pedalling, and the HUD shows the speed and distance the picture has: `cadence × 0.8` mph, about **48 mph at 60 rpm, 77 mph at 96 rpm and 112 mph at 140 rpm**, and zero when stopped. Nothing in the rules changed: sections, scoring, ghosts and saved rides still work in rules-metres. This is a game-speed scale, not an estimate of physical road cycling speed.
 
 ## Current point scale
 
-Scoring version 7 keeps version 6's **18×** scale and adds machine-gun fire to cadence sections. Version 6 multiplied the previous base scoring by 18. The calibration target is a typical **20-minute ride** around 150,000 points, not a fixed score for every duration or rider. The measured 25-track Challenging trace averaged **147,760.88** (137,462–156,977). It uses 90 rpm cruise, cadence-band midpoint, 110 rpm bursts, resistance-dependent simulated watts, modest misses and gradual attack responses. Real sensor power and performance determine actual scores. Longer/shorter rides scale naturally.
+Scoring version 7 keeps version 6's **18×** scale and adds machine-gun fire to cadence sections. Version 6 multiplied the previous base scoring by 18. The calibration target is a typical **20-minute ride** around 150,000 points, not a fixed score for every duration or rider. The measured 25-track Challenging trace on generator 5 averaged **173,216.08** (166,285–179,849); generator 4 measured 147,760.88 with the same rider. The rise is the workout pass, not the scale: cadence sections are a third longer, there are more bursts, and the lighter lanes are ridden faster, so there is more to score. It uses 90 rpm cruise, cadence-band midpoint, 110 rpm bursts, resistance-dependent simulated watts, modest misses and gradual attack responses. Real sensor power and performance determine actual scores. Longer/shorter rides scale naturally.
 
 | Section | Conditions | Points |
 | --- | --- | --- |

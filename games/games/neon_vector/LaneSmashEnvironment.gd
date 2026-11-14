@@ -32,7 +32,7 @@ func update_environment(id: String, accent: Color, distance_m: float, resistance
 	var blend := 1.0 - exp(-delta * 3.0) if delta > 0 else 1.0
 	resistance_mix = lerpf(resistance_mix, clampf(resistance_fraction, 0, 1), blend)
 	_follow_music(delta, reduced)
-	var colors := palette(accent, resistance_mix, music.x, music.y)
+	var colors := palette(accent, resistance_mix, music.x, music.y, music.z)
 	# Use the rules' actual distance, including its speed cap and stopped state.
 	# No render-frame integration or free-running time can move the sky independently.
 	material.set_shader_parameter("travel_m", distance_m)
@@ -56,8 +56,9 @@ func _follow_music(_delta: float, reduced: bool) -> void:
 	music = Vector4(float(jukebox.calm_bass), float(jukebox.calm_mid), float(jukebox.calm_treble), 0.0 if reduced else float(jukebox.pulse)) * response
 	swirl = float(jukebox.flow) * response
 
-static func palette(accent: Color, resistance_fraction: float = 0.0, bass := 0.0, mids := 0.0) -> Array[Color]:
-	# Resistance sets the hue; the music warms and brightens it without changing its identity.
-	var primary := Color.from_hsv(fposmod(accent.h + resistance_fraction * 0.08 + mids * 0.03, 1.0), 0.65 + bass * 0.12, 0.9 + bass * 0.1)
-	var secondary := Color.from_hsv(fposmod(primary.h + 0.13 + resistance_fraction * 0.08 + mids * 0.05, 1.0), 0.72 + bass * 0.1, 0.85 + bass * 0.12)
+static func palette(accent: Color, resistance_fraction: float = 0.0, bass := 0.0, mids := 0.0, treble := 0.0) -> Array[Color]:
+	# Resistance sets the hue; the music turns it a little further and brightens it (mids move
+	# the first colour, treble the second, bass deepens both) without changing its identity.
+	var primary := Color.from_hsv(fposmod(accent.h + resistance_fraction * 0.08 + mids * 0.05, 1.0), 0.65 + bass * 0.14, 0.9 + bass * 0.1)
+	var secondary := Color.from_hsv(fposmod(primary.h + 0.13 + resistance_fraction * 0.08 + mids * 0.04 + treble * 0.07, 1.0), 0.72 + bass * 0.1, 0.85 + bass * 0.12)
 	return [primary, secondary]

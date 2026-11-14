@@ -34,6 +34,23 @@ static func jukebox() -> Node:
 	return tree.root.get_node_or_null("Jukebox") if tree != null else null
 
 
+## The eased music levels the picture reads: bass, mids, treble and the kick's soft swell.
+## All zero when nothing is playing (or where the jukebox is not loaded), so callers can add
+## them without checking. These rise over about half a second and fall over about a second:
+## safe to put on anything large.
+static func music() -> Vector4:
+	var player := jukebox()
+	if player == null: return Vector4.ZERO
+	return Vector4(float(player.calm_bass), float(player.calm_mid), float(player.calm_treble), float(player.pulse))
+
+
+## An interface colour breathing with the music: it drifts toward its companion hue with the
+## mids and treble and lifts with the bass and each kick. `depth` scales the whole response.
+static func pulsed(color: Color, levels: Vector4, depth := 1.0) -> Color:
+	var shifted := color.lerp(companion(color), clampf((levels.y * 0.5 + levels.z * 0.35) * depth, 0.0, 0.6))
+	return Color(shifted.lightened(clampf((levels.x * 0.16 + levels.w * 0.3) * depth, 0.0, 0.45)), color.a)
+
+
 ## An emissive, optionally additive, vertex-coloured material for pooled effects. Values above
 ## one in the instance colour bloom through the environment glow.
 static func emissive(additive := false, energy := 1.0) -> ShaderMaterial:

@@ -13,6 +13,7 @@ const QUALITY_MIN_FPS := 50.0
 var rules := NeonRules.new()
 var track: NeonTrack
 var status: NeonStatus
+var _hud_panel: StyleBoxFlat  ## the ride and clock panels' shared style; its edge pulses with the music
 var audio_controls: LaneSmashAudioControls
 var sounds: LaneSmashSound
 var _sequence := -1
@@ -111,7 +112,9 @@ func _on_prepare(_seg: Dictionary) -> void:
 	track.apply_quality(_starting_quality())
 	_quality_time = -QUALITY_SETTLE_SEC
 	_quality_frames = 0
-	hud.set_skin(hud_skin())
+	var skin := hud_skin()
+	_hud_panel = skin.get("panel") as StyleBoxFlat
+	hud.set_skin(skin)
 	status = NeonStatus.new()
 	status.rules = rules
 	hud.add_widget(status)
@@ -282,6 +285,7 @@ func _on_frame(delta: float) -> void:
 	sounds.active = rules.pause_reason.is_empty()
 	_govern_quality(delta)
 	track.update_view(delta)
+	_pulse_hud()
 	sounds.update_audio()
 	status.refresh()
 	if not rules.pause_reason.is_empty():
@@ -290,6 +294,15 @@ func _on_frame(delta: float) -> void:
 		_complete("completed")
 	elif rules.elapsed_ms - _checkpoint_ms >= 5000 and not _save_busy:
 		_checkpoint()
+
+
+## The HUD's panel edges breathe with the music, like the track's own accent lines.
+func _pulse_hud() -> void:
+	var levels: Vector4 = track.music_levels
+	var edge := LaneSmashLook.pulsed(Color(LaneSmashMenuTheme.ACCENT, 0.34), levels)
+	edge.a = clampf(0.34 + 0.4 * levels.w + 0.2 * levels.x, 0.0, 0.9)
+	if _hud_panel != null and not _hud_panel.border_color.is_equal_approx(edge): _hud_panel.border_color = edge
+	if is_instance_valid(status): status.set_edge(edge)
 
 
 ## The tier this ride starts on: the rider's explicit choice, or (Auto) the tier the last ride

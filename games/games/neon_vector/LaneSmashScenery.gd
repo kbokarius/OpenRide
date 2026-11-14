@@ -4,11 +4,13 @@ extends Node3D
 ## space around it. Both are fixed at absolute course distances, so they pass at exactly the
 ## rider's speed and stop when the rider stops. Bounded pools; a slot is rewritten only when a
 ## new piece enters the window, so there is no per-frame transform work.
-const GANTRY_SPACING := 48.0
-const GANTRY_OFFSET := 48.0   ## the first arch stands this far down the road
-const GANTRY_SLOTS := 9
+## Spacings and distances here are world metres; `gantry_distance` and the pool windows
+## convert to road metres (the unit the route is sampled in) with NeonSpace.STRETCH.
+const GANTRY_SPACING := 64.0
+const GANTRY_OFFSET := 64.0   ## the first arch stands this far down the road
+const GANTRY_SLOTS := 10
 const MOTE_SPACING := 6.0
-const MOTE_SLOTS := 96
+const MOTE_SLOTS := 112
 ## A piece is retired only once it is this far behind the rider. The chase camera sits about
 ## 12.5 m behind the rider, so everything flies past the edges of the screen before it goes.
 const BEHIND := 34.0
@@ -65,7 +67,7 @@ func set_palette(accent: Color, second: Color) -> void:
 	_mote_from = -999999  # motes carry their tint per instance
 
 
-func update_view(distance: float, road_end: float, fade_start: float, presence: float, pulse: float, lite: bool) -> void:
+func update_view(distance: float, road_end: float, fade_start: float, presence: float, pulse: float, lite: bool, music := Vector4.ZERO) -> void:
 	if _route_id != space._terrain_id:
 		_route_id = space._terrain_id
 		_gantry_from = -999999
@@ -75,23 +77,31 @@ func update_view(distance: float, road_end: float, fade_start: float, presence: 
 		material.set_shader_parameter("fade_start", fade_start)
 		material.set_shader_parameter("presence", presence)
 		material.set_shader_parameter("pulse", pulse)
-	_mote_material.set_shader_parameter("rider_s", distance)
+		material.set_shader_parameter("music", music)
+	var stretch := NeonSpace.STRETCH
+	for material in [_gantry_material, _mote_material]: material.set_shader_parameter("rider_s", distance)
+	# An arch joins the pool at the far end of its window; it fades in over the last stretch
+	# of that window instead of appearing, and both fade behind the camera, not at the bike.
+	var reach := ((GANTRY_SLOTS - 1) * GANTRY_SPACING - BEHIND) / stretch
+	_gantry_material.set_shader_parameter("appear", Vector2(reach * 0.72, reach * 0.96))
+	_mote_material.set_shader_parameter("behind", Vector2(-BEHIND / stretch, -18.0 / stretch))
 	motes.visible = not lite
-	var first := ceili((distance - BEHIND - GANTRY_OFFSET) / GANTRY_SPACING)
+	var first := ceili((distance * stretch - BEHIND - GANTRY_OFFSET) / GANTRY_SPACING)
 	if first != _gantry_from:
 		for index in range(first, first + GANTRY_SLOTS):
 			if index >= _gantry_from and index < _gantry_from + GANTRY_SLOTS: continue
 			var s := gantry_distance(index)
 			var slot := posmod(index, GANTRY_SLOTS)
 			gantries.multimesh.set_instance_transform(slot, space.coaster.at(s) if index >= 0 else Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.001), Vector3(0, -9000, 0)))
-			gantries.multimesh.set_instance_custom_data(slot, Color(s, 0, 0, 0))
+			# Arches take turns with the spectrum: bass, mids, treble, bass… down the road.
+			gantries.multimesh.set_instance_custom_data(slot, Color(s, float(posmod(index, 3)), 0, 0))
 		_gantry_from = first
 	if lite: return
-	first = ceili((distance - BEHIND) / MOTE_SPACING)
+	first = ceili((distance * stretch - BEHIND) / MOTE_SPACING)
 	if first != _mote_from:
 		for index in range(first, first + MOTE_SLOTS):
 			if index >= _mote_from and index < _mote_from + MOTE_SLOTS: continue
-			var s := index * MOTE_SPACING
+			var s := index * MOTE_SPACING / stretch
 			var seed_a := fposmod(sin(index * 12.9898) * 43758.5453, 1.0)
 			var seed_b := fposmod(sin(index * 78.233 + 1.7) * 24634.6345, 1.0)
 			var seed_c := fposmod(sin(index * 39.425 + 4.1) * 13758.1173, 1.0)
@@ -107,9 +117,9 @@ func update_view(distance: float, road_end: float, fade_start: float, presence: 
 		_mote_from = first
 
 
-## The course distance of arch `index`.
+## The road distance (the route's unit) of arch `index`.
 static func gantry_distance(index: int) -> float:
-	return index * GANTRY_SPACING + GANTRY_OFFSET
+	return (index * GANTRY_SPACING + GANTRY_OFFSET) / NeonSpace.STRETCH
 
 
 ## One arch: faceted alloy legs and a crown, with a light strip along the inside edge.

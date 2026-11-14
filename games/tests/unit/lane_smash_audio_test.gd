@@ -317,3 +317,14 @@ func test_menu_feedback_follows_the_effects_switch() -> void:
 	LaneSmashSound.ui("tap")
 	assert_int(played.size()).is_equal(2)
 	AudioDirector.sound_played.disconnect(listener)
+
+
+func test_effects_sit_a_little_under_the_music_by_default() -> void:
+	var music := AudioDirector.music_volume
+	var sfx := AudioDirector.sfx_volume
+	GameOptions.apply_audio()
+	assert_float(AudioDirector.music_volume).is_equal_approx(GameOptions.MUSIC_LEVEL, 0.0001)
+	assert_float(AudioDirector.sfx_volume).is_equal_approx(GameOptions.SFX_LEVEL, 0.0001)
+	# Between one and a half and four decibels under the soundtrack: quieter, still clear.
+	assert_float(linear_to_db(GameOptions.SFX_LEVEL / GameOptions.MUSIC_LEVEL)).is_between(-4.0, -1.5)
+	AudioDirector.set_volumes(AudioDirector.music_enabled, music, sfx)

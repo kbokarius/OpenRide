@@ -6,6 +6,9 @@
 //   music.z treble -> fine sparkle rides the filaments
 //   music.w pulse  -> soft rings of light run down the tunnel and the field lifts slightly
 //   swirl          -> a phase only the music advances: the field turns and its colours cycle
+// Colour follows the spectrum too: mids slide the field between its two colours, bass warms
+// the body of the ribbons toward a third hue, and treble pushes the bright filaments toward
+// a fourth. Those extra hues are the palette's own channels rotated, so they stay related.
 // The inputs are already eased over half a second or more, and every gain below is
 // modest on purpose: large, fast changes across the whole screen are tiring to ride into.
 // With music at zero and swirl at zero this is exactly the calm, silent field.
@@ -40,9 +43,11 @@ vec3 tunnel_field(vec3 ray, float travel, int style, vec3 primary, vec3 secondar
     float filament = pow(wave, mix(mix(5.0, 12.0, detail), 4.2, music.x * 0.6)) * resolved;
     float silk = pow(0.5 + 0.5 * ribbon, mix(3.0, 2.2, music.y)) * (1.0 - smoothstep(0.7, 3.0, footprint * 0.45));
     float sparkle = pow(0.5 + 0.5 * sin(phase * 3.0 + swirl * 4.0), 18.0) * music.z * resolved;
-    vec3 hue = mix(primary, secondary, 0.5 + 0.5 * sin(fold + z * 0.3 + swirl * 0.5));
+    vec3 hue = mix(primary, secondary, 0.5 + 0.5 * sin(fold + z * 0.3 + swirl * 0.5 + music.y * 1.5));
+    vec3 body = mix(hue, hue.brg, clamp(music.x * 0.42, 0.0, 0.5));
+    vec3 bright = mix(hue, hue.gbr, clamp(music.z * 0.5, 0.0, 0.5));
     float horizon = 1.0 - smoothstep(220.0, 700.0, abs(depth));
-    float lift = 1.0 + music.w * 0.35 + music.x * 0.2;
-    return vec3(0.006, 0.01, 0.019) + (hue * (0.14 * silk + filament * (0.5 + 0.25 * silk)) * lift
-        + mix(hue, vec3(1.0), 0.6) * sparkle * 0.55) * horizon;
+    float lift = 1.0 + music.w * 0.35 + music.x * 0.28;
+    return vec3(0.006, 0.01, 0.019) + ((body * 0.14 * silk + bright * filament * (0.5 + 0.25 * silk)) * lift
+        + mix(bright, vec3(1.0), 0.6) * sparkle * 0.55) * horizon;
 }

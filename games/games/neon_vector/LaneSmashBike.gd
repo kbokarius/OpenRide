@@ -121,7 +121,8 @@ func _part(mesh: Mesh, parent: Node3D) -> MeshInstance3D:
 func animate(rpm: float, delta: float) -> void:
 	cadence = clampf(rpm, 0, 250)
 	crank_phase = fposmod(crank_phase + cadence / 60.0 * TAU * delta, TAU)
-	var speed := minf(cadence, MAX_CADENCE) / MAX_CADENCE * MAX_SPEED
+	# The speed the road passes under the tyres on screen (the world is drawn STRETCH to one).
+	var speed := minf(cadence, MAX_CADENCE) / MAX_CADENCE * MAX_SPEED * NeonSpace.STRETCH
 	wheel_phase = fposmod(wheel_phase + speed / WHEEL_RADIUS * delta, TAU)  # true rolling contact
 	_clock += delta
 	if pivot == null: return

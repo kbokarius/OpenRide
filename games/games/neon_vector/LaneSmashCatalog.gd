@@ -1,12 +1,24 @@
 class_name LaneSmashCatalog
 extends RefCounted
-## Frozen generator v4 (layout). Course version 8 adds machine-gun fire to cadence sections
+## Generator v5 (layout). Course version 8 adds machine-gun fire to cadence sections
 ## (scoring 7). IDs fully describe reproducible content; snapshots preserve replays.
+##
+## v5 is the workout pass: cadence targets follow the kind of effort instead of rising with
+## the lane, cadence sections are longer, the hardest minute has two power bursts, and the
+## recovery minute really drops to the lightest lanes.
 const LENGTHS := [10, 15, 20, 30]
 const NAMES := ["Nightfall", "Vector Run", "Cold Circuit", "Apex Protocol", "Iron Horizon", "Deep Current", "Solar Array", "Black Meridian", "Velocity", "Carbon Ridge", "Arc Reactor", "Zero Gravity", "Afterburn", "Steel Pulse", "Blue Shift", "Outer Ring", "Ion Storm", "Altitude", "Dark Matter", "Redline", "Titan", "Slipstream", "Overdrive", "Summit Relay", "Event Horizon"]
 const PATTERNS := ["Rolling", "Cadence", "Power", "Climbing", "Mixed"]
 const BACKGROUNDS := ["orbital", "citadel", "asteroid", "reactor"]
 const THEMES := ["arctic", "cobalt", "copper", "titanium", "petrol", "amber", "ember", "glacier"]
+## Cadence a work section asks for, by lane, lightest first. Each band is 20 rpm wide. Light
+## lanes are fast spins and heavy lanes are climbs, so effort rises with the lane without
+## asking for a sprint cadence against the heaviest resistance.
+const WORK_CADENCE := [95, 90, 85, 80, 70, 65]
+## Warm-up and recovery sections: an easy spin whatever the lane.
+const EASY_CADENCE := 75
+## Road-milliseconds a cadence section lasts: 10–15 real seconds across the bands above.
+const HOLD_MS := 8000
 
 static func tracks(minutes: int) -> Array[Dictionary]:
 	var list: Array[Dictionary] = []
@@ -43,7 +55,7 @@ static func generate(minutes: int, seed_value: int, index: int, id: String, rand
 	for minute in minutes:
 		state = (state * 48271) % 2147483647
 		var wave := minute % 4
-		var routes := [[[0, 1, 2]], [[3, 4, 5], [3, 5, 4], [4, 3, 5], [4, 5, 3]], [[4, 3, 2], [3, 4, 2], [4, 2, 3]], [[1, 2, 1]]]
+		var routes := [[[0, 1, 2]], [[3, 4, 5], [3, 5, 4], [4, 3, 5], [4, 5, 3]], [[4, 3, 2], [3, 4, 2], [4, 2, 3]], [[1, 0, 1]]]
 		var variants: Array = routes[wave]
 		var pick := int((state + index) % variants.size())
 		var lanes: Array = variants[pick]
@@ -55,24 +67,29 @@ static func generate(minutes: int, seed_value: int, index: int, id: String, rand
 			state = (state * 48271) % 2147483647
 			var lane := int(lanes[block])
 			var begin := minute * 60000 + block * 20000
-			var hold_start := 4500 + int(state % 5) * 500
 			var block_role := "warmup" if minute == 0 and block == 0 else ("recovery" if wave == 3 else "work")
+			# One power burst a minute, two in the hardest minute, none while recovering: one every
+			# 40 road-seconds through the work, which also keeps the validator's 30 s between
+			# bursts. A burst block runs its cadence section straight into the burst: hold the
+			# pace, then empty the tank.
+			var burst_block := wave != 3 and (block != 1 if wave == 1 else block == 1)
+			var hold_start := 4500 if burst_block else 4500 + int(state % 9) * 500
+			var hold_end := hold_start + HOLD_MS
 			phases.append({"name": phase_name if minute > 0 or block == 0 else "Build", "role": block_role, "startMs": begin, "endMs": begin + 20000})
-			# Six road-seconds: 6–14 real seconds across the normal 60–140 rpm range.
-			var spans := [[1500, hold_start], [hold_start, hold_start + 6000], [hold_start + 6000, 12500], [12500, 18500]]
-			for part in 4:
-				if spans[part][0] == spans[part][1]: continue
-				var kind := "hold" if part == 1 else ("burst" if part == 3 and block == 1 and wave != 3 else "cruise")
-				var event := {"eventId": "m%02d-b%d-%d" % [minute + 1, block, part], "type": kind, "startMs": begin + spans[part][0], "endMs": begin + spans[part][1], "laneIndex": lane}
+			var parts := [["cruise", 1500, hold_start], ["hold", hold_start, hold_end]]
+			if burst_block: parts.append(["burst", 12500, 18500])
+			else: parts.append(["cruise", hold_end, 18500])
+			for part in parts.size():
+				var kind: String = parts[part][0]
+				# Event ids keep their slot numbers: 0 lead-in, 1 cadence, 2 run-out, 3 burst.
+				var slot := 3 if kind == "burst" else part
+				var event := {"eventId": "m%02d-b%d-%d" % [minute + 1, block, slot], "type": kind, "startMs": begin + int(parts[part][1]), "endMs": begin + int(parts[part][2]), "laneIndex": lane}
 				if kind == "hold":
-					event.cadenceMin = 60 + lane * 4
+					event.cadenceMin = WORK_CADENCE[lane] if block_role == "work" else EASY_CADENCE
 					event.cadenceMax = int(event.cadenceMin) + 20
-				if not events.is_empty() and kind == "cruise" and events[-1].type == kind and events[-1].laneIndex == lane and events[-1].endMs == event.startMs:
-					events[-1].endMs = event.endMs
-				else:
-					events.append(event)
+				events.append(event)
 			previous_lane = lane
-	return {"schemaVersion": 1, "courseVersion": 8, "generatorVersion": 4, "courseId": id,
+	return {"schemaVersion": 1, "courseVersion": 8, "generatorVersion": 5, "courseId": id,
 		"title": "Random / %06d" % (seed_value % 1000000) if random_track else NAMES[index],
 		"family": "random" if random_track else "catalog", "durationMs": minutes * 60000,
 		"theme": THEMES[(seed_value / 97) % 8] if random_track else THEMES[index % 8],

@@ -1,6 +1,6 @@
 # Presentation, controls and audio
 
-Revision 11 rebuilt the look. Nothing here can change a score: renderers read the rules and never award or remove points.
+Revision 11 rebuilt the look; revision 12 made the road three times faster on screen and tied the road, scenery and interface to the music. Nothing here can change a score: renderers read the rules and never award or remove points.
 
 ## Art direction
 
@@ -25,11 +25,11 @@ One theme (`LaneSmashMenuTheme`) styles the selector, settings, ride HUD, intro 
 - **Touch targets (menus):** at least 120 px tall and 24 px apart; track cards 188 px. In the ride, Audio and End Ride keep the shared HUD's sizes.
 - No visible scrollbars; the track library and history scroll. No Pause, reference-power/FTP setting or cosmetic unlocks.
 
-**Selector.** Header: Exit, the LANE SMASH wordmark, what the jukebox is playing, Settings & history. Left: the track library (random-track button, then 25 cards). Right: one setup panel with Duration, Resistance (and its range), the selected track, sensor status and Start. The backdrop is the selected track's own sky, far back and dark. Track cards preview their palette and sky beneath a dark scrim; Reduced motion freezes the previews and the backdrop.
+**Selector.** Header: Exit, the LANE SMASH wordmark, what the jukebox is playing with a small eight-bar meter of it (`LaneSmashSpectrum`), Settings & history. Left: the track library (random-track button, then 25 cards). Right: one setup panel with Duration, Resistance (and its range), the selected track, sensor status and Start. The backdrop is the selected track's own sky, far back and dark. Track cards preview their palette and sky beneath a dark scrim; Reduced motion freezes the previews and the backdrop.
 
 **Settings & history.** Audio: Music On/Off, the track picker and seek slider, Sound effects On/Off. Ride: Best-ride ghost, Background motion, Graphics. Then the latest 50 rides.
 
-**Ride HUD.** Top left: rpm / W / resistance, with a chip under it for the track's name, speed and distance. Top centre: the current instruction on a glass backing. Top right: time left and score, then Audio and End Ride. Bottom: the six-lane dock (lane number and resistance range; the rider's lane filled, the section's target lane marked along its top in that section's colour), and under it the ride-progress line with the best-ride gap or a hint. Loss and award numbers float from where they happened and are kept inside the play area.
+**Ride HUD.** Top left: rpm / W / resistance, with a chip under it for the track's name (and, while music plays, the same eight-bar meter), speed and distance. Top centre: the current instruction on a glass backing. Top right: time left and score, then Audio and End Ride. Bottom: the six-lane dock (lane number and resistance range; the rider's lane filled, the section's target lane marked along its top in that section's colour), and under it the ride-progress line with the best-ride gap or a hint. Loss and award numbers float from where they happened and are kept inside the play area.
 
 Riding: **Audio → Music / track / seek / Sound effects**, then **Done** or tap outside. The timer continues while this panel is open. Both locations use the same persistent device choices.
 
@@ -43,9 +43,11 @@ Labels and panels do not scale or bounce. Total-score digits reserve fixed width
 
 The slightly transparent road is a fixed seeded path through space. Camera and rider move along it; the road is never reshaped. Full motion includes curves, loops and rolls; Reduced uses gentler curves without inversions.
 
-- **Deck:** one ribbon per chunk. Its shader draws lit lane seams, ruler ticks every three metres and packets of light that run ahead along the seams, all from course distance and lateral position, so nothing slides on the surface.
-- **Rails:** an alloy section along each edge with segmented running lights and a low curtain of light.
-- **Gantries:** alloy arches over the road every 48 m, and streaks of light in the space around it. Both are fixed at course distances, so they pass at exactly the rider's speed and stop when the rider stops. They dim while attackers hold the stage.
+**Speed.** The picture draws every rules-metre as three world metres (`NeonSpace.STRETCH = 3`, applied in `LaneSmashCoaster`'s integration step), so the same pedalling covers three times the ground on screen: about 77 mph at 96 rpm and 112 mph at 140 rpm, against 37 mph before. The route keeps its shape per rules-metre (a loop is three times larger and takes the same riding time). Everything with a real size keeps that size in world metres: the bike, lane width, markers, arches, ticks and the tyre's contact reach, which is why contact distances are divided by the stretch. Course events, scoring, ghost positions and saved rides are untouched and still in rules-metres. The HUD multiplies speed and distance by the stretch so the numbers agree with the picture.
+
+- **Deck:** one ribbon per chunk. Its shader draws lit lane seams and ruler ticks every six metres from course distance and lateral position, so nothing slides on the surface. The one thing that does move is on purpose: pulses of light that run ahead along the seams (below).
+- **Rails:** an alloy section along each edge with running lights in eight-metre bars and a low curtain of light. (Ticks and bars repeat over more than twice the 1.6 m the bike covers per frame at top speed at 30 fps, so they never appear to stand still or run backwards.)
+- **Gantries:** alloy arches over the road every 64 world metres, and streaks of light in the space around it. Both are fixed at course distances, so they pass at exactly the rider's speed and stop when the rider stops; an arch fades in at the far end of its window and stays until it is behind the camera. They dim while attackers hold the stage.
 - **Rider:** a long, low motorcycle with a faceted hull, glowing hub rings and tread lights, twin drive rotors and thrusters, and an armoured pilot. The rotors turn once per measured pedal revolution, the wheels roll at game speed, the thrusters lengthen with effort, and the bike leans into lane changes. A short ribbon of light trails the tail lamp along the route actually taken. The front tyre is the contact surface for every marker.
 - **Best-ride ghost:** the same machine as a see-through projection of light, never hiding the road or a target.
 - **Sky:** flows past at road-distance speed and shifts colour with resistance, with a sparse star field behind it.
@@ -70,9 +72,21 @@ The jukebox analyses the track that is playing (eight log-spaced bands from a 10
 | Kick | soft rings of light run down the tunnel, the field lifts slightly, road seams, rails, gantries and markers pulse |
 | The track's energy over time | slowly turns the field and cycles its colours |
 
-Every response is eased. The scenery reads the jukebox's calm values (`calm_bass`, `calm_mid`, `calm_treble`, `pulse`), which take about half a second to rise and a second to fall; a kick arrives as a soft swell at half depth, never as a flash, and the phase that turns the field advances at a slowly varying rate. The gains in the shader are deliberately modest (the walls breathe by 3.5%), because large, fast changes across the whole screen are tiring to ride into.
+Colour follows the spectrum as well as shape (revision 12). In the sky, mids slide the field between its two colours and turn the first hue, treble turns the second and pushes the bright filaments toward a cooler hue, and bass warms the body of the ribbons; the two extra hues are the palette's own channels rotated, so they stay related to the track's colours. On the road and around it:
 
-Forward motion is still only the rider's real distance: the music reshapes the field and never moves it. With Music Off, or silence, the field is exactly the calm one. Values are delayed by the device's audio output latency so picture and sound line up. Reduced motion passes 30% of the response and no beats. The selector's backdrop and track cards react the same way.
+| Piece | Follows |
+| --- | --- |
+| Seam pulses | One leaves the bike's front wheel on every detected kick and runs ahead at 190 world m/s plus the bike's own speed, as a chevron with the centre seam leading; its strength follows the bass. It brightens over its first 0.16 s, so it never flashes beside the bike, and fades out by two seconds, past the visible road. Up to six are alive. With no kicks arriving (silence, Music Off, a breakdown, Reduced motion) a soft pulse leaves every 0.9 s, so the road is never dead |
+| Lane seams | Each seam's steady glow and colour (accent toward the second colour) follow one part of the spectrum: bass on the centre seam, low mids, high mids, then treble on the outer seams. A faint band of the same colour crosses the deck with each pulse |
+| Rails and curtains | Running lights take the treble's colour and level, the cap and the curtain the mids', and the curtain rises with the bass |
+| Gantries | Arches take turns down the road with bass, mids and treble: each one's light strip swells and changes colour with its own band |
+| Light streaks | Brighten with the treble |
+
+The interface's accent lines breathe the same way (`LaneSmashLook.pulsed`): toward the companion hue with the mids and treble, brighter with the bass and each kick. In the ride that is the edges of the ride, clock and instruction panels, the track chip's edge, the outline of the rider's lane in the dock and the progress line; in the selector it is the wordmark's second word, the header rule and the Start button's edge. Both carry the eight-bar meter. Text never changes colour and no panel changes size, so nothing that has to be read moves.
+
+Every response is eased. The seams ease the live bands themselves (about 0.15 s up, 0.4 s down) and the small meters a little faster; everything large reads the jukebox's calm values. The scenery reads the jukebox's calm values (`calm_bass`, `calm_mid`, `calm_treble`, `pulse`), which take about half a second to rise and a second to fall; a kick arrives as a soft swell at half depth, never as a flash, and the phase that turns the field advances at a slowly varying rate. The gains in the shader are deliberately modest (the walls breathe by 3.5%), because large, fast changes across the whole screen are tiring to ride into.
+
+Forward motion is still only the rider's real distance: the music reshapes the field and never moves it. With Music Off, or silence, the field is exactly the calm one. Values are delayed by the device's audio output latency so picture and sound line up. Reduced motion passes 30% of the response and no beats: the seam pulses keep only their steady rhythm, the seams hold their plain colour and the menu's accent pieces stay still. The selector's backdrop and track cards react the same way.
 
 ## Graphics tiers
 
@@ -88,7 +102,7 @@ The bike's tablet is fill-rate bound and has no headroom for MSAA (docs/GAMES.md
 
 ## Soundtrack
 
-`Jukebox` (an autoload) plays one long track at a time on its own bus, which feeds the Music bus, so the Music switch, host volume and cue ducking keep working.
+`Jukebox` (an autoload) plays one long track at a time on its own bus, which feeds the Music bus, so the Music switch, host volume and cue ducking keep working. The default mix (`GameOptions.MUSIC_LEVEL` 0.65, `SFX_LEVEL` 0.5) puts the effects about 2.3 dB under the music; before revision 12 they sat 0.6 dB above it.
 
 - At launch it starts a random track at a random position (at least 60 s before its end) and keeps playing across the selector, rides and results. When a track ends, a different random one starts from the beginning.
 - The Audio panel and Settings show the track's name, one button per track and a seek slider with elapsed / total time. The slider previews while dragged and seeks once on release. Neither ever pauses a ride.

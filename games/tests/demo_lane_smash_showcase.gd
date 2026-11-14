@@ -21,7 +21,7 @@ extends SceneTree
 
 const COURSE := "ls_15_01"
 const FPS := 30.0
-const PALETTE_TRACKS := ["ls_15_05", "ls_15_08", "ls_15_12"]
+const PALETTE_TRACKS := ["ls_15_06", "ls_15_07", "ls_15_11"]
 
 var rules := NeonRules.new()
 var track: Node  # autoload-using classes are loaded at run time: a -s script compiles before the autoloads exist
@@ -43,6 +43,7 @@ var _next_sample := 0
 var _duration := 900000
 var _last_second := -1
 var _held_rpm := 78.0
+var _free_rpm := 90.0  ## the cadence the "free" policy rides at outside cadence sections
 var _options_path := ""
 var notes: Array[String] = []
 
@@ -216,7 +217,9 @@ func _build_ride(course_id: String, ghost: bool) -> void:
 		hud.set_process(false)
 		hud.timer.set_process(false)
 		hud.metrics.set_process(false)
-		hud.set_skin(load("res://games/neon_vector/NeonVector.gd").hud_skin())
+		var skin: Dictionary = load("res://games/neon_vector/NeonVector.gd").hud_skin()
+		replay._hud_panel = skin.get("panel")
+		hud.set_skin(skin)
 		audio_controls = load("res://games/neon_vector/LaneSmashAudioControls.gd").new()
 		audio_controls.info = info
 		var buttons: Node = hud.end_button.get_parent()
@@ -226,6 +229,7 @@ func _build_ride(course_id: String, ghost: bool) -> void:
 		status.rules = rules
 		hud.add_widget(status)
 		status.set_process(false)
+		replay.status = status
 		sounds = load("res://games/neon_vector/LaneSmashSound.gd").new()
 		sounds.track = track
 		track.add_child(sounds)
@@ -267,6 +271,8 @@ func _ride() -> void:
 	audio_controls.pressed.emit()
 	await _play(3.8, _policy("follow"))
 	audio_controls.panel.hide()
+	_caption("ON THE BEAT", "Every kick sends a pulse down the road; colours follow the bass, mids and treble")
+	await _play(6.0, _policy("follow"))
 	# 2. The second cadence section ridden too fast.
 	await _cut(func(): return _near("hold", 1300), _policy("follow"))
 	_caption("TOO FAST", "Above the range the fire ahead reaches you: each round costs 60 points")
@@ -306,7 +312,15 @@ func _ride() -> void:
 		_caption("ROAD MINES", "Drift into one and it costs up to 1,800 points")
 		await _play_until(func(): return bool(rules.hazard_states[second_mine].resolved), 7.0, _policy("mine"))
 		await _play(2.6, _policy("follow"))
-	# 8. The roller coaster.
+	# 8. Speed: a clear stretch of road, ridden slowly and then flat out.
+	await _cut(func(): return _open_road(10500), _policy("follow"))
+	_caption("SPEED", "The road moves with your legs. Ease right off and it slows to a cruise…")
+	_free_rpm = 52.0
+	await _play(4.6, _policy("free"))
+	_caption("SPEED", "…spin up and it flies: 96 rpm is about 77 mph on screen, flat out is 112")
+	_free_rpm = 134.0
+	await _play(7.0, _policy("free"))
+	# 9. The roller coaster.
 	var loop_at := _next_inversion()
 	if loop_at > 0.0:
 		await _cut(func(): return rules.road_distance() >= loop_at - 95.0, _policy("follow"))
@@ -332,7 +346,7 @@ func _palettes() -> void:
 
 func _closing() -> void:
 	_caption("", "")
-	_card("LANE SMASH", "Music-reactive scenery · motorcycle · machine-gun cadence sections · new sound")
+	_card("LANE SMASH", "A faster road · pulses on the beat · colour from the music · tracks tuned as a workout")
 	await _wait(3.2)
 
 
@@ -355,6 +369,23 @@ func _resolved(ordinal: int) -> bool:
 	for shot: Dictionary in rules.barrage.shots:
 		if shot.sectionId == rules.barrage.section.barrageId and bool(shot.resolved): count += 1
 	return count > ordinal
+
+
+## True on a stretch of plain road: collect bars now, and no cadence section, power burst or
+## attack for the next `room_ms` of road, so the rider is free to ride at any cadence.
+func _open_road(room_ms: int) -> bool:
+	if rules.barrage.active: return false
+	var now := rules.road_time_ms()
+	var event := rules.current_event()
+	if event.get("type", "") != "cruise" or now < int(event.get("startMs", 0)): return false
+	for upcoming: Dictionary in rules.course.events:
+		if int(upcoming.endMs) <= now: continue
+		if int(upcoming.startMs) - now >= room_ms: break
+		if upcoming.type in ["hold", "burst"]: return false
+	for section: Dictionary in rules.course.barrages:
+		var lead := int(section.startMs) - rules.elapsed_ms
+		if lead > -45000 and lead < 20000: return false
+	return true
 
 
 ## The next road mine that is not swallowed by an attack and is still ahead.
@@ -380,7 +411,7 @@ func _policy(mode: String) -> Callable:
 		var event := rules.current_event()
 		var lane := int(event.get("laneIndex", 0))
 		var kind := str(event.get("type", ""))
-		var rpm := 94.0
+		var rpm := _free_rpm if mode == "free" else 94.0
 		if kind == "hold":
 			rpm = (float(event.cadenceMin) + float(event.cadenceMax)) * 0.5
 			if rules.road_time_ms() >= int(event.startMs) - 400:
@@ -401,12 +432,13 @@ func _policy(mode: String) -> Callable:
 			if mode == "mine":
 				for hazard: Dictionary in rules.course.hazards:
 					if rules.road_time_ms() >= int(hazard.hitMs) - 2600 and rules.road_time_ms() <= int(hazard.hitMs) + 300: lane = int(hazard.laneIndex)
-		return {"lane": lane, "rpm": rpm}
+		# The speed scene changes cadence the way legs do, not in a step.
+		return {"lane": lane, "rpm": rpm, "step": 1.1 if mode == "free" else 4.0}
 
 
 func _push(policy: Callable) -> void:
 	var input: Dictionary = policy.call()
-	_rpm = move_toward(_rpm, float(input.rpm), 4.0)
+	_rpm = move_toward(_rpm, float(input.rpm), float(input.get("step", 4.0)))
 	var resistance := NeonRules.band(int(input.lane), rules.tier).x + 3
 	rules.push_sample({"t": _next_sample, "seq": _next_sample + 1, "cadence": roundf(_rpm), "power": roundi(_rpm * (0.3 + resistance * 0.045)), "resistance": resistance})
 	_next_sample += 50
@@ -477,6 +509,7 @@ func _play_until(until: Callable, max_seconds: float, policy: Callable) -> void:
 func _frame(delta: float) -> void:
 	replay._update_ghost()
 	track.update_view(delta)
+	replay._pulse_hud()
 	status.refresh()
 	status._process(delta)
 	sounds.update_audio()

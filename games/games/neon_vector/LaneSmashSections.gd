@@ -35,8 +35,8 @@ func update_view(rules: NeonRules, delta: float, rider_lane: float) -> void:
 		zone.material.set_shader_parameter("charge", zone.charge)
 		zone.material.set_shader_parameter("intensity", zone.intensity)
 		zone.material.set_shader_parameter("flow", flow)
-		zone.material.set_shader_parameter("road_end", space.portal_distance)
-		zone.material.set_shader_parameter("fade_start", space.distance + (space.portal_distance - space.distance) * 0.62)
+		zone.material.set_shader_parameter("road_end", space.portal_distance * NeonSpace.STRETCH)
+		zone.material.set_shader_parameter("fade_start", (space.distance + (space.portal_distance - space.distance) * 0.62) * NeonSpace.STRETCH)
 		zone.material.set_shader_parameter("visible_alpha", (1.0 - smoothstep(float(event.endMs), float(event.endMs) + 1400.0, now)) * rules.barrage.normal_alpha(rules.elapsed_ms))
 		if event.type == "burst":
 			var gate: MultiMeshInstance3D = zone.gate
@@ -65,12 +65,13 @@ func _make_zone(event: Dictionary) -> Dictionary:
 	material.shader = SHADER
 	material.set_shader_parameter("tint", NeonSpace.GREEN if event.type == "hold" else NeonSpace.VIOLET)
 	material.set_shader_parameter("power_zone", 1.0 if event.type == "burst" else 0.0)
-	var start: float = int(event.startMs) / 1000.0 * space._unit_speed + LaneSmashBike.FRONT_REACH + 1.0
+	# Road metres along the route; the bike's reach and the margins are world sizes.
+	var start: float = int(event.startMs) / 1000.0 * space._unit_speed + (LaneSmashBike.FRONT_REACH + 1.0) / NeonSpace.STRETCH
 	var finish: float = space.finish_distance(str(event.type), int(event.endMs))
-	var floor_finish: float = finish + (1.0 if event.type == "hold" else 0.1)
+	var floor_finish: float = finish + (1.0 if event.type == "hold" else 0.1) / NeonSpace.STRETCH
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var steps := ceili((floor_finish - start) / 1.5)
+	var steps := ceili((floor_finish - start) * NeonSpace.STRETCH / 3.0)  # one quad per three world metres
 	var lane_x := (int(event.laneIndex) - 2.5) * NeonSpace.LANE_WIDTH
 	for i in steps:
 		for corner: Vector2 in [Vector2(0, 0), Vector2(1, 0), Vector2(0, 1), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]:
@@ -78,7 +79,7 @@ func _make_zone(event: Dictionary) -> Dictionary:
 			var s := lerpf(start, floor_finish, v)
 			surface.set_uv(Vector2(corner.x, v))
 			var lateral := lane_x + (corner.x - 0.5) * 2.72
-			surface.set_uv2(Vector2(s, lateral))
+			surface.set_uv2(Vector2(s * NeonSpace.STRETCH, lateral))  # world metres, for the shader's hatching and waves
 			surface.set_normal(space.coaster.at(s).basis.y)
 			surface.add_vertex(space.pose(s, lateral, 0.045).origin)
 	var bed := MeshInstance3D.new()

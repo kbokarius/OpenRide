@@ -65,6 +65,10 @@ var _completion_anchor := Vector3.ZERO
 var _completion_up := Vector3.UP
 var _completion_kind := "cruise"
 var _danger := 0.0
+var music_levels := Vector4.ZERO  ## eased bass, mids, treble and kick, as sent to the 3D view
+var _meter := LaneSmashSpectrum.blank()  ## the chip's small spectrum meter
+var _music_on := false
+const METER_SIZE := Vector2(61, 26)
 var completed_sections := {"cruise": 0, "hold": 0, "burst": 0}
 var _intro_alpha := 0.0:
 	set(value):
@@ -147,6 +151,16 @@ func update_view(delta: float) -> void:
 		space.ghost_cadence = ghost_cadence
 		space.reduced_motion = reduced_motion
 		space.music_pulse = beat
+		# Colour and the seam pulses read the eased levels; Reduced motion keeps a third of the
+		# colour response and none of the kick.
+		music_levels = LaneSmashLook.music() * (0.3 if reduced_motion else 1.0)
+		if reduced_motion: music_levels.w = 0.0
+		space.music = music_levels
+		_music_on = jukebox != null and bool(jukebox.is_playing())
+		_meter = LaneSmashSpectrum.eased(_meter, delta)
+		if jukebox != null:
+			space.music_bands = jukebox.bands
+			space.music_beats = int(jukebox.beat_count)
 		space.set_world(world_id)
 		space.update_view(rules, delta, visual_lane, ghost_lane, ghost_visible, trail_id)
 		_update_completions(delta)
@@ -157,8 +171,11 @@ func update_view(delta: float) -> void:
 		var second := rules.elapsed_ms / 1000
 		if second != _text_second:
 			_text_second = second
-			_speed_text = "%.1f mph  ·  %.2f mi" % [rules.speed_kph / 1.609344, rules.road_distance() / 1609.344]
-			var position_text := "%.0f ft ahead" % (ghost_gap * 3.28084) if ghost_gap > 1.4 else ("%.0f ft behind" % (-ghost_gap * 3.28084) if ghost_gap < -1.4 else "alongside")
+			# Speed and distances are shown as the picture has them: the world is drawn STRETCH
+			# to one, so the bike really does cover that ground on screen.
+			var scale := NeonSpace.STRETCH
+			_speed_text = "%.0f mph  ·  %.2f mi" % [rules.speed_kph * scale / 1.609344, rules.road_distance() * scale / 1609.344]
+			var position_text := "%.0f ft ahead" % (ghost_gap * scale * 3.28084) if ghost_gap > 1.4 else ("%.0f ft behind" % (-ghost_gap * scale * 3.28084) if ghost_gap < -1.4 else "alongside")
 			_ghost_text = "BEST RIDE  %s  ·  %+d PTS" % [position_text, ghost_delta] if ghost_visible else "TURN RESISTANCE TO CHANGE LANES"
 	queue_redraw()
 
@@ -169,7 +186,12 @@ func _draw() -> void:
 	var world := NeonWorlds.world(world_id)
 	var accent := LaneSmashLook.vivid(Color(world.accent))
 	_styles(accent)
-	_chip(str(rules.course.get("title", world.title)))
+	# The interface's accent lines breathe with the music: toward the companion hue with the
+	# mids and treble, brighter with the bass and each kick. Text never changes colour.
+	var live := LaneSmashLook.pulsed(accent, music_levels)
+	_chip_style.border_color = Color(live, 0.34 + 0.4 * music_levels.w + 0.2 * music_levels.x)
+	_cell_styles[1].border_color = live
+	_chip(str(rules.course.get("title", world.title)), live)
 	if rules.course.is_empty():
 		return
 	_dock(accent)
@@ -177,7 +199,7 @@ func _draw() -> void:
 	var progress := clampf(float(rules.elapsed_ms) / float(rules.course.durationMs), 0.0, 1.0)
 	var right := HudTheme.W - MARGIN
 	draw_rect(Rect2(MARGIN, PROGRESS_Y, right - MARGIN, 4), Color(accent, 0.16))
-	draw_rect(Rect2(MARGIN, PROGRESS_Y, (right - MARGIN) * progress, 4), accent)
+	draw_rect(Rect2(MARGIN, PROGRESS_Y, (right - MARGIN) * progress, 4), live)
 	draw_rect(Rect2(MARGIN + (right - MARGIN) * progress - 2, PROGRESS_Y - 4, 4, 12), WHITE)
 	var caption := "RIDE PROGRESS"
 	if not rules.distance_based:
@@ -203,14 +225,18 @@ func _styles(accent: Color) -> void:
 
 
 ## The track chip under the ride panel: the track's name, then speed and distance.
-func _chip(title: String) -> void:
+func _chip(title: String, live: Color) -> void:
 	var name_text := title.to_upper()
 	var width := _caps.get_string_size(name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 28).x
+	# Room beside the title for the soundtrack's meter while music is playing.
+	if _music_on: width += METER_SIZE.x + 20.0
 	if rules.distance_based:
 		width = maxf(width, _digits.get_string_size(_speed_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 36).x)
 	var size := Vector2(maxf(300.0, ceilf(width) + 51.0), 100.0 if rules.distance_based else 60.0)
 	draw_style_box(_chip_style, Rect2(CHIP_AT, size))
 	draw_string(_caps, CHIP_AT + Vector2(27, 38), name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color(MUTED, _intro_alpha))
+	if _music_on:
+		LaneSmashSpectrum.paint(self, Rect2(CHIP_AT + Vector2(size.x - 24.0 - METER_SIZE.x, 14), METER_SIZE), _meter, live, LaneSmashLook.companion(live), _intro_alpha)
 	if rules.distance_based:
 		draw_string(_digits, CHIP_AT + Vector2(27, 82), _speed_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 36, WHITE)
 

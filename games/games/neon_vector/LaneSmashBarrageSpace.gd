@@ -137,7 +137,7 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 		# The knock is felt hardest inside the blast and only faintly from a safe distance.
 		space.shake(0.9 if bool(shot.hit) else 0.3)
 		_feedback = {"hit": shot.hit, "points": shot.points,
-			"anchor": space.pose(space.distance + LaneSmashBike.FRONT_REACH, (rules.selected_lane - 2.5) * NeonSpace.LANE_WIDTH, 2.5).origin,
+			"anchor": space.pose(space.distance + LaneSmashBike.FRONT_REACH / NeonSpace.STRETCH, (rules.selected_lane - 2.5) * NeonSpace.LANE_WIDTH, 2.5).origin,
 			"up": space.road_basis(space.distance).y}
 
 func curve(t: float) -> Vector3:

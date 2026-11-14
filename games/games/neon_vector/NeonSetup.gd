@@ -48,6 +48,8 @@ var _panel: Control
 var _replay_id := ""
 var _replay_course: Dictionary = {}
 var _backdrop: ShaderMaterial
+var _wordmark: Label     ## "SMASH": tinted through self_modulate so it can pulse with the music
+var _rule: ColorRect     ## the line under the header
 var _travel := 0.0
 var _reduced := false
 
@@ -99,11 +101,13 @@ func _build_header() -> void:
 	mark.add_theme_constant_override("separation", 18)
 	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(mark)
-	for part: Array in [["LANE", LaneSmashMenuTheme.TEXT], ["SMASH", LaneSmashMenuTheme.ACCENT]]:
+	for part: Array in [["LANE", LaneSmashMenuTheme.TEXT], ["SMASH", Color.WHITE]]:
 		var word := look.label(part[0], 92, part[1])
 		word.add_theme_font_override("font", look.caps_font())
 		word.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		mark.add_child(word)
+		_wordmark = word
+	_wordmark.self_modulate = LaneSmashMenuTheme.ACCENT
 	# What the jukebox is playing, right-aligned against the settings button.
 	var playing := VBoxContainer.new()
 	playing.name = "NowPlaying"
@@ -120,6 +124,11 @@ func _build_header() -> void:
 	playing_label.clip_text = true
 	playing_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	playing.add_child(playing_label)
+	# A small live meter of the soundtrack beside its title.
+	var meter := LaneSmashSpectrum.new()
+	meter.name = "Spectrum"
+	meter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.add_child(meter)
 	var extras := look.button("Settings & history", _open_extras, GameTheme.SECONDARY)
 	extras.name = "Extras"
 	extras.custom_minimum_size = Vector2(400, HEADER_H)
@@ -136,6 +145,7 @@ func _build_header() -> void:
 	rule.color = Color(LaneSmashMenuTheme.ACCENT, 0.22)
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(rule)
+	_rule = rule
 
 
 func _refresh_playing() -> void:
@@ -273,6 +283,19 @@ func _process(delta: float) -> void:
 	if jukebox != null:
 		_backdrop.set_shader_parameter("music", Vector4(jukebox.calm_bass, jukebox.calm_mid, jukebox.calm_treble, jukebox.pulse))
 		_backdrop.set_shader_parameter("swirl", jukebox.flow)
+	_pulse_chrome(LaneSmashLook.music())
+
+
+## The menu's accent pieces breathe with the music: the wordmark, the header rule and the
+## Start button's edge drift toward the companion hue and lift on each kick. Text stays put.
+func _pulse_chrome(levels: Vector4) -> void:
+	var live := LaneSmashLook.pulsed(LaneSmashMenuTheme.ACCENT, levels)
+	if is_instance_valid(_wordmark): _wordmark.self_modulate = live
+	if is_instance_valid(_rule): _rule.color = Color(live, 0.22 + 0.4 * levels.w + 0.2 * levels.x)
+	if is_instance_valid(start_button) and not start_button.disabled:
+		var edge := start_button.get_theme_stylebox("normal") as StyleBoxFlat
+		var wanted := Color(live, 0.95)
+		if edge != null and not edge.border_color.is_equal_approx(wanted): edge.border_color = wanted
 
 
 func _rebuild_tracks() -> void:

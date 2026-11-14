@@ -32,7 +32,7 @@ func update_view(rules: NeonRules) -> void:
 		var hazard: Dictionary = hazards[i]
 		if int(hazard.hitMs) > now + 16000: break
 		if int(hazard.hitMs) < now - 1500 or bool(rules.hazard_states[i].hit): continue
-		var anchor := int(hazard.hitMs) / 1000.0 * rules.road_speed_scale() + LaneSmashBike.FRONT_REACH + 0.72
+		var anchor := int(hazard.hitMs) / 1000.0 * rules.road_speed_scale() + (LaneSmashBike.FRONT_REACH + 0.72) / NeonSpace.STRETCH
 		if anchor > space.portal_distance - 20 or n >= CAPACITY: break
 		var alpha := rules.barrage.normal_alpha(rules.elapsed_ms) * smoothstep(-16.0, -2.0, anchor - space.distance) * (1.0 - smoothstep(space.portal_distance - 55, space.portal_distance - 20, anchor))
 		var lateral := (int(hazard.laneIndex) - 2.5) * NeonSpace.LANE_WIDTH
@@ -66,7 +66,7 @@ func take_feedback(rules: NeonRules) -> Dictionary:
 		feedback_cursor += 1
 		if not bool(rules.hazard_states[index].hit): continue
 		var hazard: Dictionary = rules.course.hazards[index]
-		var anchor := int(hazard.hitMs) / 1000.0 * rules.road_speed_scale() + LaneSmashBike.FRONT_REACH + 0.72
+		var anchor := int(hazard.hitMs) / 1000.0 * rules.road_speed_scale() + (LaneSmashBike.FRONT_REACH + 0.72) / NeonSpace.STRETCH
 		var point: Vector3 = space.pose(anchor, (int(hazard.laneIndex) - 2.5) * NeonSpace.LANE_WIDTH, 0.8).origin
 		space._explode(point, COLOR, 60, 2.5)
 		space.fx.blast(point, space.road_basis(anchor), Color(1.0, 0.36, 0.16), 4.2, 0.6)

@@ -120,9 +120,14 @@ static func audio_values() -> Dictionary:
 	return {"music": str(_config().get_value(AUDIO_SECTION, "music", "on")) != "off",
 		"sfx": str(_config().get_value(AUDIO_SECTION, "sfx", "on")) != "off"}
 
+## The mix: effects sit a little under the soundtrack (about 2 dB below it), so cues stay
+## clear without talking over the music.
+const MUSIC_LEVEL := 0.65
+const SFX_LEVEL := 0.5
+
 static func apply_audio() -> void:
 	var director := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("AudioDirector")
 	if director != null:
 		var values := audio_values()
-		director.set_volumes(true, 0.65, 0.7)
+		director.set_volumes(true, MUSIC_LEVEL, SFX_LEVEL)
 		director.set_user_audio(values.music, values.sfx)
