@@ -32,9 +32,9 @@ static func position_for(resistance: float, tier: String) -> float:
 
 static func target_for(rules: NeonRules) -> int:
 	if not rules.pause_reason.is_empty(): return -1
-	if rules.barrage.active: return 0  # the existing attack escape lane
+	if rules.barrage.active: return rules.barrage.target_lane()
 	var event := rules.current_event()
-	if event.is_empty() or int(event.startMs) - rules.road_time_ms() > 4000: return -1
+	if event.is_empty() or int(event.startMs) - rules.road_time_ms() > (LaneSmashCatalog.GAP_MAX_MS if rules.scoring_version >= 9 else 4000): return -1
 	return int(event.laneIndex)
 
 

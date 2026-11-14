@@ -30,7 +30,7 @@ func update_view(rules: NeonRules) -> void:
 	_material.set_shader_parameter("blink", blink)
 	for i in range(maxi(0, rules._hazard_cursor - 1), hazards.size()):
 		var hazard: Dictionary = hazards[i]
-		if int(hazard.hitMs) > now + 16000: break
+		if rules.cooldown or int(hazard.hitMs) > now + 16000: break
 		if int(hazard.hitMs) < now - 1500 or bool(rules.hazard_states[i].hit): continue
 		var anchor := int(hazard.hitMs) / 1000.0 * rules.road_speed_scale() + (LaneSmashBike.FRONT_REACH + 0.72) / NeonSpace.STRETCH
 		if anchor > space.portal_distance - 20 or n >= CAPACITY: break

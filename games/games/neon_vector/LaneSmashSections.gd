@@ -15,12 +15,16 @@ func update_view(rules: NeonRules, delta: float, rider_lane: float) -> void:
 	flow += delta * (0.25 + float(rules.latest.get("cadence", 0)) / 70.0)
 	var now := rules.road_time_ms()
 	var needed := {}
-	for i in range(maxi(0, rules._event_cursor - 1), rules.course.events.size()):
-		var event: Dictionary = rules.course.events[i]
+	for i in range(maxi(0, rules._event_cursor - 1), rules.events.size()):
+		var event: Dictionary = rules.events[i]
+		if rules.event_states[i].get("skipped", false) or rules.event_states[i].get("closed", false): continue
 		if int(event.startMs) > now + 16000: break
 		if event.type not in ["hold", "burst"] or int(event.endMs) < now - 1800: continue
 		var key := str(event.eventId)
 		needed[key] = true
+		if zones.has(key) and (int(zones[key].start_ms) != int(event.startMs) or int(zones[key].end_ms) != int(event.endMs)):
+			zones[key].root.queue_free()
+			zones.erase(key)
 		if not zones.has(key): zones[key] = _make_zone(event)
 		var zone: Dictionary = zones[key]
 		var state: Dictionary = rules.event_states[i]
@@ -90,7 +94,7 @@ func _make_zone(event: Dictionary) -> Dictionary:
 	bed.material_override = material
 	bed.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	holder.add_child(bed)
-	var result := {"root": holder, "material": material, "finish": finish, "hit": false, "charge": 0.0, "intensity": 0.0}
+	var result := {"start_ms": int(event.startMs), "end_ms": int(event.endMs), "root": holder, "material": material, "finish": finish, "hit": false, "charge": 0.0, "intensity": 0.0}
 	if event.type == "burst":
 		var gate := MultiMeshInstance3D.new()
 		var multi := MultiMesh.new()

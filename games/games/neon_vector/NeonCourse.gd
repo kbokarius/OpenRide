@@ -163,6 +163,10 @@ static func validate(course: Dictionary) -> Array[String]:
 		errors.append("Invalid incoming-fire sections")
 	if int(course.courseVersion) >= 6 and not course.has("barrages"):
 		errors.append("Missing incoming-fire sections")
+	if not errors.is_empty(): return errors
+	if int(course.courseVersion) >= 10:
+		for attack: Dictionary in course.get("barrages", []):
+			if not attack.has_all(["laneIndex", "prepareMs"]): errors.append("Missing bomb lane or preparation window")
 	var previous: Dictionary = {}
 	var charge_end: int = -30000
 	for event: Dictionary in course.events:
@@ -173,6 +177,8 @@ static func validate(course: Dictionary) -> Array[String]:
 			for a: Dictionary in choices(previous):
 				for b: Dictionary in choices(event):
 					var distance := absi(int(a.laneIndex) - int(b.laneIndex))
+					if int(course.courseVersion) >= 10 and (distance > 3 or (distance > 0 and gap < LaneSmashCatalog.transition_gap(distance))):
+						errors.append("Unsafe lane change before %s" % event.eventId)
 					if distance > 0 and gap < maxi(3000, 1500 * distance):
 						errors.append("Unreachable lane transition before %s" % event.eventId)
 		if event.type in ["charge", "burst"]:

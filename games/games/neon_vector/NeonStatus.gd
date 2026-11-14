@@ -212,7 +212,7 @@ func show_notice(title: String, instruction: String, explanation: String) -> voi
 
 func _refresh_barrage() -> void:
 	var shot := rules.barrage.current_shot()
-	var key := str(rules.barrage.section.barrageId) + str(shot.get("shotId", "")) + str(shot.get("resolved", false))
+	var key := str(rules.barrage.section.barrageId) + str(shot.get("shotId", "")) + str(shot.get("resolved", false)) + str(shot.get("rapid", false))
 	var second := rules.elapsed_ms / 1000
 	if key == _event_id and second == _last_refresh_second: return
 	_event_id = key
@@ -220,9 +220,16 @@ func _refresh_barrage() -> void:
 	meter.visible = false
 	heading.text = "INCOMING FIRE"
 	detail.visible = true
-	if shot.is_empty():
-		target.text = "LOWER RESISTANCE" if rules.selected_lane > 0 else "GET READY TO CHANGE PACE"
-		detail.text = "Use lane 1 for the attack"
+	var lane := rules.barrage.target_lane()
+	var preparing := rules.elapsed_ms < int(rules.barrage.section.startMs)
+	if shot.is_empty() or preparing:
+		target.text = "MOVE TO THE HIGHLIGHTED LANE" if rules.selected_lane != lane else "GET READY TO CHANGE PACE"
+		var left := ceili((int(rules.barrage.section.startMs) - rules.elapsed_ms) / 1000.0)
+		detail.text = "Lane %d · bomb zone in %d s" % [lane + 1, maxi(0, left)] if rules.scoring_version >= 9 else "Use lane 1 for the attack"
+		return
+	if shot.get("rapid", false) and not bool(shot.resolved):
+		target.text = "WRONG LANE · INCOMING BOMB"
+		detail.text = "Stay in the highlighted lane for the next shot"
 		return
 	if bool(shot.resolved):
 		target.text = "KEEP PEDALLING"

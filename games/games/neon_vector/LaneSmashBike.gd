@@ -35,9 +35,9 @@ const LAMP := Color(1.0, 0.95, 0.86, 1.0)
 ## Forward is -Z. The bottom line clears both wheels.
 const STATIONS := [
 	[-1.66, 0.04, 1.40, 1.37, 1.34],
-	[-1.14, 0.36, 1.70, 1.52, 1.40],
-	[-0.62, 0.58, 1.88, 1.58, 1.30],
-	[-0.16, 0.62, 1.76, 1.32, 0.58],
+	[-1.14, 0.28, 1.70, 1.52, 1.40],
+	[-0.62, 0.43, 1.88, 1.58, 1.30],
+	[-0.16, 0.48, 1.76, 1.32, 0.58],
 	[0.38, 0.58, 1.50, 1.02, 0.34],
 	[0.86, 0.44, 1.34, 1.06, 0.66],
 	[1.22, 0.40, 1.56, 1.46, 1.36],
@@ -45,7 +45,7 @@ const STATIONS := [
 	[2.30, 0.05, 1.90, 1.87, 1.84],
 ]
 const ROTOR_AT := Vector3(0.60, 0.80, 0.36)
-const NOZZLE_AT := Vector3(0.15, 1.60, 2.10)
+const NOZZLE_AT := Vector3(0.30, 1.62, 2.20)
 
 static var _cache := {}
 
@@ -57,7 +57,7 @@ var translucent := false
 var pivot: Node3D
 var wheels: Array[Node3D] = []
 var rotors: Array[Node3D] = []
-var flames: MeshInstance3D
+var flames: Array[MeshInstance3D] = []
 var underglow: MeshInstance3D
 var _materials: Array[ShaderMaterial] = []
 var _flame_material: ShaderMaterial
@@ -90,11 +90,14 @@ func _ready() -> void:
 		rotors.append(rotor)
 	if not translucent:
 		_flame_material = LaneSmashLook.emissive(true, 1.0)
-		flames = MeshInstance3D.new()
-		flames.mesh = _cache.flames
-		flames.material_override = _flame_material
-		flames.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		pivot.add_child(flames)
+		for side: float in [-1.0, 1.0]:
+			var jet := MeshInstance3D.new()
+			jet.mesh = _cache.flames
+			jet.position = Vector3(side * NOZZLE_AT.x, NOZZLE_AT.y, NOZZLE_AT.z)
+			jet.material_override = _flame_material
+			jet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			pivot.add_child(jet)
+			flames.append(jet)
 		_glow_material = LaneSmashLook.emissive(true, 1.0)
 		underglow = MeshInstance3D.new()
 		underglow.mesh = _cache.underglow
@@ -138,9 +141,11 @@ func animate(rpm: float, delta: float) -> void:
 	for material in _materials:
 		if translucent: material.set_shader_parameter("phase", _clock)
 		else: material.set_shader_parameter("pulse", 0.25 * beat * _thrust + 0.12 * _thrust)
-	if flames:
-		flames.visible = _thrust > 0.03
-		flames.scale = Vector3(1.0, 1.0, 0.25 + _thrust * (1.0 + 0.12 * sin(_clock * 47.0)))
+	if not flames.is_empty():
+		for jet in flames:
+			jet.visible = _thrust > 0.03
+			# Scale from the nozzle, never from the bike origin (which buried low-rpm jets).
+			jet.scale = Vector3(1.0, 1.0, 0.45 + _thrust * (1.6 + 0.10 * sin(_clock * 31.0)))
 		_flame_material.set_shader_parameter("energy", 1.2 + _thrust * 2.4)
 		_glow_material.set_shader_parameter("energy", 0.30 + _thrust * 0.35 + beat * 0.06)
 
@@ -253,15 +258,15 @@ static func _body_mesh() -> ArrayMesh:
 		kit.add(MeshKit3D.cylinder(0.185, 0.185, 0.10, 16), MeshKit3D.xf(Vector3(side * (ROTOR_AT.x - 0.05), ROTOR_AT.y, ROTOR_AT.z), Vector3(0, 0, 90)), Color(0.03, 0.035, 0.05, 0.6))
 		kit.add(MeshKit3D.cylinder(0.075, 0.105, 0.34, 10), MeshKit3D.xf(Vector3(side * NOZZLE_AT.x, NOZZLE_AT.y, NOZZLE_AT.z - 0.12), Vector3(90, 0, 0)), PANEL)
 		kit.add(MeshKit3D.box(Vector3(0.20, 0.05, 0.12)), MeshKit3D.xf(Vector3(side * 0.58, 0.80, 0.90)), PANEL.darkened(0.2))
-		# Swept winglets at the cowl give the nose its width from behind.
-		kit.quad(Vector3(side * 0.56, 1.60, -0.74), Vector3(side * 0.98, 1.52, -0.42), Vector3(side * 0.94, 1.50, -0.22), Vector3(side * 0.60, 1.54, -0.34), PANEL)
-		kit.quad(Vector3(side * 0.60, 1.54, -0.34), Vector3(side * 0.94, 1.50, -0.22), Vector3(side * 0.98, 1.52, -0.42), Vector3(side * 0.56, 1.60, -0.74), PANEL.darkened(0.3))
+		# Compact winglets tucked against the narrowed cowl.
+		kit.quad(Vector3(side * 0.42, 1.60, -0.74), Vector3(side * 0.64, 1.52, -0.42), Vector3(side * 0.62, 1.50, -0.22), Vector3(side * 0.46, 1.54, -0.34), PANEL)
+		kit.quad(Vector3(side * 0.46, 1.54, -0.34), Vector3(side * 0.62, 1.50, -0.22), Vector3(side * 0.64, 1.52, -0.42), Vector3(side * 0.42, 1.60, -0.74), PANEL.darkened(0.3))
 	kit.add(MeshKit3D.cylinder(0.028, 0.028, 0.92, 8), MeshKit3D.xf(Vector3(0, 1.78, -0.62), Vector3(0, 0, 90)), PANEL.darkened(0.2))
 	# Winglet edge lights.
 	kit.outline = 1.0
 	kit.glow = 1.0
 	for side: float in [-1.0, 1.0]:
-		kit.add(MeshKit3D.box(Vector3(0.03, 1.0, 0.03)), MeshKit3D.between(Vector3(side * 0.985, 1.525, -0.43), Vector3(side * 0.945, 1.505, -0.21)), Color.WHITE)
+		kit.add(MeshKit3D.box(Vector3(0.03, 1.0, 0.03)), MeshKit3D.between(Vector3(side * 0.645, 1.525, -0.43), Vector3(side * 0.625, 1.505, -0.21)), Color.WHITE)
 	kit.outline = 0.0
 	kit.glow = 0.0
 	_pilot(kit)
@@ -344,21 +349,21 @@ static func _rotor_mesh() -> ArrayMesh:
 	return kit.commit()
 
 
-## Two crossed additive cards per nozzle; scaled along +Z with effort.
+## Three crossed additive cards per nozzle, with the origin at its mouth.
 static func _flame_mesh() -> ArrayMesh:
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for side: float in [-1.0, 1.0]:
-		var root := Vector3(side * NOZZLE_AT.x, NOZZLE_AT.y, NOZZLE_AT.z)
-		for axis: Vector3 in [Vector3.RIGHT, Vector3.UP]:
-			var half := axis * 0.15
-			var corners := [[root - half - Vector3(0, 0, 0.25), Vector2(0, 0)], [root + half - Vector3(0, 0, 0.25), Vector2(1, 0)],
-				[root + half + Vector3(0, 0, 1.25), Vector2(1, 1)], [root - half + Vector3(0, 0, 1.25), Vector2(0, 1)]]
-			for index in [0, 1, 2, 0, 2, 3]:
-				surface.set_color(Color.WHITE)
-				surface.set_uv(corners[index][1])
-				surface.set_normal(Vector3.UP)
-				surface.add_vertex(corners[index][0])
+	# Three crossed planes keep a visible plume even directly behind the central lanes.
+	for axis: Vector3 in [Vector3.RIGHT, Vector3.UP, Vector3(0.707, 0.707, 0)]:
+		var root := Vector3.ZERO
+		var half := axis * 0.15
+		var corners := [[root - half, Vector2(0, 0)], [root + half, Vector2(1, 0)],
+			[root + half + Vector3(0, 0, 1.25), Vector2(1, 1)], [root - half + Vector3(0, 0, 1.25), Vector2(0, 1)]]
+		for index in [0, 1, 2, 0, 2, 3]:
+			surface.set_color(Color.WHITE)
+			surface.set_uv(corners[index][1])
+			surface.set_normal(Vector3.UP)
+			surface.add_vertex(corners[index][0])
 	return surface.commit()
 
 

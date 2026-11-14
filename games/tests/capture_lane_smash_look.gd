@@ -196,7 +196,7 @@ func _sample(rules: NeonRules, t: int, scenario: String, fixed_lane: int, fixed_
 	if event.get("type", "") == "hold": rpm = (float(event.cadenceMin) + float(event.cadenceMax)) * 0.5
 	if event.get("type", "") == "burst": rpm = 118.0 + 10.0 * sin(t * 0.001)
 	if rules.barrage.active:
-		lane = 0
+		lane = rules.barrage.target_lane()
 		rpm = 80.0
 		var shot := rules.barrage.current_shot()
 		if not shot.is_empty():

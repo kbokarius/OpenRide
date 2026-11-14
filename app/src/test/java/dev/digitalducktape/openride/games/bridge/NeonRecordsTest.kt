@@ -193,7 +193,7 @@ class NeonRecordsTest {
         assertTrue(NeonRecords.payload(detailed).getValue("result").jsonObject.containsKey("events"))
     }
 
-    @Test fun `machine gun scoring version seven is accepted and unknown versions are rejected`() = runTest {
+    @Test fun `current and historical scoring versions are accepted and unknown versions are rejected`() = runTest {
         fun versioned(version: Int): JsonObject {
             val source = Json.parseToJsonElement(record(status = "pending", elapsed = 1000, score = 140).payloadJson).jsonObject
             return JsonObject(source.toMutableMap().apply {
@@ -205,8 +205,10 @@ class NeonRecordsTest {
         assertEquals(140L, NeonRecords.decode(versioned(7), rider, 0).scoreUnits)
         // Scoring version 8 adds the cadence sweet-spot bonus; the stored totals have the same shape.
         assertEquals(140L, NeonRecords.decode(versioned(8), rider, 0).scoreUnits)
+        // Scoring 9 adds lane-checked bombs and a timer-driven cooldown.
+        assertEquals(140L, NeonRecords.decode(versioned(9), rider, 0).scoreUnits)
         var rejected = false
-        try { NeonRecords.decode(versioned(9), rider, 0) } catch (_: IllegalArgumentException) { rejected = true }
+        try { NeonRecords.decode(versioned(10), rider, 0) } catch (_: IllegalArgumentException) { rejected = true }
         assertTrue(rejected)
     }
 

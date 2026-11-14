@@ -16,6 +16,7 @@ func _run() -> void:
 		var ids: Array = LaneSmashCatalog.tracks(minutes).map(func(row): return row.id)
 		for seed_value in [7, 101, 9187, 2147483646]: ids.append(LaneSmashCatalog.random_id(minutes, seed_value))
 		for id: String in ids:
+			if not OS.get_cmdline_user_args().is_empty() and id not in OS.get_cmdline_user_args(): continue
 			var course := NeonCourse.load_course(id)
 			var errors := NeonCourse.validate(course)
 			_check(errors.is_empty(), id + " validation: " + str(errors))
@@ -35,13 +36,16 @@ func _run() -> void:
 			var last_lane := -1
 			var lane_since := 0
 			var barrage_rpm := 80.0
+			var previous_target := -1
+			var high_lane_ms := 0
+			var work_ms := 0
 			for time in range(0, int(course.durationMs), 50):
 				var event := rules.current_event()
 				var lane := int(event.get("laneIndex", 0))
 				var kind := str(event.get("type", "cruise"))
 				var rpm := (float(event.cadenceMin) + float(event.cadenceMax)) / 2 if kind == "hold" else (140.0 if kind == "burst" else 95.0)
 				if rules.barrage.active:
-					lane = 0
+					lane = rules.barrage.target_lane()
 					var shot := rules.barrage.current_shot()
 					if not shot.is_empty():
 						var blend := clampf((time - int(shot.lockMs) - 2000) / 4000.0, 0, 1)
@@ -49,17 +53,28 @@ func _run() -> void:
 					rpm = barrage_rpm
 				else: barrage_rpm = rpm
 				# During Incoming Fire, pace is the target; reset the ordinary lane timer.
-				if rules.barrage.active:
+				if rules.barrage.active or LaneSmashSteering.target_for(rules) < 0:
 					last_lane = -1
 					lane_since = time
 				elif lane != last_lane:
-					_check(time - lane_since <= 60000, id + " lane unchanged over 60 seconds")
+					_check(time - lane_since <= 60000, id + " lane unchanged over 60 seconds at " + str(time) + " gap=" + str(time - lane_since) + " from=" + str(last_lane) + " to=" + str(lane))
 					lane_since = time
 					last_lane = lane
+				if previous_target >= 0 and lane != previous_target:
+					var jump := absi(lane - previous_target)
+					_check(jump <= 3, id + " requires a jump over three lanes at " + str(time))
+					var gap := int(rules.barrage.section.startMs) - time if rules.barrage.active else int(event.get("startMs", rules.road_time_ms())) - rules.road_time_ms()
+					_check(gap >= LaneSmashCatalog.transition_gap(jump) - 60, id + " insufficient transition gap at " + str(time))
+				previous_target = lane
+				if rules.road_time_ms() >= 48000 and time < int(course.durationMs) - 60000:
+					work_ms += 50
+					if lane >= 2: high_lane_ms += 50
 				rules.push_sample({"t": time, "seq": time + 1, "cadence": rpm, "power": 250, "resistance": NeonRules.band(lane, rules.tier).x + 3})
 				rules.advance(time + 50)
 				seen[kind] = true
 				lanes[lane] = true
+			_check(high_lane_ms == work_ms, id + " work outside lanes 3–6")
+			_check(rules.cooldown, id + " missing final-minute cooldown")
 			var result := rules.result()
 			_check(result.status == "completed" and rules.pause_reason.is_empty(), id + " incomplete/stalled")
 			_check(result.barrage.hits == 0 and result.barrage.dodges == course.barrages.size() * 2, id + " incoming fire response")

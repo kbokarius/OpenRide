@@ -4,6 +4,9 @@ extends RefCounted
 const DURATION_MS := 35000
 const LOCK_OFFSETS := [6000, 21000]
 const CHARGE_MS := 2000
+const PREPARE_MS := 9000
+const RAPID_DROP_MS := 450
+const GATED_LOCK_OFFSETS := [-2000, 16000]
 const WARNING_MS := 11000
 const HALF_LENGTH := 20.0
 const RIDER_RADIUS := 1.5
@@ -18,16 +21,24 @@ var _cadence: Array[float] = []
 var _cadence_sum := 0.0
 var _next_shot := 0
 
-static func generate(duration: int, seed_value: int) -> Array:
+static func generate(duration: int, seed_value: int, lane_checked := false) -> Array:
 	var result: Array = []
 	var state := seed_value
+	var previous_lane := -1
 	for index in 10:
 		state = (state * 48271) % 2147483647
 		var start := 75000 + index * 180000 + (int(state % 17) - 8) * 1000
 		if start + DURATION_MS > duration - 60000: break
 		var first := int(state % SCREEN_SLOTS.size())
 		var second := (first + 1 + int(state % 3)) % SCREEN_SLOTS.size()
-		result.append({"barrageId": "barrage-%02d" % index, "startMs": start, "endMs": start + DURATION_MS, "slots": [first, second]})
+		var row := {"barrageId": "barrage-%02d" % index, "startMs": start, "endMs": start + DURATION_MS, "slots": [first, second]}
+		if lane_checked:
+			var lane := 2 + int(state % 4)
+			if lane == previous_lane: lane = 2 + ((lane - 2 + 1) % 4)
+			row.laneIndex = lane
+			row.prepareMs = start - PREPARE_MS
+			previous_lane = lane
+		result.append(row)
 	return result
 
 static func valid(data: Variant, duration: int) -> bool:
@@ -45,6 +56,9 @@ static func valid(data: Variant, duration: int) -> bool:
 		for slot: Variant in row.slots:
 			if not NeonCourse._integer(slot) or int(slot) not in range(SCREEN_SLOTS.size()): return false
 		if int(row.slots[0]) == int(row.slots[1]): return false
+		if row.has("laneIndex") or row.has("prepareMs"):
+			if not NeonCourse._integer(row.get("laneIndex")) or int(row.laneIndex) not in range(2, 6): return false
+			if not NeonCourse._integer(row.get("prepareMs")) or int(row.prepareMs) != int(row.startMs) - PREPARE_MS: return false
 		last_end = int(row.endMs)
 	return true
 
@@ -72,13 +86,20 @@ func update(rules: RefCounted) -> void:
 	while cursor < schedule.size() and now >= int(schedule[cursor].endMs):
 		cursor += 1
 		_next_shot = 0
-	active = cursor < schedule.size() and now >= int(schedule[cursor].startMs)
-	section = schedule[cursor] if active else {}
+	active = cursor < schedule.size() and now >= int(schedule[cursor].get("prepareMs", schedule[cursor].startMs))
+	if active and section.get("barrageId", "") != schedule[cursor].barrageId:
+		section = schedule[cursor].duplicate(true)
+		if section.has("laneIndex"):
+			# Clamp the first attack after a slow warm-up to a reachable work lane.
+			section.laneIndex = clampi(int(section.laneIndex), maxi(2, rules.last_target_lane - 3), mini(5, rules.last_target_lane + 3))
+	elif not active:
+		section = {}
 	if not active: return
-	while _next_shot < LOCK_OFFSETS.size() and now >= int(section.startMs) + int(LOCK_OFFSETS[_next_shot]):
+	var offsets: Array = GATED_LOCK_OFFSETS if section.has("laneIndex") else LOCK_OFFSETS
+	while _next_shot < offsets.size() and now >= int(section.startMs) + int(offsets[_next_shot]):
 		var baseline := _cadence_sum / _cadence.size()
 		var target := target_cadence(baseline, cursor + _next_shot)
-		var lock_ms := int(section.startMs) + int(LOCK_OFFSETS[_next_shot])
+		var lock_ms := int(section.startMs) + int(offsets[_next_shot])
 		var distance: float = rules.road_distance()
 		shots.append({"shotId": "%s-%d" % [section.barrageId, _next_shot], "sectionId": section.barrageId,
 			"lockMs": lock_ms, "fireMs": lock_ms + CHARGE_MS, "impactMs": lock_ms + WARNING_MS,
@@ -90,10 +111,25 @@ func update(rules: RefCounted) -> void:
 	for i in range(maxi(0, shots.size() - 2), shots.size()):
 		var shot: Dictionary = shots[i]
 		if float(shot.fireRiderMeters) < 0 and now >= int(shot.fireMs): shot.fireRiderMeters = rules.road_distance()
-		if bool(shot.resolved) or now < int(shot.impactMs): continue
+		if bool(shot.resolved): continue
+		if rules.scoring_version >= 9 and section.has("laneIndex") and now >= int(shot.fireMs) and now < int(shot.impactMs) and not shot.get("rapid", false):
+			var entering := now == int(shot.fireMs)
+			var in_zone := absf(rules.road_distance() - float(shot.targetMeters)) <= HALF_LENGTH + RIDER_RADIUS
+			if (entering or in_zone) and rules.selected_lane != target_lane():
+				shot.rapid = true
+				shot.rapidMs = now
+				shot.rapidLaneIndex = clampi(floori((float(rules.latest.resistance) - NeonRules.TIERS[rules.tier]) / 7.0), 0, 5)
+				shot.rapidProgress = flight_progress(float(now - int(shot.fireMs)) / (int(shot.impactMs) - int(shot.fireMs)))
+				shot.originalTargetMeters = shot.targetMeters
+				# Lock a short strike at the rider's predicted position. A later lane change
+				# cannot undo entering the marked zone incorrectly; one penalty per shot.
+				var remaining := mini(RAPID_DROP_MS, int(shot.impactMs) - now)
+				shot.targetMeters = rules.road_distance() + rules.speed_kph / 3.6 * remaining / 1000.0
+				shot.impactMs = now + remaining
+		if now < int(shot.impactMs): continue
 		shot.resolved = true
 		shot.impactRiderMeters = rules.road_distance()
-		shot.hit = absf(float(shot.impactRiderMeters) - float(shot.targetMeters)) <= HALF_LENGTH + RIDER_RADIUS
+		shot.hit = bool(shot.get("rapid", false)) or absf(float(shot.impactRiderMeters) - float(shot.targetMeters)) <= HALF_LENGTH + RIDER_RADIUS
 		var points: int = POINTS * rules.score_scale
 		rules.max_base_units += points * NeonRules.UNIT
 		rules.max_units += points * NeonRules.UNIT
@@ -118,7 +154,8 @@ func normal_alpha(now: int) -> float:
 		return smoothstep(float(schedule[cursor - 1].endMs) - 400.0, float(schedule[cursor - 1].endMs) + 300.0, now)
 	if cursor >= schedule.size(): return 1.0
 	var row: Dictionary = schedule[cursor]
-	return 1.0 - smoothstep(float(row.startMs) - 700.0, float(row.startMs) + 300.0, now) * (1.0 - smoothstep(float(row.endMs) - 400.0, float(row.endMs) + 300.0, now))
+	var start := int(row.get("prepareMs", row.startMs))
+	return 1.0 - smoothstep(float(start) - 700.0, float(start) + 300.0, now) * (1.0 - smoothstep(float(row.endMs) - 400.0, float(row.endMs) + 300.0, now))
 
 func projected_offset(rules: RefCounted) -> float:
 	var shot := current_shot()
@@ -134,3 +171,12 @@ func result() -> Dictionary:
 		if bool(shot.hit): hits += 1
 		else: dodges += 1
 	return {"hits": hits, "dodges": dodges, "shots": shots.duplicate(true)}
+
+
+func target_lane() -> int:
+	return int(section.get("laneIndex", 0)) if active else -1
+
+
+static func flight_progress(phase: float) -> float:
+	var t := clampf(phase, 0.0, 1.0)
+	return t + 1.2 * t * (1.0 - t) * (1.0 - t)

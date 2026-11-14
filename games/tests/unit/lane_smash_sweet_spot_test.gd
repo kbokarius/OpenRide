@@ -206,6 +206,7 @@ func test_a_finished_burst_is_celebrated_quickly_and_then_gone() -> void:
 
 func test_a_power_burst_gets_the_celebration_instead_of_the_small_number() -> void:
 	var rules := _rules()
+	rules.barrage.schedule = []  # isolate the section celebration from timed attacks
 	var track := NeonTrack.new()
 	track.rules = rules
 	add_child(track)

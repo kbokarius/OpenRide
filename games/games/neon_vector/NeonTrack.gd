@@ -272,7 +272,7 @@ func _draw() -> void:
 	draw_rect(Rect2(MARGIN, PROGRESS_Y, right - MARGIN, 4), Color(accent, 0.16))
 	draw_rect(Rect2(MARGIN, PROGRESS_Y, (right - MARGIN) * progress, 4), live)
 	draw_rect(Rect2(MARGIN + (right - MARGIN) * progress - 2, PROGRESS_Y - 4, 4, 12), WHITE)
-	var caption := "RIDE PROGRESS"
+	var caption := "COOL DOWN" if rules.cooldown else "RIDE PROGRESS"
 	if not rules.distance_based:
 		for phase: Dictionary in rules.course.phases:
 			if rules.elapsed_ms >= int(phase.startMs) and rules.elapsed_ms < int(phase.endMs):
@@ -321,7 +321,7 @@ func _dock(accent: Color) -> void:
 	var target_lane := -1
 	var target_color := GOLD
 	if rules.barrage.active:
-		target_lane = 0
+		target_lane = rules.barrage.target_lane()
 		target_color = LaneSmashLook.PLASMA
 	elif not event.is_empty():
 		target_lane = int(event.laneIndex)
@@ -358,8 +358,8 @@ func _popup() -> void:
 
 func _update_completions(delta: float) -> void:
 	_completion_age += delta
-	while _completion_cursor < rules.course.events.size() and int(rules.course.events[_completion_cursor].endMs) <= rules.road_time_ms():
-		var event: Dictionary = rules.course.events[_completion_cursor]
+	while _completion_cursor < rules.events.size() and int(rules.events[_completion_cursor].endMs) <= rules.road_time_ms():
+		var event: Dictionary = rules.events[_completion_cursor]
 		var points := int(rules.event_states[_completion_cursor].scoreUnits) / NeonRules.UNIT
 		_completion_cursor += 1
 		if points <= 0 or rules.barrage.active: continue

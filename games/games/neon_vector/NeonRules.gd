@@ -8,7 +8,7 @@ const TICK := 10
 const CURRENT_TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35}
 const TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35,
 	"beginner": 20, "intermediate": 24, "advanced": 30, "expert": 34}
-const SCORING_VERSION := 8
+const SCORING_VERSION := 9
 const CURRENT_SCORE_SCALE := 18
 ## Machine-gun fire over cadence sections (scoring version 7). Attackers strafe the road ahead
 ## of and behind the rider; holding the section's cadence band keeps the rider in the gap.
@@ -34,6 +34,10 @@ var scoring_version := 1
 const ENVELOPE_VERSION := 1
 
 var course: Dictionary = {}
+## Realized play layout; course remains immutable for hashes and replay comparisons.
+var events: Array = []
+var cooldown := false
+var last_target_lane := 0
 var tier := "challenging"
 var reference_power := 150.0
 var elapsed_ms := 0
@@ -92,6 +96,9 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	if not errors.is_empty():
 		return errors
 	course = data.duplicate(true)
+	events = course.events.duplicate(true)
+	cooldown = false
+	last_target_lane = 0
 	barrage.configure(course)
 	tier = difficulty_id
 	reference_power = watts
@@ -112,11 +119,12 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 		hazard_states.append({"hit": false, "resolved": false, "penaltyUnits": 0})
 	base_units = 0
 	score_scale = CURRENT_SCORE_SCALE if int(course.courseVersion) >= 7 else 1
-	# Course version selects the rules: 9 adds the cadence sweet spot (scoring 8), 8 machine-gun
+	# Course version selects the rules: 10 adds lane-checked bombs/cooldown (scoring 9),
+	# 9 adds the cadence sweet spot (8), 8 machine-gun
 	# fire (7), 7 the 18x scale (6); older snapshots keep the rules they were ridden under.
 	var version := int(course.courseVersion)
 	if distance_based:
-		scoring_version = SCORING_VERSION if version >= 9 else (7 if version == 8 else (6 if version == 7 else (5 if version >= 6 else (4 if version >= 5 else 3))))
+		scoring_version = SCORING_VERSION if version >= 10 else (8 if version == 9 else (7 if version == 8 else (6 if version == 7 else (5 if version >= 6 else (4 if version >= 5 else 3)))))
 	else:
 		scoring_version = 1 if version == 1 else 2
 	max_units = NeonCourse.maximum(course, false, reference_power)
@@ -138,7 +146,7 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	_clear_power()
 	ghost_trace.clear()
 	event_states.clear()
-	for event: Dictionary in course.events:
+	for event: Dictionary in events:
 		var state := {"eventId": event.eventId, "choice": -1, "scoreUnits": 0, "baseUnits": 0, "validMs": 0, "chargeIntegral": 0, "energyMilliJoules": 0, "validTravelUnits": 0, "possibleTravelUnits": 0, "possibleMs": 0, "possibleBaseUnits": 0, "hit": false}
 		# Only new-scoring cadence sections carry gunfire state; older snapshots stay byte-identical.
 		if scoring_version >= 7 and event.type == "hold":
@@ -254,16 +262,38 @@ func _tick() -> void:
 		travel_step = floori(exact_travel)
 		_distance_remainder = exact_travel - travel_step
 		distance_units += travel_step
+	if scoring_version >= 9 and not cooldown and elapsed_ms + TICK >= int(course.durationMs) - 60000:
+		_begin_cooldown()
+	var was_attacking := barrage.active
 	barrage.update(self)
+	if scoring_version >= 9 and was_attacking and not barrage.active:
+		# A time-based attack can end in the middle of a spatial section. Skip to a full
+		# section with enough empty road to turn the knob; never resume halfway through it.
+		while _event_cursor < events.size():
+			var next: Dictionary = events[_event_cursor]
+			var gap := LaneSmashCatalog.transition_gap(absi(int(next.laneIndex) - last_target_lane))
+			var ready := road_time_ms() + gap
+			if int(next.startMs) >= ready: break
+			var minimum := 6000 if next.type == "burst" else 3000
+			if int(next.endMs) - ready >= minimum:
+				# Retain a useful, clearly bounded remainder instead of adding a whole
+				# extra block of empty approach, especially in the heavy/slow lanes.
+				next.startMs = ready
+				break
+			event_states[_event_cursor]["skipped"] = true
+			_event_cursor += 1
 	_apply_hazards()
 	_gun_event = -1
 	var position_ms := road_time_ms()
-	while _event_cursor < course.events.size() and int(course.events[_event_cursor].endMs) <= position_ms:
+	while _event_cursor < events.size() and int(events[_event_cursor].endMs) <= position_ms:
 		_event_cursor += 1
-	if barrage.active: return
-	if _event_cursor >= course.events.size():
+	if barrage.active:
+		last_target_lane = barrage.target_lane()
 		return
-	var event: Dictionary = course.events[_event_cursor]
+	if _event_cursor >= events.size():
+		return
+	var event: Dictionary = events[_event_cursor]
+	last_target_lane = int(event.laneIndex)
 	if position_ms < int(event.startMs):
 		return
 	var state: Dictionary = event_states[_event_cursor]
@@ -363,9 +393,9 @@ func _apply_gunfire(event: Dictionary, state: Dictionary, rpm: float) -> void:
 ## The machine-gun fire over the rider right now, for presentation and sound; empty when no
 ## cadence section is under fire. Reading it never changes the rules.
 func gunfire() -> Dictionary:
-	if _gun_event < 0 or _gun_event >= course.events.size() or not pause_reason.is_empty():
+	if _gun_event < 0 or _gun_event >= events.size() or not pause_reason.is_empty():
 		return {}
-	var event: Dictionary = course.events[_gun_event]
+	var event: Dictionary = events[_gun_event]
 	var state: Dictionary = event_states[_gun_event]
 	var rpm := float(latest.get("cadence", 0))
 	return {"eventId": event.eventId, "cadenceMin": int(event.cadenceMin), "cadenceMax": int(event.cadenceMax),
@@ -387,8 +417,8 @@ static func sweet_spot(event: Dictionary) -> Vector2:
 func cadence_target(lead_ms := 3000) -> Dictionary:
 	if not _configured or barrage.active: return {}
 	var now := road_time_ms()
-	for index in range(_event_cursor, mini(course.events.size(), _event_cursor + 2)):
-		var event: Dictionary = course.events[index]
+	for index in range(_event_cursor, mini(events.size(), _event_cursor + 2)):
+		var event: Dictionary = events[index]
 		if event.type != "hold": continue
 		if int(event.startMs) - now > lead_ms or now >= int(event.endMs): continue
 		var sweet := sweet_spot(event)
@@ -403,7 +433,7 @@ func cadence_target(lead_ms := 3000) -> Dictionary:
 
 
 func current_event() -> Dictionary:
-	return course.events[_event_cursor] if _event_cursor < course.get("events", []).size() else {}
+	return events[_event_cursor] if _event_cursor < events.size() else {}
 
 
 func result(status: String = "completed") -> Dictionary:
@@ -447,7 +477,7 @@ func _apply_hazards() -> void:
 		var hazard: Dictionary = hazards[_hazard_cursor]
 		var state: Dictionary = hazard_states[_hazard_cursor]
 		state.resolved = true
-		if not barrage.active and selected_lane == int(hazard.laneIndex):
+		if not barrage.active and not cooldown and selected_lane == int(hazard.laneIndex):
 			state.hit = true
 			# Whole visible points only; score never drops below zero.
 			var loss := lose_points(int(hazard.penaltyPoints) * score_scale) * UNIT
@@ -465,3 +495,32 @@ func _distance_credit(base: int, travel: int, length: int) -> int:
 	# v6's larger subpoint totals can overflow an integer intermediate on long saved sections.
 	# Input integers remain authoritative; the deterministic ratio is independent of frame rate.
 	return floori(float(base) * float(travel) / float(length)) if scoring_version >= 6 else base * travel / length
+
+
+func _begin_cooldown() -> void:
+	cooldown = true
+	var at := road_time_ms()
+	# Close the active section at this contact plane and keep its earned recap. Future
+	# authored sections are replaced only in the runtime list, never in the saved course.
+	while _event_cursor < events.size() and int(events[_event_cursor].endMs) <= at:
+		_event_cursor += 1
+	var keep := _event_cursor
+	if keep < events.size() and int(events[keep].startMs) < at:
+		events[keep].endMs = at
+		event_states[keep]["closed"] = true
+		keep += 1
+	events.resize(keep)
+	event_states.resize(keep)
+	_event_cursor = keep
+	var previous := last_target_lane
+	# First return is never more than three lanes, then step down into lanes 1–2.
+	var lane := maxi(0, previous - 3)
+	for i in 10:
+		var gap := LaneSmashCatalog.transition_gap(absi(lane - previous)) if lane != previous else 2000
+		at += gap
+		var event := {"eventId": "cooldown-%02d" % i, "type": "cruise", "startMs": at, "endMs": at + 4000, "laneIndex": lane}
+		events.append(event)
+		event_states.append({"eventId": event.eventId, "choice": -1, "scoreUnits": 0, "baseUnits": 0, "validMs": 0, "chargeIntegral": 0, "energyMilliJoules": 0, "validTravelUnits": 0, "possibleTravelUnits": 0, "possibleMs": 0, "possibleBaseUnits": 0, "hit": false})
+		at = int(event.endMs)
+		previous = lane
+		lane = maxi(0, lane - 1)

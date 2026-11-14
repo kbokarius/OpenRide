@@ -23,6 +23,7 @@ var _target := Vector3.ZERO
 var _control := Vector3.ZERO
 var _up := Vector3.UP
 var _frozen := false
+var _rapid_started := false
 var _impact_done := false
 var _feedback: Dictionary = {}
 var effects_count := 0
@@ -69,10 +70,11 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 		return
 	if _shot_id != str(shot.shotId):
 		_shot_id = str(shot.shotId)
-		_target = space.pose(float(shot.targetMeters), 0, 0.12).origin
+		_target = space.pose(float(shot.get("originalTargetMeters", shot.targetMeters)), 0, 0.12).origin
 		_up = space.road_basis(float(shot.targetMeters)).y
 		_zone.mesh = _landing_mesh(float(shot.targetMeters))
 		_frozen = false
+		_rapid_started = false
 		_impact_done = false
 		_feedback = {}
 	var charge := clampf(float(now - int(shot.lockMs)) / LaneSmashBarrage.CHARGE_MS, 0, 1)
@@ -96,7 +98,17 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 		_control = _source.lerp(_target, 0.5) + _camera_at(float(shot.fireRiderMeters)).basis.y * 17.0
 		attacker.animate(fade, now / 1000.0, since_fire)
 		_frozen = true
+	if shot.get("rapid", false) and not _rapid_started:
+		# Continue from the ball's current arc point; the fast drop never teleports.
+		_source = curve(float(shot.rapidProgress))
+		var lateral := (int(shot.rapidLaneIndex) - 2.5) * NeonSpace.LANE_WIDTH
+		_target = space.pose(float(shot.targetMeters), lateral, 0.12).origin
+		_up = space.road_basis(float(shot.targetMeters)).y
+		_control = _source.lerp(_target, 0.5) + _up * 4.0
+		_zone.mesh = _landing_mesh(float(shot.targetMeters), int(shot.rapidLaneIndex))
+		_rapid_started = true
 	var flight := flight_progress(float(now - int(shot.fireMs)) / (LaneSmashBarrage.WARNING_MS - LaneSmashBarrage.CHARGE_MS))
+	if _rapid_started: flight = clampf(float(now - int(shot.rapidMs)) / maxi(1, int(shot.impactMs) - int(shot.rapidMs)), 0, 1)
 	_zone.visible = true
 	_zone_material.set_shader_parameter("progress", clampf(float(now - int(shot.lockMs)) / LaneSmashBarrage.WARNING_MS, 0, 1))
 	_zone_material.set_shader_parameter("visibility", smoothstep(0.0, 0.5, (now - int(shot.lockMs)) / 1000.0) * (1.0 - smoothstep(0.25, 1.0, since_impact)))
@@ -132,10 +144,17 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 		_impact_done = true
 		effects_count += 1
 		var ground: Basis = space.road_basis(float(shot.targetMeters))
-		for lane_x in [-6.0, 0.0, 6.0]:
-			space._explode(space.pose(float(shot.targetMeters), lane_x, 0.8).origin, ENERGY, 32, 2.6)
-			space.fx.blast(space.pose(float(shot.targetMeters) + lane_x * 0.6, lane_x, 1.5).origin, ground, ENERGY.lerp(LaneSmashLook.DANGER, 0.3), 7.5 if lane_x == 0.0 else 5.5, 0.85)
-		space.fx.beam(space.pose(float(shot.targetMeters), 0, 0.1).origin, ground, ENERGY, 26.0, 0.9)
+		if shot.get("rapid", false):
+			var lateral := (int(shot.rapidLaneIndex) - 2.5) * NeonSpace.LANE_WIDTH
+			var point: Vector3 = space.pose(float(shot.targetMeters), lateral, 0.7).origin
+			space._explode(point, ENERGY, 32, 1.4)
+			space.fx.blast(point, ground, ENERGY, 2.4, 0.55)
+			space.fx.beam(point, ground, ENERGY, 8.0, 0.45)
+		else:
+			for lane_x in [-6.0, 0.0, 6.0]:
+				space._explode(space.pose(float(shot.targetMeters), lane_x, 0.8).origin, ENERGY, 32, 2.6)
+				space.fx.blast(space.pose(float(shot.targetMeters) + lane_x * 0.6, lane_x, 1.5).origin, ground, ENERGY.lerp(LaneSmashLook.DANGER, 0.3), 7.5 if lane_x == 0.0 else 5.5, 0.85)
+			space.fx.beam(space.pose(float(shot.targetMeters), 0, 0.1).origin, ground, ENERGY, 26.0, 0.9)
 		# The knock is felt hardest inside the blast and only faintly from a safe distance.
 		space.shake(0.9 if bool(shot.hit) else 0.3)
 		_feedback = {"hit": shot.hit, "points": shot.points,
@@ -150,8 +169,7 @@ static func flight_progress(phase: float) -> float:
 	# Launch decisively out of the muzzle instead of hovering beside the pacing shooter.
 	# This only changes travel along the fixed arc, not the nine-second impact time. Its
 	# derivative stays positive (at least 0.6), so it cannot backtrack or stall near landing.
-	var t := clampf(phase, 0.0, 1.0)
-	return t + 1.2 * t * (1.0 - t) * (1.0 - t)
+	return LaneSmashBarrage.flight_progress(phase)
 
 func _warmup() -> void:
 	# Draw tiny, nearly transparent samples beneath the intro overlay. Shader compilation
@@ -212,7 +230,7 @@ func _projectile_transform(point: Vector3, radius: float) -> Transform3D:
 	var ratio := minf(1.0, PROJECTILE_DEPTH / depth) if depth > 0.0 else 1.0
 	return Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius * ratio), cam.origin + (point - cam.origin) * ratio)
 
-func _landing_mesh(center: float) -> ArrayMesh:
+func _landing_mesh(center: float, lane := -1) -> ArrayMesh:
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var steps := 32
@@ -222,5 +240,7 @@ func _landing_mesh(center: float) -> ArrayMesh:
 			var at := center - LaneSmashBarrage.HALF_LENGTH + v * LaneSmashBarrage.HALF_LENGTH * 2
 			surface.set_uv(Vector2(corner.x, v))
 			surface.set_normal(space.road_basis(at).y)
-			surface.add_vertex(space.pose(at, (corner.x - 0.5) * 6.0 * NeonSpace.LANE_WIDTH, 0.08).origin)
+			var lateral := (lane - 2.5) * NeonSpace.LANE_WIDTH if lane >= 0 else 0.0
+			var width := NeonSpace.LANE_WIDTH if lane >= 0 else 6.0 * NeonSpace.LANE_WIDTH
+			surface.add_vertex(space.pose(at, lateral + (corner.x - 0.5) * width, 0.08).origin)
 	return surface.commit()

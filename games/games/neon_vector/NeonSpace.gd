@@ -565,8 +565,9 @@ func _events(rules: NeonRules, visual_lane: float) -> void:
 		_impacts.clear()
 	for key in _collected.keys():
 		if now - int(_collected[key]) > 2000: _collected.erase(key)
-	for i in range(maxi(0, rules._event_cursor - 1), rules.course.events.size()):
-		var event: Dictionary = rules.course.events[i]
+	for i in range(maxi(0, rules._event_cursor - 1), rules.events.size()):
+		var event: Dictionary = rules.events[i]
+		if rules.event_states[i].get("skipped", false) or rules.event_states[i].get("closed", false): continue
 		if int(event.startMs) > now + 14500:
 			break
 		if int(event.endMs) < now - 1000:
@@ -590,7 +591,7 @@ func _events(rules: NeonRules, visual_lane: float) -> void:
 			var total := ceili(float(end - start) / spacing)
 			# The preceding section owns the shared boundary. Its finish target must
 			# clear before this section's first target, rather than stacking both there.
-			if kind != "pickup" and i > 0 and int(rules.course.events[i - 1].endMs) == start and int(rules.course.events[i - 1].laneIndex) == lane:
+			if kind != "pickup" and i > 0 and int(rules.events[i - 1].endMs) == start and int(rules.events[i - 1].laneIndex) == lane:
 				tick = maxi(tick, mini(1, total - 1))
 			while tick < total and int(counts[bucket]) < MARKERS:
 				var final_item := tick == total - 1 and kind != "pickup"

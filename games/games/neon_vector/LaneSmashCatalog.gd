@@ -1,12 +1,8 @@
 class_name LaneSmashCatalog
 extends RefCounted
-## Generator v6 (layout). Course version 9 selects scoring 8 (the cadence sweet spot); course
-## 8 added machine-gun fire to cadence sections (scoring 7). IDs fully describe reproducible
-## content; snapshots preserve replays.
-##
-## v6 separates the sections: each lane block is two sections with empty road before and
-## between them, so every section has a clear start and end. v5 was the workout pass: cadence
-## targets by effort, longer cadence sections, an extra burst, a lighter recovery minute.
+## Generator v7: low warm-up, sustained lanes 3–6, and generous resistance-change gaps.
+## Course v10 selects scoring 9: lane-checked bombs and a clock-driven final-minute cooldown.
+## A separate runtime event list preserves the immutable snapshot and old replay semantics.
 const LENGTHS := [10, 15, 20, 30]
 const NAMES := ["Nightfall", "Vector Run", "Cold Circuit", "Apex Protocol", "Iron Horizon", "Deep Current", "Solar Array", "Black Meridian", "Velocity", "Carbon Ridge", "Arc Reactor", "Zero Gravity", "Afterburn", "Steel Pulse", "Blue Shift", "Outer Ring", "Ion Storm", "Altitude", "Dark Matter", "Redline", "Titan", "Slipstream", "Overdrive", "Summit Relay", "Event Horizon"]
 const PATTERNS := ["Rolling", "Cadence", "Power", "Climbing", "Mixed"]
@@ -25,13 +21,13 @@ const EASY_CADENCE := 75
 const HOLD_MS := 7000
 const COLLECT_MS := 6000
 const BURST_MS := 6000
-## Empty road before a block's first section and between its two sections, in road-
-## milliseconds: 2-5 road-seconds is about 3-7 real seconds at 95 rpm. The gap that opens a
-## block is also where the lane changes, so it is never under three road-seconds.
+## Each 24-road-second block has 13 seconds of sections and 11 of clear road. Opening
+## gaps are 6/7.5/9 seconds for one/two/three lanes; the remaining 5/3.5/2 separate
+## the sections in the same lane. Slower cadence makes these gaps longer in real time.
 const GAP_MIN_MS := 2000
-const GAP_MAX_MS := 5000
-const LANE_GAP_MIN_MS := 3000
-const BLOCK_MS := 20000
+const GAP_MAX_MS := 9000
+const LANE_GAP_MIN_MS := 6000
+const BLOCK_MS := 24000
 
 static func tracks(minutes: int) -> Array[Dictionary]:
 	var list: Array[Dictionary] = []
@@ -62,56 +58,58 @@ static func generate(minutes: int, seed_value: int, index: int, id: String, rand
 	var state := seed_value
 	var events: Array = []
 	var phases: Array = []
-	var previous_lane := -1
-	# Every minute has the same lane histogram for every track. Permutations vary the
-	# climb/recovery shape without changing resistance exposure or target durations.
-	for minute in minutes:
+	var previous_lane := 0
+	var duration := minutes * 60000
+	var count := ceili(float(duration) / BLOCK_MS)
+	var work_lanes: Array = [2, 3, 4, 5]
+	for block in count:
 		state = (state * 48271) % 2147483647
-		var wave := minute % 4
-		var routes := [[[0, 1, 2]], [[3, 4, 5], [3, 5, 4], [4, 3, 5], [4, 5, 3]], [[4, 3, 2], [3, 4, 2], [4, 2, 3]], [[1, 0, 1]]]
-		var variants: Array = routes[wave]
-		var pick := int((state + index) % variants.size())
-		var lanes: Array = variants[pick]
-		while int(lanes[0]) == previous_lane:
-			pick = (pick + 1) % variants.size()
-			lanes = variants[pick]
-		var phase_name := "Warm up" if minute == 0 else ("Recovery" if wave == 3 else ("Build" if wave in [0, 1] else "Ease back"))
-		for block in 3:
-			state = (state * 48271) % 2147483647
-			var lane := int(lanes[block])
-			var begin := minute * 60000 + block * 20000
-			var block_role := "warmup" if minute == 0 and block == 0 else ("recovery" if wave == 3 else "work")
-			# One power burst a minute, two in the hardest minute, none while recovering: one every
-			# 40 road-seconds through the work, which also keeps the validator's 30 s between bursts.
-			var burst_block := wave != 3 and (block != 1 if wave == 1 else block == 1)
-			phases.append({"name": phase_name if minute > 0 or block == 0 else "Build", "role": block_role, "startMs": begin, "endMs": begin + BLOCK_MS})
-			# Two sections a block. A burst block is the cadence section, a breath, then the burst;
-			# the others are gold bars and a cadence section in either order. What is left of the
-			# block is empty road, split at random between the gap that opens the block (where
-			# the lane changes) and the gap between the two sections.
-			var kinds := ["hold", "burst"] if burst_block else (["cruise", "hold"] if int(state / 7) % 2 == 0 else ["hold", "cruise"])
-			var lengths := kinds.map(func(kind: String) -> int: return HOLD_MS if kind == "hold" else (BURST_MS if kind == "burst" else COLLECT_MS))
-			var spare: int = BLOCK_MS - int(lengths[0]) - int(lengths[1])
-			var choices := (mini(GAP_MAX_MS, spare - GAP_MIN_MS) - LANE_GAP_MIN_MS) / 500 + 1
-			var opening := LANE_GAP_MIN_MS + int(state % choices) * 500
-			var at := begin + opening
-			for part in 2:
-				var kind: String = kinds[part]
-				# Event ids keep their slot numbers: 0 gold bars, 1 cadence, 3 burst.
-				var slot := 3 if kind == "burst" else (1 if kind == "hold" else 0)
-				var event := {"eventId": "m%02d-b%d-%d" % [minute + 1, block, slot], "type": kind, "startMs": at, "endMs": at + int(lengths[part]), "laneIndex": lane}
-				if kind == "hold":
-					event.cadenceMin = WORK_CADENCE[lane] if block_role == "work" else EASY_CADENCE
-					event.cadenceMax = int(event.cadenceMin) + 20
-				events.append(event)
-				at = int(event.endMs) + (spare - opening)
-			previous_lane = lane
-	return {"schemaVersion": 1, "courseVersion": 9, "generatorVersion": 6, "courseId": id,
+		var begin := block * BLOCK_MS
+		var end := mini(duration, begin + BLOCK_MS)
+		if block >= 2 and (block - 2) % 4 == 0:
+			# Every complete work wave has the same exposure; only its ordering varies.
+			work_lanes = [2, 3, 4, 5]
+			if count - block >= 4:
+				for i in range(3, 0, -1):
+					state = (state * 48271) % 2147483647
+					var j := int(state % (i + 1))
+					var value: int = work_lanes[i]
+					work_lanes[i] = work_lanes[j]
+					work_lanes[j] = value
+			# Avoid a repeated lane at a wave boundary; rotate without changing its budget.
+			while work_lanes[0] == previous_lane or absi(int(work_lanes[0]) - previous_lane) > 3:
+				work_lanes.append(work_lanes.pop_front())
+		var lane := block if block < 2 else int(work_lanes[(block - 2) % 4])
+		var warm := block < 2
+		var opening := transition_gap(absi(lane - previous_lane))
+		var role := "warmup" if warm else "work"
+		phases.append({"name": "Warm up" if warm else ("Ease back" if lane == 2 else "Work"), "role": role, "startMs": begin, "endMs": end})
+		var burst_block := not warm and block % 2 == 0
+		var kinds := ["hold", "burst"] if burst_block else (["cruise", "hold"] if state % 2 == 0 else ["hold", "cruise"])
+		var spare := BLOCK_MS - HOLD_MS - COLLECT_MS
+		var at := begin + opening
+		for part in 2:
+			var kind: String = kinds[part]
+			var length := HOLD_MS if kind == "hold" else COLLECT_MS
+			if at + length > end: break  # partial final road block, still beyond most riders
+			var event := {"eventId": "b%03d-%d" % [block, part], "type": kind, "startMs": at, "endMs": at + length, "laneIndex": lane}
+			if kind == "hold":
+				event.cadenceMin = EASY_CADENCE if warm else WORK_CADENCE[lane]
+				event.cadenceMax = int(event.cadenceMin) + 20
+			events.append(event)
+			at = int(event.endMs) + spare - opening
+		previous_lane = lane
+	return {"schemaVersion": 1, "courseVersion": 10, "generatorVersion": 7, "courseId": id,
 		"title": "Random / %06d" % (seed_value % 1000000) if random_track else NAMES[index],
 		"family": "random" if random_track else "catalog", "durationMs": minutes * 60000,
 		"theme": THEMES[(seed_value / 97) % 8] if random_track else THEMES[index % 8],
 		"background": BACKGROUNDS[(seed_value / 193) % 4] if random_track else BACKGROUNDS[(index / 3) % 4],
 		"presentation": LaneSmashPath.generate(seed_value, minutes * 1000 + 300),
 		"hazards": LaneSmashHazards.generate(events, seed_value),
-		"barrages": LaneSmashBarrage.generate(minutes * 60000, seed_value),
+		"barrages": LaneSmashBarrage.generate(minutes * 60000, seed_value, true),
 		"distanceBased": true, "maxSpeedKph": 60, "maxCadenceRpm": 140, "roadLengthMeters": minutes * 1000 + 300, "seed": seed_value, "description": PATTERNS[index % 5], "phases": phases, "events": events}
+
+
+static func transition_gap(lanes: int) -> int:
+	# At the speed cap these are actual seconds; every slower rider has longer.
+	return 6000 if lanes <= 1 else (7500 if lanes == 2 else 9000)

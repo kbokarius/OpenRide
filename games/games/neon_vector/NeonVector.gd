@@ -423,7 +423,7 @@ func finish() -> Dictionary:
 	var pickups := 0
 	for index in rules.event_states.size():
 		energy += int(rules.event_states[index].get("energyMilliJoules", 0))
-		if rules.course.events[index].type == "pickup":
+		if rules.events[index].type == "pickup":
 			pickups += 1
 			if rules.event_states[index].hit:
 				hits += 1

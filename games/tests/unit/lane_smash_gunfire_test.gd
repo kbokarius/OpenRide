@@ -40,13 +40,13 @@ func _in_hold(rules: NeonRules, hold: Dictionary) -> bool:
 	return rules.road_time_ms() >= int(hold.startMs) and rules.road_time_ms() < int(hold.endMs)
 
 
-func test_new_tracks_use_course_eight_and_scoring_seven() -> void:
+func test_new_tracks_use_course_ten_and_preserve_legacy_scoring() -> void:
 	var course := NeonCourse.load_course(TRACK)
-	assert_int(int(course.courseVersion)).is_equal(9)
-	assert_int(int(course.generatorVersion)).is_equal(6)
+	assert_int(int(course.courseVersion)).is_equal(10)
+	assert_int(int(course.generatorVersion)).is_equal(7)
 	var rules := NeonRules.new()
 	assert_array(rules.configure(course, "challenging", 150)).is_empty()
-	assert_int(rules.scoring_version).is_equal(8)
+	assert_int(rules.scoring_version).is_equal(9)
 	# A course 8 snapshot keeps scoring 7: machine-gun fire, no sweet-spot bonus.
 	assert_int(_rules(8).scoring_version).is_equal(7)
 	assert_int(rules.score_scale).is_equal(18)
