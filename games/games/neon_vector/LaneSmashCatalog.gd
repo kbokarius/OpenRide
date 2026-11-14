@@ -1,11 +1,12 @@
 class_name LaneSmashCatalog
 extends RefCounted
-## Generator v5 (layout). Course version 8 adds machine-gun fire to cadence sections
-## (scoring 7). IDs fully describe reproducible content; snapshots preserve replays.
+## Generator v6 (layout). Course version 9 selects scoring 8 (the cadence sweet spot); course
+## 8 added machine-gun fire to cadence sections (scoring 7). IDs fully describe reproducible
+## content; snapshots preserve replays.
 ##
-## v5 is the workout pass: cadence targets follow the kind of effort instead of rising with
-## the lane, cadence sections are longer, the hardest minute has two power bursts, and the
-## recovery minute really drops to the lightest lanes.
+## v6 separates the sections: each lane block is two sections with empty road before and
+## between them, so every section has a clear start and end. v5 was the workout pass: cadence
+## targets by effort, longer cadence sections, an extra burst, a lighter recovery minute.
 const LENGTHS := [10, 15, 20, 30]
 const NAMES := ["Nightfall", "Vector Run", "Cold Circuit", "Apex Protocol", "Iron Horizon", "Deep Current", "Solar Array", "Black Meridian", "Velocity", "Carbon Ridge", "Arc Reactor", "Zero Gravity", "Afterburn", "Steel Pulse", "Blue Shift", "Outer Ring", "Ion Storm", "Altitude", "Dark Matter", "Redline", "Titan", "Slipstream", "Overdrive", "Summit Relay", "Event Horizon"]
 const PATTERNS := ["Rolling", "Cadence", "Power", "Climbing", "Mixed"]
@@ -17,8 +18,20 @@ const THEMES := ["arctic", "cobalt", "copper", "titanium", "petrol", "amber", "e
 const WORK_CADENCE := [95, 90, 85, 80, 70, 65]
 ## Warm-up and recovery sections: an easy spin whatever the lane.
 const EASY_CADENCE := 75
-## Road-milliseconds a cadence section lasts: 10–15 real seconds across the bands above.
-const HOLD_MS := 8000
+## Road-milliseconds each kind of section lasts. A cadence section is 9-13 real seconds
+## across the bands above; gold bars about 9 at 95 rpm; a burst about 7 at a sprint. Both
+## kinds of block carry the same 13 road-seconds of sections, so every track has the same
+## effort budget whichever lane lands in which block.
+const HOLD_MS := 7000
+const COLLECT_MS := 6000
+const BURST_MS := 6000
+## Empty road before a block's first section and between its two sections, in road-
+## milliseconds: 2-5 road-seconds is about 3-7 real seconds at 95 rpm. The gap that opens a
+## block is also where the lane changes, so it is never under three road-seconds.
+const GAP_MIN_MS := 2000
+const GAP_MAX_MS := 5000
+const LANE_GAP_MIN_MS := 3000
+const BLOCK_MS := 20000
 
 static func tracks(minutes: int) -> Array[Dictionary]:
 	var list: Array[Dictionary] = []
@@ -69,27 +82,31 @@ static func generate(minutes: int, seed_value: int, index: int, id: String, rand
 			var begin := minute * 60000 + block * 20000
 			var block_role := "warmup" if minute == 0 and block == 0 else ("recovery" if wave == 3 else "work")
 			# One power burst a minute, two in the hardest minute, none while recovering: one every
-			# 40 road-seconds through the work, which also keeps the validator's 30 s between
-			# bursts. A burst block runs its cadence section straight into the burst: hold the
-			# pace, then empty the tank.
+			# 40 road-seconds through the work, which also keeps the validator's 30 s between bursts.
 			var burst_block := wave != 3 and (block != 1 if wave == 1 else block == 1)
-			var hold_start := 4500 if burst_block else 4500 + int(state % 9) * 500
-			var hold_end := hold_start + HOLD_MS
-			phases.append({"name": phase_name if minute > 0 or block == 0 else "Build", "role": block_role, "startMs": begin, "endMs": begin + 20000})
-			var parts := [["cruise", 1500, hold_start], ["hold", hold_start, hold_end]]
-			if burst_block: parts.append(["burst", 12500, 18500])
-			else: parts.append(["cruise", hold_end, 18500])
-			for part in parts.size():
-				var kind: String = parts[part][0]
-				# Event ids keep their slot numbers: 0 lead-in, 1 cadence, 2 run-out, 3 burst.
-				var slot := 3 if kind == "burst" else part
-				var event := {"eventId": "m%02d-b%d-%d" % [minute + 1, block, slot], "type": kind, "startMs": begin + int(parts[part][1]), "endMs": begin + int(parts[part][2]), "laneIndex": lane}
+			phases.append({"name": phase_name if minute > 0 or block == 0 else "Build", "role": block_role, "startMs": begin, "endMs": begin + BLOCK_MS})
+			# Two sections a block. A burst block is the cadence section, a breath, then the burst;
+			# the others are gold bars and a cadence section in either order. What is left of the
+			# block is empty road, split at random between the gap that opens the block (where
+			# the lane changes) and the gap between the two sections.
+			var kinds := ["hold", "burst"] if burst_block else (["cruise", "hold"] if int(state / 7) % 2 == 0 else ["hold", "cruise"])
+			var lengths := kinds.map(func(kind: String) -> int: return HOLD_MS if kind == "hold" else (BURST_MS if kind == "burst" else COLLECT_MS))
+			var spare: int = BLOCK_MS - int(lengths[0]) - int(lengths[1])
+			var choices := (mini(GAP_MAX_MS, spare - GAP_MIN_MS) - LANE_GAP_MIN_MS) / 500 + 1
+			var opening := LANE_GAP_MIN_MS + int(state % choices) * 500
+			var at := begin + opening
+			for part in 2:
+				var kind: String = kinds[part]
+				# Event ids keep their slot numbers: 0 gold bars, 1 cadence, 3 burst.
+				var slot := 3 if kind == "burst" else (1 if kind == "hold" else 0)
+				var event := {"eventId": "m%02d-b%d-%d" % [minute + 1, block, slot], "type": kind, "startMs": at, "endMs": at + int(lengths[part]), "laneIndex": lane}
 				if kind == "hold":
 					event.cadenceMin = WORK_CADENCE[lane] if block_role == "work" else EASY_CADENCE
 					event.cadenceMax = int(event.cadenceMin) + 20
 				events.append(event)
+				at = int(event.endMs) + (spare - opening)
 			previous_lane = lane
-	return {"schemaVersion": 1, "courseVersion": 8, "generatorVersion": 5, "courseId": id,
+	return {"schemaVersion": 1, "courseVersion": 9, "generatorVersion": 6, "courseId": id,
 		"title": "Random / %06d" % (seed_value % 1000000) if random_track else NAMES[index],
 		"family": "random" if random_track else "catalog", "durationMs": minutes * 60000,
 		"theme": THEMES[(seed_value / 97) % 8] if random_track else THEMES[index % 8],

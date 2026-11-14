@@ -80,6 +80,12 @@ func _run() -> void:
 	replay._ghost = ghost_trace
 	root.add_child(track)
 	track.apply_quality(_arg("quality", "high"))
+	# `--aa=fxaa|msaa2|msaa4` overrides the tier's anti-aliasing, to compare them.
+	var aa := _arg("aa", "")
+	if aa == "fxaa": track.view.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
+	elif aa == "msaa2": track.view.msaa_3d = Viewport.MSAA_2X
+	elif aa == "msaa4": track.view.msaa_3d = Viewport.MSAA_4X
+	elif aa == "none": track.view.msaa_3d = Viewport.MSAA_DISABLED
 	var jukebox: Node = root.get_node_or_null("Jukebox")
 	var music := "--music" in flags and jukebox != null
 	if music: jukebox.frozen = true
@@ -152,6 +158,10 @@ func _run() -> void:
 		await RenderingServer.frame_post_draw
 		if frame % every == 0 or frame == frames - 1:
 			root.get_texture().get_image().save_png(out.path_join("f%04d.png" % frame))
+	# `--passes` also saves the off-screen sky and the bloom's last pass, as the picture reads them.
+	if "--passes" in flags:
+		track.space._structures.pass_view.get_texture().get_image().save_png(out.path_join("pass_sky.png"))
+		track._bloom_views[-1].get_texture().get_image().save_png(out.path_join("pass_bloom.png"))
 	if not rules.pause_reason.is_empty(): failures.append("Unexpected pause: " + rules.pause_reason)
 	print("LOOK course=", course_id, " begin_ms=", begin, " end_ms=", rules.elapsed_ms, " score=", rules.score_units / NeonRules.UNIT,
 		" popups=", notes, " failures=", failures)

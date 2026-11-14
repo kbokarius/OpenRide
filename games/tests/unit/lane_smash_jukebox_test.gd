@@ -403,3 +403,54 @@ func test_ride_audio_menu_keeps_both_switches_and_fits_below_its_button() -> voi
 	assert_bool(Jukebox.is_playing()).is_true()
 	controls._close()
 	assert_bool(controls.panel.visible).is_false()
+
+
+func test_the_soundtrack_fades_instead_of_cutting_on_every_start_stop_and_change() -> void:
+	var info := GameRegistry.info("neon_vector")
+	# A start comes up from silence.
+	Jukebox.select(0, 30.0)
+	await _until_playing()
+	assert_float(Jukebox._gain).is_less(0.5)
+	assert_float(Jukebox._player.volume_db).is_less(-12.0)
+	await get_tree().create_timer(Jukebox.FADE_IN_SEC + 0.3).timeout
+	assert_float(Jukebox._gain).is_equal(1.0)
+	assert_float(Jukebox._player.volume_db).is_equal_approx(0.0, 0.01)
+	# A seek: the old position carries on, fading, on the other deck while the new one comes in.
+	var deck := Jukebox._player
+	Jukebox.seek(90.0)
+	assert_object(Jukebox._tail).is_same(deck)
+	assert_bool(Jukebox._tail.playing).is_true()
+	assert_float(Jukebox._tail_gain).is_equal(1.0)
+	assert_float(Jukebox._gain).is_equal(0.0)
+	assert_bool(Jukebox.is_playing()).is_true()
+	await _frames(4)
+	assert_float(Jukebox._tail_gain).is_between(0.5, 0.999)
+	assert_float(Jukebox._gain).is_between(0.001, 0.5)
+	await get_tree().create_timer(Jukebox.FADE_IN_SEC + 0.3).timeout
+	# The old sound has stopped and let go of its track; the new one is at full level.
+	assert_bool(Jukebox._tail.playing).is_false()
+	assert_object(Jukebox._tail.stream).is_null()
+	assert_float(Jukebox._gain).is_equal(1.0)
+	# Changing track: the old track fades out while the new one is fetched and started.
+	deck = Jukebox._player
+	Jukebox.select(1, 0.0)
+	assert_object(Jukebox._tail).is_same(deck)
+	assert_bool(Jukebox._tail.playing).is_true()
+	await _until_playing()
+	assert_float(Jukebox._gain).is_less(0.5)
+	await get_tree().create_timer(Jukebox.FADE_IN_SEC + 0.3).timeout
+	assert_bool(Jukebox._tail.playing).is_false()
+	# Music Off: reported as stopped at once (the position is held), but heard fading out.
+	assert_bool(GameOptions.set_value(info, "music", "off")).is_true()
+	await _frames(2)
+	assert_bool(Jukebox.is_playing()).is_false()
+	assert_bool(Jukebox._player.playing).is_false()
+	assert_bool(Jukebox._tail.playing).is_true()
+	assert_float(Jukebox._tail_gain).is_between(0.5, 0.999)
+	await get_tree().create_timer(Jukebox.FADE_OUT_SEC + 0.3).timeout
+	assert_bool(Jukebox._tail.playing).is_false()
+	# And On again fades back in from where it was held.
+	assert_bool(GameOptions.set_value(info, "music", "on")).is_true()
+	await _until_playing()
+	assert_float(Jukebox._gain).is_less(0.5)
+

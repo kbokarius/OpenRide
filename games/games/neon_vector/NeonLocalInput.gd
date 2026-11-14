@@ -2,6 +2,11 @@ class_name NeonLocalInput
 extends RefCounted
 ## Desktop mirror of BikeSampleBuffer + NeonTimeline. Explicit now arguments enable tests.
 
+## The longest gap between two polls that is caught up without pausing the ride; mirrors
+## `NeonTimeline.STALL_MS` in the app. Shorter hitches lose no input: every sample in that time
+## is replayed with its own timestamp.
+const STALL_MS := 1000
+
 var samples: Array[Dictionary] = []
 var sequence := 0
 var active := false
@@ -62,7 +67,7 @@ func batch(after_sequence: int, now: int) -> Dictionary:
 	var age := now - int(samples[-1].received_ms) if not samples.is_empty() else 2147483647
 	var overflow := after_sequence >= 0 and not samples.is_empty() and after_sequence < int(samples[0].seq) - 1
 	if running:
-		if overflow or age > 1500 or now - last_poll > 250:
+		if overflow or age > 1500 or now - last_poll > STALL_MS:
 			running = false
 			reason = "overflow" if overflow else ("sensor" if age > 1500 else "stall")
 	last_poll = now

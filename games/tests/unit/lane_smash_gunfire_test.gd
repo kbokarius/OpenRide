@@ -42,11 +42,13 @@ func _in_hold(rules: NeonRules, hold: Dictionary) -> bool:
 
 func test_new_tracks_use_course_eight_and_scoring_seven() -> void:
 	var course := NeonCourse.load_course(TRACK)
-	assert_int(int(course.courseVersion)).is_equal(8)
-	assert_int(int(course.generatorVersion)).is_equal(5)
+	assert_int(int(course.courseVersion)).is_equal(9)
+	assert_int(int(course.generatorVersion)).is_equal(6)
 	var rules := NeonRules.new()
 	assert_array(rules.configure(course, "challenging", 150)).is_empty()
-	assert_int(rules.scoring_version).is_equal(7)
+	assert_int(rules.scoring_version).is_equal(8)
+	# A course 8 snapshot keeps scoring 7: machine-gun fire, no sweet-spot bonus.
+	assert_int(_rules(8).scoring_version).is_equal(7)
 	assert_int(rules.score_scale).is_equal(18)
 	assert_dict(rules.result("pending").gunfire).is_equal({"hits": 0, "penaltyUnits": 0})
 
@@ -181,5 +183,7 @@ func test_saved_records_accept_scoring_seven_and_reject_unknown_versions() -> vo
 		"course": rules.course.duplicate(true), "result": rules.result("pending"), "ghost": []}
 	assert_int(int(record.result.scoringVersion)).is_equal(7)
 	assert_bool(NeonRecords.valid_record(record)).is_true()
-	record.result.scoringVersion = 8
+	record.result.scoringVersion = NeonRules.SCORING_VERSION
+	assert_bool(NeonRecords.valid_record(record)).is_true()
+	record.result.scoringVersion = NeonRules.SCORING_VERSION + 1
 	assert_bool(NeonRecords.valid_record(record)).is_false()

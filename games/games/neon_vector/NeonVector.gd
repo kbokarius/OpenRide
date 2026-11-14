@@ -6,9 +6,6 @@ static var look: GameTheme = LaneSmashMenuTheme.shared()
 
 ## Automatic graphics: the average frame rate over each window while riding decides whether
 ## the 3D view steps down a tier. It never steps back up within a ride.
-const QUALITY_WINDOW_SEC := 4.0
-const QUALITY_SETTLE_SEC := 3.0
-const QUALITY_MIN_FPS := 50.0
 
 var rules := NeonRules.new()
 var track: NeonTrack
@@ -31,8 +28,7 @@ var _finalizing := false
 var _save_error := ""
 var _ghost: Array = []
 var _ghost_cursor := 0
-var _quality_time := -QUALITY_SETTLE_SEC
-var _quality_frames := 0
+var _governor := LaneSmashGovernor.new()
 
 
 func info() -> GameInfo:
@@ -110,8 +106,7 @@ func _on_prepare(_seg: Dictionary) -> void:
 	track.rules = rules
 	track.reduced_motion = option("motion") == "reduced"
 	track.apply_quality(_starting_quality())
-	_quality_time = -QUALITY_SETTLE_SEC
-	_quality_frames = 0
+	_governor.reset()
 	var skin := hud_skin()
 	_hud_panel = skin.get("panel") as StyleBoxFlat
 	hud.set_skin(skin)
@@ -263,7 +258,9 @@ func _on_frame(delta: float) -> void:
 	if not bool(batch.get("fresh", false)) or not bool(batch.get("running", false)):
 		_pause(str(batch.get("pause_reason", "sensor")) if not str(batch.get("pause_reason", "")).is_empty() else "sensor")
 		return
-	if delta > 0.25:
+	# A long frame is caught up, not treated as an interruption: the batch above already holds
+	# every sensor sample from that time. Only a stall of more than a second pauses the ride.
+	if delta > NeonLocalInput.STALL_MS / 1000.0:
 		_pause("stall")
 		return
 	var epoch := int(batch.get("epoch", 0))
@@ -313,25 +310,23 @@ func _starting_quality() -> String:
 	return GameOptions.graphics_tier(NeonTrack.default_quality())
 
 
-## Auto only: one step down when a window's average frame rate is under the floor.
+## Auto only: one step down when the frame rate stays under the floor (see LaneSmashGovernor).
 func _govern_quality(delta: float) -> void:
 	if option("graphics") != "auto" or DisplayServer.get_name() == "headless": return
-	_quality_time += delta
-	if _quality_time < 0.0: return
-	_quality_frames += 1
-	if _quality_time < QUALITY_WINDOW_SEC: return
-	var fps := _quality_frames / _quality_time
-	_quality_time = 0.0
-	_quality_frames = 0
+	if not _governor.observe(delta): return
 	var index := NeonTrack.TIERS.find(track.quality)
-	if fps >= QUALITY_MIN_FPS or index < 0 or index >= NeonTrack.TIERS.size() - 1: return
+	if index < 0 or index >= NeonTrack.TIERS.size() - 1: return
 	var lower: String = NeonTrack.TIERS[index + 1]
+	var fps := _governor.last_fps
 	track.apply_quality(lower)
 	GameOptions.set_graphics_tier(lower)
 	print("OPENRIDE_GAMES lane_smash quality tier=%s fps=%.1f" % [lower, fps])
 
 
 func _pause(reason: String) -> void:
+	# Logged so a ride that was interrupted on the bike can be explained afterwards.
+	if rules.pause_reason.is_empty() or rules.pause_reason != reason:
+		print("OPENRIDE_GAMES lane_smash pause reason=%s at_ms=%d sample_age_ms=%d" % [reason, rules.elapsed_ms, int(minf(InputBus.sample_age_ms, 99999.0))])
 	rules.pause(reason)
 	Session.neon_control("pause", rules.elapsed_ms)
 	status.refresh()

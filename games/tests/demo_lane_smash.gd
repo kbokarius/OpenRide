@@ -58,7 +58,7 @@ func _run() -> void:
 		if space.road_basis(space.distance).y.y < -0.9: upside_down_frames += 1
 		var tip := space.camera.to_local(space.path(space.portal_distance))
 		var expected := Vector2(tip.x, tip.y) / maxf(0.2, -tip.z) * 0.7
-		var sky_basis: Basis = space._structures.material.get_shader_parameter("portal_basis")
+		var sky_basis: Basis = space._structures.portal_basis
 		var core := space.camera.to_local(space.camera.position - sky_basis.z * 100)
 		var actual := Vector2(core.x, core.y) / maxf(0.2, -core.z) * 0.7
 		portal_error = maxf(portal_error, expected.distance_to(actual))

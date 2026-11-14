@@ -41,6 +41,8 @@ var sensor_label: Label
 var playing_label: Label
 var track_list: VBoxContainer
 var track_scroll: ScrollContainer
+var library_drag: LaneSmashDragScroll   ## finger scrolling for the track library, cards included
+var _panel_drag: LaneSmashDragScroll    ## and for the settings and history list
 var _waiting := false
 var _loading_records := true
 var _progress: Dictionary = {}
@@ -171,6 +173,8 @@ func _build_library() -> void:
 	track_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	track_scroll.follow_focus = true
 	add_child(track_scroll)
+	library_drag = LaneSmashDragScroll.new()
+	track_scroll.add_child(library_drag)
 	track_list = VBoxContainer.new()
 	track_list.custom_minimum_size = Vector2(LIBRARY_W, 0)
 	track_list.add_theme_constant_override("separation", LaneSmashMenuTheme.S3)
@@ -305,15 +309,16 @@ func _rebuild_tracks() -> void:
 	track_buttons.clear()
 	_track_keys.clear()
 	_track_rows = LaneSmashCatalog.tracks(minutes)
-	var random_button := look.button("Generate random track  ↻", _random_track, GameTheme.SECONDARY)
+	var random_button := look.button("Generate random track  ↻", library_drag.guard(_random_track), GameTheme.SECONDARY)
 	random_button.name = "Random"
 	random_button.custom_minimum_size = Vector2(LIBRARY_W, 120)
+	random_button.mouse_filter = Control.MOUSE_FILTER_PASS  # a drag that starts on it scrolls the library
 	track_list.add_child(random_button)
 	for item in _track_rows:
 		var index := track_buttons.size()
 		var button := LaneSmashTrackCard.new()
 		button.preview_clip = track_scroll
-		button.configure(item, index, look, func(): _pick_track(index))
+		button.configure(item, index, look, library_drag.guard(func(): _pick_track(index)))
 		button.reduced_motion = _reduced
 		track_list.add_child(button)
 		track_buttons.append(button)
@@ -441,6 +446,8 @@ func _modal(title: String) -> VBoxContainer:
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	scroll.follow_focus = true
 	_panel.add_child(scroll)
+	_panel_drag = LaneSmashDragScroll.new()
+	scroll.add_child(_panel_drag)
 	var content := VBoxContainer.new()
 	content.custom_minimum_size = Vector2(width, 0)
 	content.add_theme_constant_override("separation", LaneSmashMenuTheme.S3)
@@ -477,9 +484,10 @@ func _open_extras() -> void:
 		var result: Dictionary = record.result
 		var date := Time.get_date_string_from_unix_time(int(record.get("updatedMs", 0)) / 1000)
 		var text := "%s · %s · %s\n%s · %s points · %d stars · %s" % [date, result.get("title", result.courseId), str(result.status).capitalize(), HubTheme.clock(int(result.activeDurationMs) / 1000.0), HudTheme.grouped(int(result.scoreUnits) / NeonRules.UNIT), int(result.get("stars", 0)), str(result.get("difficulty", "challenging")).capitalize()]
-		var replay := look.button(text, func(): _replay(str(record.attemptId)), GameTheme.SECONDARY)
+		var replay := look.button(text, _panel_drag.guard(func(): _replay(str(record.attemptId))), GameTheme.SECONDARY)
 		replay.custom_minimum_size = Vector2(width, 160)
 		replay.add_theme_font_size_override("font_size", 34)
+		replay.mouse_filter = Control.MOUSE_FILTER_PASS  # a drag that starts on a ride scrolls the history
 		box.add_child(replay)
 
 

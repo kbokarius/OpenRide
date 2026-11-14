@@ -16,8 +16,8 @@ uniform float flow = 0.0;   // unused by the deck now; kept so the three road sh
 uniform float pulse = 0.0;  // 0..1 music beat envelope
 uniform vec4 music = vec4(0.0);  // eased bass, mids, treble, kick
 uniform vec4 seams = vec4(0.0);  // eased level per seam from the centre out: bass, low mids, high mids, treble
-uniform float wave_front[6];     // world metres along the route of each pulse's head
-uniform float wave_gain[6];      // 0..1 brightness of each pulse
+uniform float wave_front[4];     // world metres along the route of each pulse's head
+uniform float wave_gain[4];      // 0..1 brightness of each pulse
 varying float course_s;
 varying float lateral;
 
@@ -47,7 +47,7 @@ void fragment() {
 	float level = seam_id < 0.5 ? seams.x : (seam_id < 1.5 ? seams.y : (seam_id < 2.5 ? seams.z : seams.w));
 	float packet = 0.0;
 	float ripple = 0.0;
-	for (int i = 0; i < 6; i++) {
+	for (int i = 0; i < 4; i++) {
 		float behind = wave_front[i] - seam_id * 7.0 - course_s;
 		packet += wave_gain[i] * smoothstep(0.0, 1.4, behind) * exp(-max(behind, 0.0) * 0.12);
 		float across = wave_front[i] - abs(lateral) * 2.3333 - course_s;

@@ -44,3 +44,12 @@ Historical beginner/intermediate/advanced/expert keys retain 20/24/30/34 lower b
 ## Cadence targets (revision 12)
 
 Lanebreak's reported cadence targets are 20 rpm wide and span 65–105 in the examples found (65–85, 80–100, 85–105). Which lane each belonged to is not recorded anywhere we could find. Lane Smash generator 5 uses 20-wide bands that fall with the lane: 95–115, 90–110, 85–105, 80–100, 70–90 and 65–85 for lanes 1–6, and 75–95 while warming up and recovering. The pairing of light lanes with fast cadence and heavy lanes with slow cadence is our choice, made so that effort rises steadily with the lane; the lightest lane's 95–115 is above anything reported for Lanebreak and is deliberate, for pace.
+
+## The cadence gauge (revision 13)
+
+Watched in a browser on November 13, 2026, to see how Lanebreak shows the rider where their cadence is during a cadence section ("Stream"):
+
+- [Tech Couch: Peloton Lanebreak Demo](https://www.youtube.com/watch?v=Ysu39oG-wk4) at 1:41 and 1:45 (a close-up of the bike's screen): during a Stream the back of the wheel carries a vertical capsule. A teal bar is the allowed range, with the limits printed at its ends (85 at the top, 65 at the bottom). A white dot on the bar is the rider's cadence: near the bottom at 67 rpm, about two fifths of the way up at 73. The Cadence tile under the wheel is enlarged and lit while the Stream lasts. The narrator: the gauge shows where you are "in the cadence range so you can see right in the middle".
+- [Pelo Buddy: review video](https://www.youtube.com/watch?v=CrEOhFcpDHE) at 4:03 and 4:06: the same gauge on an 80–100 Stream, the dot a quarter of the way up at 85 rpm and a little higher at 86. Points float up from the wheel in steps (+40) while the rider is in range.
+
+What this establishes: the gauge is a range bar with labelled ends and a marker for the rider's cadence, attached to the rider rather than to a corner of the screen. What it does not establish: a separately marked zone in the middle of the bar, or more points for riding there. Neither is visible in this footage and no review found describes one. Lane Smash's sweet spot (the middle of the range, 3 rpm either side, for 20% more) is therefore the owner's design for this game, drawn on a gauge of the same kind.

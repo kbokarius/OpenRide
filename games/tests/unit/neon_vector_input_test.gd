@@ -32,8 +32,15 @@ func test_render_stall_and_ring_overflow_are_explicit() -> void:
 	input.control("begin", 0, 600000, 0)
 	input.control("ack", 200, 0, 200)
 	input.batch(0, 200)
-	assert_str(input.batch(0, 451).pause_reason).is_equal("stall")
-	assert_int(input.batch(0, 5000).elapsed_ms).is_equal(200)
+	# A hitch of up to a second is caught up; only a longer stall pauses the ride.
+	input.record(1100, 80, 150, 35)
+	var hitch := input.batch(0, 200 + NeonLocalInput.STALL_MS)
+	assert_bool(hitch.running).is_true()
+	assert_int(hitch.elapsed_ms).is_equal(200 + NeonLocalInput.STALL_MS)
+	input.control("ack", 200 + NeonLocalInput.STALL_MS, 0, 200 + NeonLocalInput.STALL_MS)
+	input.record(2150, 80, 150, 35)  # the sensor kept delivering: this is a display stall, not sensor loss
+	assert_str(input.batch(0, 201 + 2 * NeonLocalInput.STALL_MS).pause_reason).is_equal("stall")
+	assert_int(input.batch(0, 5000).elapsed_ms).is_equal(200 + NeonLocalInput.STALL_MS)
 	for t in range(5000, 11000, 50):
 		input.record(t, 80, 150, 35)
 	input.control("resume", 0, 0, 11000)

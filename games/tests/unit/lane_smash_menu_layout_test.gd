@@ -114,3 +114,65 @@ func test_settings_screen_targets_and_text() -> void:
 	screen._close_panel()
 	await get_tree().process_frame
 	assert_bool(is_instance_valid(screen._panel)).is_false()
+
+
+## A finger put down at `from` (stage coordinates), dragged to `to` in steps, and lifted. A
+## touch reaches the game as mouse events as well, which is what the interface listens to.
+func _touch_drag(from: Vector2, to: Vector2, steps := 8) -> void:
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.position = from
+	down.global_position = from
+	down.pressed = true
+	get_viewport().push_input(down, true)
+	for step in steps:
+		var move := InputEventMouseMotion.new()
+		move.position = from.lerp(to, float(step + 1) / steps)
+		move.global_position = move.position
+		move.relative = (to - from) / steps
+		move.button_mask = MOUSE_BUTTON_MASK_LEFT
+		get_viewport().push_input(move, true)
+		await get_tree().process_frame
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.position = to
+	up.global_position = to
+	up.pressed = false
+	get_viewport().push_input(up, true)
+	await get_tree().process_frame
+
+
+func test_the_track_library_scrolls_when_the_finger_starts_on_a_card() -> void:
+	var screen := await _screen()
+	screen._pick_track(0)
+	await get_tree().process_frame
+	assert_int(screen.track_scroll.scroll_vertical).is_equal(0)
+	# Put the finger on the third card and drag up by two cards.
+	var card: Control = screen.track_buttons[2]
+	var from := card.get_global_rect().get_center()
+	await _touch_drag(from, from - Vector2(0, 420))
+	assert_int(screen.track_scroll.scroll_vertical).override_failure_message("the library did not scroll").is_greater(200)
+	# The drag did not pick the card it started on, or the one the finger ended over.
+	assert_int(screen.selected_index).is_equal(0)
+	# A small wobble under the threshold is still a tap, not a scroll.
+	var before := screen.track_scroll.scroll_vertical
+	await get_tree().create_timer(0.35).timeout
+	var settled := screen.track_scroll.scroll_vertical
+	assert_int(settled).is_greater_equal(before)  # it may coast on a little, never back
+	# A tap (down and up in place) still picks a card.
+	var visible_card: Control = null
+	for candidate: Control in screen.track_buttons:
+		if screen.track_scroll.get_global_rect().encloses(candidate.get_global_rect()): visible_card = candidate
+	assert_object(visible_card).is_not_null()
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.position = visible_card.get_global_rect().get_center()
+	press.global_position = press.position
+	press.pressed = true
+	get_viewport().push_input(press, true)
+	var release := press.duplicate()
+	release.pressed = false
+	get_viewport().push_input(release, true)
+	await get_tree().process_frame
+	assert_int(screen.selected_index).is_equal(screen.track_buttons.find(visible_card))
+

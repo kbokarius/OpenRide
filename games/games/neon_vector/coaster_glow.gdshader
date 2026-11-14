@@ -11,8 +11,8 @@ uniform float strength = 1.0;
 uniform vec3 second : source_color = vec3(0.6, 0.4, 1.0);
 uniform vec4 music = vec4(0.0);  // eased bass, mids, treble, kick
 uniform vec4 seams = vec4(0.0);
-uniform float wave_front[6];
-uniform float wave_gain[6];
+uniform float wave_front[4];
+uniform float wave_gain[4];
 varying float course_s;
 
 void vertex() {

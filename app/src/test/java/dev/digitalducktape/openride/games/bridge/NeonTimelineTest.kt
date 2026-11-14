@@ -21,6 +21,20 @@ class NeonTimelineTest {
         assertEquals(50L, clock.poll().elapsedMs)
     }
 
+    @Test fun `a hitch of up to a second is caught up without pausing`() {
+        var now = 0L
+        val clock = NeonTimeline { now }
+        clock.begin(10000)
+        now = 200
+        clock.poll()
+        clock.acknowledge(200)
+        now = 200 + NeonTimeline.STALL_MS
+        val caughtUp = clock.poll()
+        assertTrue(caughtUp.running)
+        assertEquals("", caughtUp.pauseReason)
+        assertEquals(1200L, caughtUp.elapsedMs)
+    }
+
     @Test fun `a render stall pauses before catch up`() {
         var now = 0L
         val clock = NeonTimeline { now }
@@ -28,7 +42,7 @@ class NeonTimelineTest {
         now = 200
         clock.poll()
         clock.acknowledge(200)
-        now = 451
+        now = 201 + NeonTimeline.STALL_MS
         val paused = clock.poll()
         assertFalse(paused.running)
         assertEquals("stall", paused.pauseReason)

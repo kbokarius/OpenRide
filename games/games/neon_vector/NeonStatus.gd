@@ -177,7 +177,14 @@ func refresh() -> void:
 	var fire := rules.gunfire()
 	if active and event.type == "hold" and not fire.is_empty():
 		# Cadence sections are strafed: say plainly whether the rider is in the gap or in the fire.
-		detail.text = "Taking fire · −%d a hit" % NeonRules.GUN_HIT_POINTS if bool(fire.exposed) else "Under fire · hold this pace"
+		if bool(fire.exposed):
+			detail.text = "Taking fire · −%d a hit" % NeonRules.GUN_HIT_POINTS
+		elif rules.scoring_version >= 8:
+			# From scoring 8 the middle of the range pays a little more: say where it is.
+			var sweet := NeonRules.sweet_spot(event)
+			detail.text = "Under fire · %d–%d rpm pays +%d%%" % [ceili(sweet.x), floori(sweet.y), NeonRules.SWEET_BONUS_PERCENT]
+		else:
+			detail.text = "Under fire · hold this pace"
 	else:
 		detail.text = "Pedal to earn points" if rpm < 20 and active else ""
 	detail.visible = not detail.text.is_empty()

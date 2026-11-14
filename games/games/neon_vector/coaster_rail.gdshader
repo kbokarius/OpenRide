@@ -10,8 +10,8 @@ uniform float flow = 0.0;
 uniform float pulse = 0.0;
 uniform vec4 music = vec4(0.0);  // eased bass, mids, treble, kick
 uniform vec4 seams = vec4(0.0);
-uniform float wave_front[6];     // the road's music pulses: the rails carry the tail of each chevron
-uniform float wave_gain[6];
+uniform float wave_front[4];     // the road's music pulses: the rails carry the tail of each chevron
+uniform float wave_gain[4];
 varying float course_s;
 
 void vertex() {
@@ -30,7 +30,7 @@ void fragment() {
 	float gap = smoothstep(0.46, 0.48, abs(fract(course_s / 8.0) - 0.5));
 	float segments = mix(1.0 - gap * 0.85, 0.62, smoothstep(0.3, 1.2, px_s));
 	float packet = 0.0;
-	for (int i = 0; i < 6; i++) {
+	for (int i = 0; i < 4; i++) {
 		float behind = wave_front[i] - 24.5 - course_s;
 		packet += wave_gain[i] * smoothstep(0.0, 1.4, behind) * exp(-max(behind, 0.0) * 0.10);
 	}

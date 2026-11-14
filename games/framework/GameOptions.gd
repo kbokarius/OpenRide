@@ -109,11 +109,15 @@ static func _option_section(game_id: String, key: String, rider_id: String) -> S
 ## last ride settled on, so the next one starts there instead of stepping down again.
 const GRAPHICS_SECTION := "shared/lane_smash_graphics"
 
+## The key carries a generation: when the picture's cost changes (revision 13 made every tier
+## much cheaper), the tier an older build settled on is forgotten and Auto starts fresh.
+const GRAPHICS_KEY := "auto_tier_2"
+
 static func graphics_tier(fallback: String) -> String:
-	return str(_config().get_value(GRAPHICS_SECTION, "auto_tier", fallback))
+	return str(_config().get_value(GRAPHICS_SECTION, GRAPHICS_KEY, fallback))
 
 static func set_graphics_tier(tier: String) -> void:
-	_config().set_value(GRAPHICS_SECTION, "auto_tier", tier)
+	_config().set_value(GRAPHICS_SECTION, GRAPHICS_KEY, tier)
 	_config().save(path)
 
 static func audio_values() -> Dictionary:

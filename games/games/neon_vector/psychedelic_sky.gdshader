@@ -1,26 +1,22 @@
 shader_type sky;
 render_mode disable_fog;
-#include "res://games/neon_vector/psychedelic_tunnel.gdshaderinc"
-uniform float travel_m = 0.0;
-uniform float intensity = 1.0;
-uniform float detail = 1.0;
-uniform int style = 0;
-uniform mat3 portal_basis = mat3(1.0);
-uniform vec3 primary : source_color = vec3(0.25, 0.6, 0.9);
-uniform vec3 secondary : source_color = vec3(0.65, 0.25, 0.9);
-uniform vec4 music = vec4(0.0);  // eased bass, mids, treble and kick pulse from the playing track
-uniform float swirl = 0.0;       // a phase only the music advances
+// Puts the off-screen sky image (psychedelic_sky_pass.gdshader) behind the scene: one texture
+// read a pixel, plus a sparse field of stars drawn here at full sharpness. Nothing in this
+// material changes from frame to frame, so the engine never has to re-filter the sky.
+uniform sampler2D sky_pass : filter_linear, repeat_disable;
 uniform sampler2D star_noise : filter_linear, repeat_enable;
 uniform float stars = 1.0;
+uniform vec2 inv_view = vec2(0.001, 0.001);  // one over the 3D view's size in pixels
+uniform vec3 star_tint : source_color = vec3(0.8, 0.9, 1.0);
 void sky() {
-    if (AT_CUBEMAP_PASS) { COLOR = primary * 0.025; }
-    else {
-        vec3 ray = transpose(portal_basis) * EYEDIR;
-        vec3 field = tunnel_field(ray, travel_m, style, primary, secondary, detail, music, swirl);
-        // A sparse field of soft stars behind the ribbons gives the void its depth. They are
-        // fixed to the tunnel's frame, so they wheel with the road rather than the screen.
-        float speck = texture(star_noise, ray.xy * 5.0 + ray.z * 2.0).r;
-        float star = pow(speck, 26.0) * stars * (0.8 + 0.3 * music.z);
-        COLOR = (field + mix(primary, vec3(1.0), 0.7) * star * 1.4) * intensity;
-    }
+	if (AT_CUBEMAP_PASS) { COLOR = vec3(0.006, 0.01, 0.02); }
+	else {
+		// The pixel's own place on screen picks the same place in the sky image. (SCREEN_UV is
+		// not a usable screen coordinate in sky shaders on this renderer.)
+		vec3 field = texture(sky_pass, FRAGCOORD.xy * inv_view).rgb;
+		field *= field;
+		// Soft stars fixed in space behind the ribbons give the void its depth.
+		float speck = texture(star_noise, EYEDIR.xy * 5.0 + EYEDIR.z * 2.0).r;
+		COLOR = field + star_tint * pow(speck, 26.0) * stars * 1.4;
+	}
 }

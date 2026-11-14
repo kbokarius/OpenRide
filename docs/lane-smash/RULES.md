@@ -6,7 +6,7 @@ Each 10/15/20/30-minute duration has the same 25 names with duration-specific se
 
 Names: Nightfall, Vector Run, Cold Circuit, Apex Protocol, Iron Horizon, Deep Current, Solar Array, Black Meridian, Velocity, Carbon Ridge, Arc Reactor, Zero Gravity, Afterburn, Steel Pulse, Blue Shift, Outer Ring, Ion Storm, Altitude, Dark Matter, Redline, Titan, Slipstream, Overdrive, Summit Relay, Event Horizon.
 
-Only one lane has scoring targets at a time. Courses begin low, build, ease back, recover and repeat with varied lane ordering. A four-minute spatial pattern (generator 5) runs as intervals; each road-minute has three 20-road-second lane blocks:
+Only one lane has scoring targets at a time. Courses begin low, build, ease back, recover and repeat with varied lane ordering. A four-minute spatial pattern (generators 5 and 6) runs as intervals; each road-minute has three 20-road-second lane blocks:
 
 | Road-minute | Lanes | Role |
 | --- | --- | --- |
@@ -15,7 +15,16 @@ Only one lane has scoring targets at a time. Courses begin low, build, ease back
 | 3 of 4 | 5, 4 and 3 in a varied order | Ease back |
 | 4 of 4 | 2 → 1 → 2 | Recovery |
 
-Each block is a lead-in of gold bars, an eight-road-second cadence section, then either more gold bars or a six-road-second Power Burst. Bursts come once a road-minute and twice in the hardest minute (its first and last blocks), which puts them 40 road-seconds apart through the work, and never in the recovery minute. A burst block runs its cadence section straight into the burst.
+**Sections are separated (generator 6).** Each block holds two sections with empty road before the first and between the two, so every section has a clear start and end:
+
+| Block | First | Second |
+| --- | --- | --- |
+| Burst block | Cadence section, 7 road-seconds | Power Burst, 6 road-seconds |
+| Any other block | Gold bars, 6 road-seconds, and a cadence section, 7 road-seconds, in either order (chosen by the track's seed) | |
+
+That is 13 road-seconds of sections and 7 of empty road in every block, so every track still carries the same effort whichever lane lands in which block. The 7 seconds are split at random between the gap that opens the block (3 to 5 road-seconds; the lane changes there, so it is never under 3) and the gap between its two sections (4 down to 2). At 95 rpm a road-second is about 1.5 real seconds, so the gaps are about 3 to 7.5 seconds of clear road. Nothing scores in a gap and nothing is lost in one; the instruction panel counts down to the next section.
+
+Bursts come once a road-minute and twice in the hardest minute (its first and last blocks), which puts them 40 road-seconds apart through the work, and never in the recovery minute. (Generator 5 ran three sections a block with no gaps inside it: gold bars, an eight-second cadence section, then more bars or a burst.)
 
 Cadence targets follow the kind of effort, not the lane number. Every band is 20 rpm wide:
 
@@ -28,7 +37,7 @@ Light lanes are fast spins and heavy lanes are climbs, so effort still rises wit
 
 Tracks share authored resistance exposure and section-time budgets while varying ordering/placement. Actual joules and points vary with sensor input.
 
-Ordinary target lanes change every 20–47 seconds at 60–140 rpm (about 29 seconds at 95 rpm); cadence zones span eight road-seconds, about 11–15 actual seconds when ridden inside their band, and every cadence zone is strafed by machine-gun fire (below). A 35-second Incoming Fire section temporarily replaces lane targets. The full audit enforces a 60-second maximum for ordinary target-lane changes, resetting that check during attacks.
+Ordinary target lanes change every 20–47 seconds at 60–140 rpm (about 29 seconds at 95 rpm); cadence zones span seven road-seconds, about 9–13 actual seconds when ridden inside their band, and every cadence zone is strafed by machine-gun fire (below). A 35-second Incoming Fire section temporarily replaces lane targets. The full audit enforces a 60-second maximum for ordinary target-lane changes, resetting that check during attacks.
 
 ## Steering and speed
 
@@ -48,7 +57,7 @@ The picture draws every rules-metre as **three** world metres (`NeonSpace.STRETC
 
 ## Current point scale
 
-Scoring version 7 keeps version 6's **18×** scale and adds machine-gun fire to cadence sections. Version 6 multiplied the previous base scoring by 18. The calibration target is a typical **20-minute ride** around 150,000 points, not a fixed score for every duration or rider. The measured 25-track Challenging trace on generator 5 averaged **173,216.08** (166,285–179,849); generator 4 measured 147,760.88 with the same rider. The rise is the workout pass, not the scale: cadence sections are a third longer, there are more bursts, and the lighter lanes are ridden faster, so there is more to score. It uses 90 rpm cruise, cadence-band midpoint, 110 rpm bursts, resistance-dependent simulated watts, modest misses and gradual attack responses. Real sensor power and performance determine actual scores. Longer/shorter rides scale naturally.
+Scoring version 8 (course version 9) keeps the **18×** scale and machine-gun fire and adds the cadence sweet spot (below). Version 7 added machine-gun fire to cadence sections; version 6 multiplied the previous base scoring by 18. The calibration target is a typical **20-minute ride** around 150,000 points, not a fixed score for every duration or rider. The measured 25-track Challenging trace on generator 6 is in the [validation notes](../specs/lane-smash-v13-validation.md); generator 5 measured 173,216.08 and generator 4 147,760.88 with the same simulated rider. The scale has not changed between them: what changes is how much road carries sections, and from scoring 8 the sweet-spot bonus the simulated rider earns by holding the middle of every band. It uses 90 rpm cruise, cadence-band midpoint, 110 rpm bursts, resistance-dependent simulated watts, modest misses and gradual attack responses. Real sensor power and performance determine actual scores. Longer/shorter rides scale naturally.
 
 | Section | Conditions | Points |
 | --- | --- | --- |
@@ -64,6 +73,17 @@ Scoring version 7 keeps version 6's **18×** scale and adds machine-gun fire to 
 The final target shows the section's earned total where that section ends. This popup is a recap, not a second bonus. Fractional points are retained internally (`100,000` subpoints per point), while display/results use whole points. Visual shattering itself does not bypass eligibility.
 
 Distance-credit multiplication uses double precision before flooring for new scoring, preventing int64 overflow on long sections after the scale increase. Results remain deterministic across render rates. Old scoring retains its original arithmetic/scale. Gross earnings and accumulated penalties remain monotonic even when the net total falls.
+
+## The cadence sweet spot
+
+From course version 9 / scoring version 8, the middle of a cadence section's range pays a little more. The sweet spot is the middle of the band plus and minus 3 rpm (`NeonRules.SWEET_HALF_RPM`): 82–88 in a 75–95 section, 92–98 in an 85–105 one. Road covered in the target lane with cadence inside it earns the section's ordinary distance credit and a **20% bonus** on that credit (`SWEET_BONUS_PERCENT`); road covered elsewhere in the band earns the ordinary credit only. Both edges of the sweet spot count.
+
+- The bonus is score only. Stars rate base credit, which is the same anywhere in the band, so the sweet spot can never cost a star and is never needed for one.
+- It is computed from the same integer distance as the section's credit, so the result is identical at any frame rate.
+- A ride saved under scoring 7 or earlier has no sweet spot and replays exactly as it was.
+- The result carries `sweetSpot: {bonusUnits}`, the ride's total bonus; each cadence section's state carries `sweetTravelUnits` and `bonusUnits`.
+
+Lanebreak's footage shows the gauge this is built around (a range with a marker for the rider's cadence; see [the range research](../research/lanebreak/06-difficulty-ranges.md)). Whether Lanebreak itself pays more for the middle could not be confirmed from footage or reviews; the bonus here is this game's rule.
 
 ## Machine-gun fire (cadence sections)
 

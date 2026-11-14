@@ -18,10 +18,16 @@ func _run() -> void:
 	var counts: Array[int] = []
 	var memory: Array[int] = []
 	var failures: Array[String] = []
-	for cycle in 10:
+	# `-- --cycles=N --minutes=M` repeats one duration N times, to tell a leak from a high-water mark.
+	var cycles := 10
+	var fixed_minutes := 0
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--cycles="): cycles = int(arg.trim_prefix("--cycles="))
+		if arg.begins_with("--minutes="): fixed_minutes = int(arg.trim_prefix("--minutes="))
+	for cycle in cycles:
 		var setup: Node = current_scene.screen
-		setup.length_picker.pick(str(LaneSmashCatalog.LENGTHS[cycle % 4]))
-		setup._pick_track(cycle)
+		setup.length_picker.pick(str(fixed_minutes if fixed_minutes > 0 else LaneSmashCatalog.LENGTHS[cycle % 4]))
+		setup._pick_track(cycle % 25)
 		setup._pick_tier(NeonRules.CURRENT_TIERS.keys()[cycle % 5])
 		root.get_node("InputBus")._sim_resistance = NeonRules.band(setup.course.events[0].laneIndex, setup.tier).x + 3
 		setup.start_button.pressed.emit()
@@ -30,8 +36,9 @@ func _run() -> void:
 		if director.phase_name() != "PLAYING":
 			failures.append("Ride did not start")
 			break
-		# The first target begins 1.5 road-seconds ahead (2.6 real seconds at 80 rpm).
-		deadline = Time.get_ticks_msec() + 6000
+		# The first section begins three to five road-seconds in (up to 8.8 real seconds at
+		# 80 rpm): tracks open with a stretch of empty road since generator 6.
+		deadline = Time.get_ticks_msec() + 14000
 		while director.game.rules.score_units <= 0 and Time.get_ticks_msec() < deadline: await process_frame
 		if director.game.rules.score_units <= 0: failures.append("Ride earned no points")
 		session.request_end()

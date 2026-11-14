@@ -27,7 +27,18 @@ const CHIP_AT := Vector2(MARGIN, 196)
 ## 3D view resolution as a share of the screen, by tier. The tablet is fill-rate bound
 ## (docs/GAMES.md), so fewer pixels is the lever that matters; the HUD always stays sharp.
 const TIERS := ["high", "balanced", "performance"]
-const VIEW_SCALE := {"high": 0.83, "balanced": 0.72, "performance": 0.62}
+const VIEW_SCALE := {"high": 1.0, "balanced": 0.8, "performance": 0.66}
+## The sky's own shader is the heaviest in the picture and its image is smooth, so below the
+## high tier it is drawn at half this size in each direction (a quarter of the pixels).
+const SKY_SCALE := {"high": 1.0, "balanced": 0.5, "performance": 0.5}
+## Where the bloom comes from: the engine's own (many passes over a high-range buffer), a
+## small two-pass copy added in the lens pass (a fraction of the cost), or nowhere.
+const BLOOM := {"high": "engine", "balanced": "lens", "performance": "none"}
+## The picture's grade when the engine is not applying one: contrast, saturation.
+const GRADE := Vector2(1.07, 1.14)
+const LENS_BLOOM_STRENGTH := 1.4
+## How far the bloom spreads: the blur reads this many of its own pixels apart.
+const LENS_BLOOM_SPREAD := 1.5
 
 var rules: NeonRules
 var world_id := "arctic"
@@ -51,6 +62,8 @@ var quality := ""
 var _image: TextureRect
 var _scrim: TextureRect
 var _lens: ShaderMaterial
+var _bloom_views: Array[SubViewport] = []   ## shrink-and-keep-bright, then blur
+var _bloom_materials: Array[ShaderMaterial] = []
 var _look: LaneSmashMenuTheme
 var _cell_styles: Array[StyleBoxFlat] = []
 var _chip_style: StyleBoxFlat
@@ -66,6 +79,13 @@ var _completion_up := Vector3.UP
 var _completion_kind := "cruise"
 var _danger := 0.0
 var music_levels := Vector4.ZERO  ## eased bass, mids, treble and kick, as sent to the 3D view
+var gauge := LaneSmashCadenceGauge.new()        ## the cadence gauge beside the bike
+var celebration := LaneSmashCelebration.new()   ## the burst of light when a power burst is finished
+## Where the celebration appears: the middle of the play area, clear of every panel.
+const CELEBRATION_AT := Vector2(960, 500)
+## The lowest the cadence gauge may reach: just above the lane dock. (The showcase raises it
+## to keep the gauge clear of its captions.)
+var gauge_floor := DOCK_TOP - 28.0
 var _meter := LaneSmashSpectrum.blank()  ## the chip's small spectrum meter
 var _music_on := false
 const METER_SIZE := Vector2(61, 26)
@@ -101,6 +121,28 @@ func _ready() -> void:
 	_lens.shader = preload("res://games/neon_vector/ride_view.gdshader")
 	_image.material = _lens
 	add_child(_image)
+	# The lens bloom's two small passes. They are made after the 3D view, in the order they
+	# feed each other: the engine draws sibling views in that order, so neither lags a frame.
+	var feed: Texture2D = view.get_texture()
+	for pass_name in ["BloomDown", "BloomBlur"]:
+		var pass_view := SubViewport.new()
+		pass_view.name = pass_name
+		pass_view.disable_3d = true
+		pass_view.transparent_bg = false
+		pass_view.gui_disable_input = true
+		pass_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		add_child(pass_view)
+		var material := ShaderMaterial.new()
+		material.shader = preload("res://games/neon_vector/bloom_down.gdshader") if pass_name == "BloomDown" else preload("res://games/neon_vector/bloom_blur.gdshader")
+		material.set_shader_parameter("source", feed)
+		var card := ColorRect.new()
+		card.material = material
+		card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		pass_view.add_child(card)
+		_bloom_views.append(pass_view)
+		_bloom_materials.append(material)
+		feed = pass_view.get_texture()
+	_lens.set_shader_parameter("bloom_tex", feed)
 	Stage.bleed(_image)
 	# One smooth scrim under the dock, the full width of the window.
 	_scrim = LaneSmashMenuTheme.gradient(Color(0.016, 0.026, 0.052, 0.0), Color(0.016, 0.026, 0.052, 0.92))
@@ -118,20 +160,39 @@ static func default_quality() -> String:
 	return "balanced" if OS.has_feature("mobile") else "high"
 
 
+## The 3D view's size as a share of the screen. The high tier is the full screen on a
+## desktop; on the bike it stops a little short of that.
+static func view_scale(tier: String) -> float:
+	return 0.9 if tier == "high" and OS.has_feature("mobile") else float(VIEW_SCALE.get(tier, 0.8))
+
+
 ## Sets the 3D view's cost: resolution, anti-aliasing, bloom, and the optional set dressing.
 func apply_quality(tier: String) -> void:
 	if tier not in TIERS: tier = default_quality()
 	if tier == quality: return
 	quality = tier
 	view.msaa_3d = Viewport.MSAA_2X if tier == "high" and not OS.has_feature("mobile") else Viewport.MSAA_DISABLED
-	space.set_quality(tier != "performance", tier == "performance")
+	var bloom: String = BLOOM[tier]
+	space.set_quality(bloom == "engine", tier == "performance", bloom != "none")
 	_lens.set_shader_parameter("aberration", 1.0 if tier == "high" else 0.0)
+	_lens.set_shader_parameter("smoothing", 1.0)  # edges are smoothed on every tier
+	_lens.set_shader_parameter("bloom", LENS_BLOOM_STRENGTH if bloom == "lens" else 0.0)
+	# The engine grades the picture itself when its bloom is on; otherwise the lens does.
+	_lens.set_shader_parameter("grade", Vector2.ONE if bloom == "engine" else GRADE)
+	for pass_view in _bloom_views:
+		pass_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS if bloom == "lens" else SubViewport.UPDATE_DISABLED
 	_fit()
 
 
 func _fit() -> void:
 	if view == null or quality.is_empty(): return
-	view.size = Stage.view_size(float(VIEW_SCALE[quality])).max(Vector2i(320, 180))
+	view.size = Stage.view_size(view_scale(quality)).max(Vector2i(320, 180))
+	space.set_sky_size(view.size, float(SKY_SCALE[quality]))
+	# The bloom works on a quarter of the view's width and height.
+	var small := (view.size / 4).max(Vector2i(80, 45))
+	for pass_view in _bloom_views: pass_view.size = small
+	_bloom_materials[0].set_shader_parameter("source_pixel", Vector2.ONE / Vector2(view.size))
+	_bloom_materials[1].set_shader_parameter("step_uv", Vector2(LENS_BLOOM_SPREAD, LENS_BLOOM_SPREAD) / Vector2(small))
 	var bleed := Stage.bleed_rect()
 	_scrim.position = Vector2(bleed.position.x, bleed.end.y - 280.0)
 	_scrim.size = Vector2(bleed.size.x, 280.0)
@@ -164,6 +225,11 @@ func update_view(delta: float) -> void:
 		space.set_world(world_id)
 		space.update_view(rules, delta, visual_lane, ghost_lane, ghost_visible, trail_id)
 		_update_completions(delta)
+		celebration.update(delta)
+		# The cadence gauge sits beside the motorcycle, inside the play area.
+		var bike := Stage.from_view(space.camera.unproject_position(space.rider.global_position + space.rider.global_basis.y * 0.9), Vector2(view.size))
+		gauge.update(delta, rules.cadence_target() if rules.pause_reason.is_empty() else {}, bike,
+			Rect2(MARGIN + 8.0, 316.0, HudTheme.W - 2.0 * MARGIN - 16.0, gauge_floor - 316.0))
 		_danger = maxf(0.0, _danger - delta * 2.6)
 		_lens.set_shader_parameter("danger", 0.0 if reduced_motion else _danger)
 		_lens.set_shader_parameter("beat", beat * 0.5)
@@ -195,7 +261,9 @@ func _draw() -> void:
 	if rules.course.is_empty():
 		return
 	_dock(accent)
+	gauge.paint(self, _caps, _digits, _look)
 	_popup()
+	celebration.paint(self, CELEBRATION_AT, _caps, _digits, reduced_motion)
 	var progress := clampf(float(rules.elapsed_ms) / float(rules.course.durationMs), 0.0, 1.0)
 	var right := HudTheme.W - MARGIN
 	draw_rect(Rect2(MARGIN, PROGRESS_Y, right - MARGIN, 4), Color(accent, 0.16))
@@ -295,6 +363,12 @@ func _update_completions(delta: float) -> void:
 		_completion_kind = str(event.type)
 		_completion_text = "+%s" % HudTheme.grouped(points)
 		_completion_age = 0.0
+		if _completion_kind == "burst":
+			# A finished power burst gets the big celebration instead of the small number.
+			var state: Dictionary = rules.event_states[_completion_cursor - 1]
+			var reference := int(state.get("possibleBaseUnits", 0))
+			celebration.start(points, float(state.scoreUnits) / reference if reference > 0 else 1.0)
+			_completion_age = 10.0
 		section_finished.emit(_completion_kind)
 		completed_sections[_completion_kind] = int(completed_sections.get(_completion_kind, 0)) + 1
 		_completion_anchor = space.section_completed(_completion_kind, int(event.laneIndex), int(event.endMs))

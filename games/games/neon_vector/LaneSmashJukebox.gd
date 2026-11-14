@@ -64,6 +64,11 @@ const PULSE_ATTACK := 6.0
 const PULSE_RELEASE := 2.0
 const PULSE_DEPTH := 0.5    ## how much of a kick reaches the picture
 const HISTORY := 64
+## The soundtrack never starts or stops abruptly. Whatever starts fades in, and whatever was
+## playing (a track being replaced, a seek's old position, Music Off) fades out on a second
+## player while the new sound comes in, so a change is a short crossfade.
+const FADE_IN_SEC := 0.6
+const FADE_OUT_SEC := 0.4
 const STRIDE := BAND_COUNT + 2  # time, bands, onset
 
 ## The tracks that can play: `{id, title, subtitle, artist, path, length_sec}`. Tests may
@@ -98,7 +103,10 @@ var calm_level := 0.0
 var pulse := 0.0
 var bands := PackedFloat32Array()  ## the eight bands
 
-var _player: AudioStreamPlayer
+var _player: AudioStreamPlayer  ## the deck that is (or will be) playing the current track
+var _tail: AudioStreamPlayer    ## the other deck: whatever was playing before, fading out
+var _gain := 0.0       ## the current deck's level, 0..1
+var _tail_gain := 0.0  ## the outgoing deck's level
 var _analyzer: AudioEffectSpectrumAnalyzerInstance
 var _rng := RandomNumberGenerator.new()
 var _started := false
@@ -132,11 +140,14 @@ func _ready() -> void:
 	_history.resize(HISTORY * STRIDE)
 	_reset_analysis()
 	_ensure_bus()
-	_player = AudioStreamPlayer.new()
-	_player.name = "Player"
-	_player.bus = BUS
-	_player.finished.connect(_on_finished)
-	add_child(_player)
+	for deck_name in ["Player", "Tail"]:
+		var deck := AudioStreamPlayer.new()
+		deck.name = deck_name
+		deck.bus = BUS
+		deck.finished.connect(_on_deck_finished.bind(deck))
+		add_child(deck)
+	_player = get_node("Player")
+	_tail = get_node("Tail")
 	rescan()
 	if autoplay:
 		_autostart.call_deferred()
@@ -288,7 +299,41 @@ func _process(delta: float) -> void:
 			elif not allowed and _audible: _hold()
 			# Belt and braces for the `finished` signal: a track that ran out moves on.
 			elif _audible and not _player.playing and Time.get_ticks_msec() - _play_started_msec > 800: _on_finished()
+	_fade(delta)
 	_analyze(delta)
+
+
+## Moves both decks toward their levels: the current one up to full, the outgoing one down to
+## silence, where it stops and lets go of its track.
+func _fade(delta: float) -> void:
+	delta = clampf(delta, 0.0, 0.1)
+	if _audible and _gain < 1.0:
+		_gain = minf(1.0, _gain + delta / FADE_IN_SEC)
+		_player.volume_db = _level_db(_gain)
+	if _tail.playing:
+		_tail_gain = maxf(0.0, _tail_gain - delta / FADE_OUT_SEC)
+		_tail.volume_db = _level_db(_tail_gain)
+		if _tail_gain <= 0.0:
+			_tail.stop()
+			_tail.stream = null
+
+
+## A level of 0..1 as decibels; squared, so a fade sounds even from end to end.
+static func _level_db(level: float) -> float:
+	return linear_to_db(maxf(level * level, 0.00001))
+
+
+## Hands whatever the current deck is playing to the outgoing deck, to fade out from the level
+## it has now, and leaves the current deck silent and free.
+func _release() -> void:
+	if not _player.playing: return
+	if _tail.playing: _tail.stop()
+	var outgoing := _player
+	_player = _tail
+	_tail = outgoing
+	_tail_gain = _gain
+	_gain = 0.0
+	_player.stream = null
 
 
 func _allowed() -> bool:
@@ -303,6 +348,12 @@ func _last_start(index: int) -> float:
 
 func _play_from(seconds: float) -> void:
 	_resume_at = clampf(seconds, 0.0, _last_start(current))
+	# A seek while playing: the old position fades out as the new one fades in.
+	var stream := _player.stream
+	_release()
+	_player.stream = stream
+	_gain = 0.0
+	_player.volume_db = _level_db(0.0)
 	_player.play(_resume_at)
 	_play_started_msec = Time.get_ticks_msec()
 	_audible = true
@@ -319,7 +370,14 @@ func _hold() -> void:
 func _halt() -> void:
 	if _audible:
 		_audible = false
-		_player.stop()
+		# The sound fades out on the outgoing deck; the current deck is stopped and silent.
+		var stream := _player.stream
+		_release()
+		_player.stream = stream
+
+
+func _on_deck_finished(deck: AudioStreamPlayer) -> void:
+	if deck == _player: _on_finished()
 
 
 func _on_finished() -> void:

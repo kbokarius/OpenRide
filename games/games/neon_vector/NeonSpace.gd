@@ -79,9 +79,9 @@ var music_bands := PackedFloat32Array()  ## the jukebox's eight live bands, or e
 var music_beats := 0  ## the jukebox's kick counter: each new kick sends a pulse down the seams
 ## Pulses of light that run ahead along the lane seams. One launches from the bike on every
 ## kick of the music (a soft, steady rhythm stands in when nothing is playing).
-const WAVES := 6
+const WAVES := 4           ## alive at once; the road's shaders loop over this many per pixel
 const WAVE_SPEED := 190.0  ## world m/s ahead of the bike
-const WAVE_LIFE := 2.0     ## seconds; by then a pulse is past the visible road
+const WAVE_LIFE := 1.8     ## seconds; by then a pulse is past the visible road
 const WAVE_IDLE_EVERY := 0.9
 var _wave_front := PackedFloat32Array()  ## world metres along the route
 var _wave_gain := PackedFloat32Array()
@@ -342,17 +342,22 @@ func _update_waves(delta: float, speed: float) -> void:
 		_wave_gain[i] = _wave_power[i] * smoothstep(0.0, 0.16, _wave_age[i]) * (1.0 - smoothstep(WAVE_LIFE * 0.55, WAVE_LIFE, _wave_age[i]))
 
 
+## The off-screen sky's size: `scale` of the 3D view (0.5 is a quarter of its pixels).
+func set_sky_size(view_size: Vector2i, scale: float) -> void:
+	_structures.set_view_size(view_size, scale)
+
+
 ## The 3D view's optional cost. `bloom` is the glow pass and its grade; `lite_mode` drops the
 ## set dressing that only adds fill: light streaks, pools of light, rail curtains, the trail
 ## and the star field. Gameplay objects are never affected.
-func set_quality(bloom: bool, lite_mode: bool) -> void:
+func set_quality(bloom: bool, lite_mode: bool, any_bloom := true) -> void:
 	lite = lite_mode
 	_env.glow_enabled = bloom
 	_env.adjustment_enabled = bloom
-	_structures.material.set_shader_parameter("stars", 0.0 if lite_mode else 1.0)
+	_structures.set_stars(0.0 if lite_mode else 1.0)
 	for chunk in _road_chunks: chunk.glow.visible = not lite_mode
 	# Without bloom the seams and markers supply their own halo, so lift them a little.
-	_road_material.set_shader_parameter("glow", 1.0 if bloom else 1.35)
+	_road_material.set_shader_parameter("glow", 1.0 if bloom or any_bloom else 1.35)
 
 
 ## A brief camera knock for hits and blasts. Reduced motion keeps the camera still.
@@ -471,7 +476,8 @@ func _update_horizon(_delta: float) -> void:
 	var raw_right := coaster.at(portal_distance).basis.x
 	var right := (raw_right - forward * raw_right.dot(forward)).normalized()
 	var portal_basis := Basis(right, right.cross(forward).normalized(), -forward)
-	_structures.material.set_shader_parameter("portal_basis", portal_basis)
+	var view_size := Vector2(get_viewport().size) if is_inside_tree() else Vector2(16, 9)
+	_structures.set_view(camera.global_basis if camera.is_inside_tree() else camera.basis, portal_basis, camera.fov, view_size.x / maxf(1.0, view_size.y))
 
 
 ## Ribbons along the fixed route. Each strip is [lateral_a, height_a, lateral_b, height_b, color]

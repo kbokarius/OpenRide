@@ -253,7 +253,9 @@ func _build_ride(course_id: String, ghost: bool) -> void:
 		replay.rules = rules
 		replay.track = track
 		root.add_child(track)
-		track.apply_quality("high")
+		# The tier the bike's tablet uses, so the recording shows the picture the bike shows.
+		track.apply_quality("balanced")
+		track.gauge_floor = 806.0  # keep the cadence gauge clear of the captions
 		hud = load("res://framework/hud/Hud.gd").new()
 		root.add_child(hud)
 		var info: RefCounted = load("res://games/Registry.gd").info("neon_vector")
@@ -305,27 +307,26 @@ func _ride() -> void:
 	_caption("COLLECT", "Turn the resistance knob to the marked lane and ride over the gold bars")
 	await _fade(0.0, 9, _tick)
 	_card("", "")
-	# 1. Gold bars, then the first cadence section ridden correctly.
-	await _play_until(func(): return _in("hold"), 9.0, _policy("follow"))
-	_caption("CADENCE", "Hold the rpm range: the machine-gun fire stays ahead of you and behind you")
+	# 1. Gold bars, the gap after them, then the first cadence section: first near the edge
+	# of its range, then in the sweet spot.
+	await _play_until(func(): return _after("cruise"), 12.0, _policy("follow"))
+	_caption("CLEAR SECTIONS", "Every section has empty road before and after it, so you see it start and end")
+	await _play_until(func(): return _near("hold", 2400), 9.0, _policy("follow"))
+	_caption("CADENCE GAUGE", "Beside the bike: the rpm range, and a marker showing where you are in it")
+	await _play_until(func(): return _in("hold") and rules.road_time_ms() >= int(rules.current_event().startMs) + 2600, 12.0, _policy("low_edge"))
+	_caption("SWEET SPOT", "Hold the marker in the bright middle band and the section pays 20% more")
 	await _play_until(func(): return not _in("hold"), 15.0, _policy("follow"))
+	# 2. The gap before the next section, with the ghost; then that cadence section too fast.
 	_caption("BEST-RIDE GHOST", "Your best ride on this track rides with you; the dock marks the lane to be in")
-	await _play(4.0, _policy("follow"))
-	_caption("AUDIO", "Change track or drag the slider to skip, without pausing the ride")
-	audio_controls.pressed.emit()
-	await _play(3.8, _policy("follow"))
-	audio_controls.panel.hide()
-	_caption("ON THE BEAT", "Every kick sends a pulse down the road; colours follow the bass, mids and treble")
-	await _play(6.0, _policy("follow"))
-	# 2. The second cadence section ridden too fast.
-	await _cut(func(): return _near("hold", 1300), _policy("follow"))
+	await _play_until(func(): return _near("hold", 900), 7.0, _policy("follow"))
 	_caption("TOO FAST", "Above the range the fire ahead reaches you: each round costs 60 points")
 	await _play_until(func(): return not _near("hold", 1400), 11.0, _policy("too_fast"))
-	# 3. Power burst (it follows that section directly).
+	# 3. Power burst (the next section in the same lane), and what finishing it looks like.
 	_caption("POWER BURST", "Push in the marked lane: the zone charges with your output, 18 points per 5 joules")
-	await _play_until(func(): return _in("burst"), 6.0, _policy("follow"))
+	await _play_until(func(): return _in("burst"), 9.0, _policy("follow"))
 	await _play_until(func(): return not _in("burst"), 12.0, _policy("follow"))
-	await _play(2.0, _policy("follow"))
+	_caption("POWER BURST", "Finish it and the points you made burst onto the screen")
+	await _play(2.6, _policy("follow"))
 	# 4. Incoming Fire: pass the first blast, hang back from the second.
 	await _cut(func(): return rules.barrage.active and rules.elapsed_ms >= int(rules.barrage.section.startMs) + 2500, _policy("follow"))
 	_caption("INCOMING FIRE", "A blast zone is marked ahead. Pedal faster and get past it: +1,800")
@@ -344,6 +345,14 @@ func _ride() -> void:
 	_caption("CAUGHT IN THE BLAST", "Hold the same pace and the shot lands on you: up to −1,800")
 	await _play_until(func(): return _resolved(0), 9.0, _policy("hit"))
 	await _play(2.6, _policy("hit"))
+	# 6b. The in-ride audio panel, and the picture following the music.
+	await _cut(func(): return not rules.barrage.active and _open_road(5000), _policy("follow"))
+	_caption("AUDIO", "Change track or drag the slider to skip, without pausing the ride. Every change fades")
+	audio_controls.pressed.emit()
+	await _play(3.8, _policy("follow"))
+	audio_controls.panel.hide()
+	_caption("ON THE BEAT", "Every kick sends a pulse down the road; colours follow the bass, mids and treble")
+	await _play(5.0, _policy("follow"))
 	# 7. Road mines: one passed, one hit.
 	var first_mine := _next_mine()
 	if first_mine >= 0:
@@ -357,7 +366,7 @@ func _ride() -> void:
 		await _play_until(func(): return bool(rules.hazard_states[second_mine].resolved), 7.0, _policy("mine"))
 		await _play(2.6, _policy("follow"))
 	# 8. Speed: a clear stretch of road, ridden slowly and then flat out.
-	await _cut(func(): return _open_road(10500), _policy("follow"))
+	await _cut(func(): return _open_road(7000), _policy("follow"))
 	_caption("SPEED", "The road moves with your legs. Ease right off and it slows to a cruise…")
 	_free_rpm = 52.0
 	await _play(4.6, _policy("free"))
@@ -390,7 +399,7 @@ func _palettes() -> void:
 
 func _closing() -> void:
 	_caption("", "")
-	_card("LANE SMASH", "A faster road · pulses on the beat · colour from the music · tracks tuned as a workout")
+	_card("LANE SMASH", "Clear sections · a cadence gauge with a sweet spot · burst celebrations · a sharper, lighter picture")
 	# The music comes back under the closing card and fades out with it.
 	for i in 12:
 		_music_gain((i + 1) / 12.0)
@@ -407,6 +416,13 @@ func _closing() -> void:
 func _in(kind: String) -> bool:
 	var event := rules.current_event()
 	return not rules.barrage.active and event.get("type", "") == kind and rules.road_time_ms() >= int(event.get("startMs", 0))
+
+
+## True once the rider is past the first section of `kind` (in the empty road after it).
+func _after(kind: String) -> bool:
+	for event: Dictionary in rules.course.events:
+		if event.type == kind: return rules.road_time_ms() >= int(event.endMs) + 300
+	return true
 
 
 func _near(kind: String, lead_ms: int) -> bool:
@@ -469,6 +485,8 @@ func _policy(mode: String) -> Callable:
 			if rules.road_time_ms() >= int(event.startMs) - 400:
 				if mode == "too_fast": rpm = float(event.cadenceMax) + 17.0
 				elif mode == "too_slow": rpm = float(event.cadenceMin) - 19.0
+			# In range, but down near the bottom of it: scores, without the sweet-spot bonus.
+			if mode == "low_edge": rpm = float(event.cadenceMin) + 2.0
 		elif kind == "burst" and rules.road_time_ms() >= int(event.startMs) - 800:
 			rpm = 126.0
 		if rules.barrage.active:
@@ -537,6 +555,9 @@ func _resync() -> void:
 	space._shockwaves.clear()
 	space._trail_points.clear()
 	space._collected.clear()
+	track.gauge.alpha = 0.0
+	track.gauge.target = {}
+	track.celebration.age = LaneSmashCelebration.LIFE
 	replay._ghost_cursor = 0
 	_last_second = -1
 	track.update_view(0)

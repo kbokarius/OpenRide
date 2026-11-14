@@ -9,6 +9,12 @@ data class NeonClockState(
  * Monotonic course clock independent of rendering and the legacy one-second session timer.
  * Godot acknowledges completed 10 ms ticks. A pause discards unprocessed wall time, so an
  * OS/render stall can never be scored retroactively with the newest resistance reading.
+ *
+ * Only a stall of more than [STALL_MS] pauses. Shorter hitches (a shader compiling, a track
+ * loading, the display changing quality) are simply caught up: every sensor delivery in that
+ * time is still in the sample buffer with its own timestamp, so nothing is scored from a stale
+ * reading. The limit was 250 ms, which on the bike's tablet put the recovery card on screen
+ * for ordinary long frames.
  * Resume is explicit, after the game's fresh-input check and unscored countdown.
  */
 class NeonTimeline(private val nowMs: () -> Long = { System.nanoTime() / 1_000_000L }) {
@@ -48,7 +54,7 @@ class NeonTimeline(private val nowMs: () -> Long = { System.nanoTime() / 1_000_0
             when {
                 overflow -> pause("overflow")
                 !sensorFresh -> pause("sensor")
-                now - lastPoll > 250 -> pause("stall")
+                now - lastPoll > STALL_MS -> pause("stall")
             }
         }
         lastPoll = now
@@ -81,6 +87,11 @@ class NeonTimeline(private val nowMs: () -> Long = { System.nanoTime() / 1_000_0
     }
 
     @Synchronized fun snapshot(): NeonClockState = stateAt(nowMs())
+
+    companion object {
+        /** The longest gap between two polls that is caught up without pausing the ride. */
+        const val STALL_MS = 1_000L
+    }
 
     private fun stateAt(now: Long): NeonClockState = NeonClockState(
         active, running,

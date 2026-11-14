@@ -8,7 +8,7 @@ const TICK := 10
 const CURRENT_TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35}
 const TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35,
 	"beginner": 20, "intermediate": 24, "advanced": 30, "expert": 34}
-const SCORING_VERSION := 7
+const SCORING_VERSION := 8
 const CURRENT_SCORE_SCALE := 18
 ## Machine-gun fire over cadence sections (scoring version 7). Attackers strafe the road ahead
 ## of and behind the rider; holding the section's cadence band keeps the rider in the gap.
@@ -18,6 +18,11 @@ const GUN_FIRST_HIT_MS := 600     ## time outside the band before the first roun
 const GUN_HIT_INTERVAL_MS := 500  ## then one round every half second while still outside
 const GUN_HIT_POINTS := 60        ## whole points lost per round; the score never goes below zero
 const GUN_MAX_HITS := 15          ## rounds that can land in one section, so a stop cannot drain a ride
+## The cadence sweet spot (scoring version 8). Riding within this many rpm of the middle of a
+## cadence section's band earns a bonus on top of the section's points, as a share of them.
+## It never counts toward stars: those rate hitting the band, and the bonus rewards precision.
+const SWEET_HALF_RPM := 3.0
+const SWEET_BONUS_PERCENT := 20
 var score_scale := 1
 const MAX_SPEED_MPS := 60.0 / 3.6
 const MAX_CADENCE := 140.0
@@ -37,6 +42,7 @@ var barrage := LaneSmashBarrage.new()
 var penalty_units := 0
 var gun_hits := 0            ## rounds that have hit the rider this ride
 var gun_penalty_units := 0   ## their share of penalty_units
+var sweet_bonus_units := 0   ## points earned in cadence sweet spots this ride (part of score_units)
 var _gun_event := -1         ## the cadence section under fire on this tick, or -1
 var hazard_states: Array[Dictionary] = []
 var _hazard_cursor := 0
@@ -98,6 +104,7 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	penalty_units = 0
 	gun_hits = 0
 	gun_penalty_units = 0
+	sweet_bonus_units = 0
 	_gun_event = -1
 	_hazard_cursor = 0
 	hazard_states.clear()
@@ -105,7 +112,13 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 		hazard_states.append({"hit": false, "resolved": false, "penaltyUnits": 0})
 	base_units = 0
 	score_scale = CURRENT_SCORE_SCALE if int(course.courseVersion) >= 7 else 1
-	scoring_version = (SCORING_VERSION if int(course.courseVersion) >= 8 else (6 if int(course.courseVersion) == 7 else (5 if int(course.courseVersion) >= 6 else (4 if int(course.courseVersion) >= 5 else 3)))) if distance_based else (1 if int(course.courseVersion) == 1 else 2)
+	# Course version selects the rules: 9 adds the cadence sweet spot (scoring 8), 8 machine-gun
+	# fire (7), 7 the 18x scale (6); older snapshots keep the rules they were ridden under.
+	var version := int(course.courseVersion)
+	if distance_based:
+		scoring_version = SCORING_VERSION if version >= 9 else (7 if version == 8 else (6 if version == 7 else (5 if version >= 6 else (4 if version >= 5 else 3))))
+	else:
+		scoring_version = 1 if version == 1 else 2
 	max_units = NeonCourse.maximum(course, false, reference_power)
 	max_base_units = NeonCourse.maximum(course, true, reference_power)
 	if distance_based:
@@ -130,6 +143,8 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 		# Only new-scoring cadence sections carry gunfire state; older snapshots stay byte-identical.
 		if scoring_version >= 7 and event.type == "hold":
 			state.merge({"gunMs": 0, "gunExposedMs": 0, "gunNextHitMs": GUN_FIRST_HIT_MS, "gunHits": 0, "gunPenaltyUnits": 0})
+		if scoring_version >= 8 and event.type == "hold":
+			state.merge({"sweetTravelUnits": 0, "bonusUnits": 0})
 		event_states.append(state)
 	_configured = true
 	return errors
@@ -297,6 +312,16 @@ func _tick() -> void:
 				state.validMs += TICK
 				state.baseUnits = _section_credit(state, event, base_max, travel_step)
 				state.scoreUnits = state.baseUnits
+				if scoring_version >= 8:
+					# The sweet spot: the same distance credit again, at a fifth of the rate, for
+					# the road covered within a few rpm of the middle of the band.
+					var sweet := sweet_spot(event)
+					if rpm >= sweet.x and rpm <= sweet.y: state.sweetTravelUnits += travel_step
+					var length_units := roundi((int(event.endMs) - int(event.startMs)) * MAX_SPEED_MPS * 1000)
+					var bonus := mini(base_max, _distance_credit(base_max, int(state.sweetTravelUnits), length_units)) * SWEET_BONUS_PERCENT / 100
+					sweet_bonus_units += bonus - int(state.bonusUnits)
+					state.bonusUnits = bonus
+					state.scoreUnits = int(state.baseUnits) + bonus
 		"charge":
 			if rpm <= 120:
 				var p100 := 0.6 * reference_power
@@ -349,6 +374,34 @@ func gunfire() -> Dictionary:
 		"exposedMs": int(state.gunExposedMs), "hits": int(state.gunHits), "spent": int(state.gunHits) >= GUN_MAX_HITS}
 
 
+## The rpm range of a cadence section's sweet spot: the middle of its band, plus and minus
+## SWEET_HALF_RPM.
+static func sweet_spot(event: Dictionary) -> Vector2:
+	var middle := (float(event.cadenceMin) + float(event.cadenceMax)) * 0.5
+	return Vector2(middle - SWEET_HALF_RPM, middle + SWEET_HALF_RPM)
+
+
+## The cadence section the rider is in, or the next one if it starts within `lead_ms` of road,
+## for the cadence gauge; empty otherwise. `active` is false while it is still ahead. Reading
+## it never changes the rules.
+func cadence_target(lead_ms := 3000) -> Dictionary:
+	if not _configured or barrage.active: return {}
+	var now := road_time_ms()
+	for index in range(_event_cursor, mini(course.events.size(), _event_cursor + 2)):
+		var event: Dictionary = course.events[index]
+		if event.type != "hold": continue
+		if int(event.startMs) - now > lead_ms or now >= int(event.endMs): continue
+		var sweet := sweet_spot(event)
+		var rpm := float(latest.get("cadence", 0))
+		var active := now >= int(event.startMs)
+		return {"eventId": event.eventId, "laneIndex": int(event.laneIndex), "cadenceMin": int(event.cadenceMin), "cadenceMax": int(event.cadenceMax),
+			"sweetMin": sweet.x, "sweetMax": sweet.y, "active": active, "rpm": rpm,
+			"inBand": rpm >= float(event.cadenceMin) and rpm <= float(event.cadenceMax),
+			"inSweet": scoring_version >= 8 and rpm >= sweet.x and rpm <= sweet.y,
+			"bonus": scoring_version >= 8, "startsInMs": maxi(0, int(event.startMs) - now)}
+	return {}
+
+
 func current_event() -> Dictionary:
 	return course.events[_event_cursor] if _event_cursor < course.get("events", []).size() else {}
 
@@ -365,6 +418,7 @@ func result(status: String = "completed") -> Dictionary:
 		"baseUnits": base_units, "maxBaseUnits": max_base_units, "stars": stars,
 		"earnedScoreUnits": score_units + penalty_units, "penaltyUnits": penalty_units, "barrage": barrage.result(),
 		"gunfire": {"hits": gun_hits, "penaltyUnits": gun_penalty_units},
+		"sweetSpot": {"bonusUnits": sweet_bonus_units},
 		"events": event_states.duplicate(true), "courseId": course.get("courseId", ""),
 		"courseVersion": course.get("courseVersion", 1), "courseHash": NeonCourse.fingerprint(course),
 		"difficulty": tier, "referencePower": reference_power, "scoringVersion": scoring_version, "scoreScale": score_scale,

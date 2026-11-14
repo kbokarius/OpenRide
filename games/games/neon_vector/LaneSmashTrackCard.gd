@@ -28,6 +28,9 @@ func configure(row: Dictionary, index: int, look: GameTheme, action: Callable) -
 	custom_minimum_size = SIZE
 	focus_mode = Control.FOCUS_NONE
 	clip_contents = true
+	# Let a touch that starts on the card reach the library behind it: a tap still picks the
+	# track, and a drag scrolls the list (which cancels the tap).
+	mouse_filter = Control.MOUSE_FILTER_PASS
 	pressed.connect(action)
 	accent = Color(NeonWorlds.world(row.theme).accent)
 	var vivid := LaneSmashLook.vivid(accent)

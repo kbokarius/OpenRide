@@ -17,7 +17,8 @@ func test_one_hundred_tracks_are_unique_reachable_and_single_lane() -> void:
 			var end := 0
 			for event: Dictionary in course.events:
 				assert_int(NeonCourse.choices(event).size()).is_equal(1)
-				assert_int(int(event.startMs) - end).is_less_equal(3000)
+				# Every section is separated from the next by a stretch of empty road.
+				assert_int(int(event.startMs) - end).is_between(LaneSmashCatalog.GAP_MIN_MS, LaneSmashCatalog.GAP_MAX_MS)
 				end = int(event.endMs)
 	assert_int(names.size()).is_equal(100)
 	assert_int(patterns.size()).is_equal(100)
@@ -224,7 +225,7 @@ func test_all_tracks_change_lanes_frequently_with_short_holds_and_equal_effort_b
 				lanes[lane] = true
 				if int(event.endMs) < 50000: first_types[event.type] = true
 				if lane != last_lane:
-					assert_int(int(event.startMs) - lane_since).override_failure_message(id).is_less_equal(21500)
+					assert_int(int(event.startMs) - lane_since).override_failure_message(id).is_less_equal(22000)
 					if last_lane >= 0: assert_int(absi(lane - last_lane)).is_less_equal(2)
 					lane_since = int(event.startMs)
 					last_lane = lane
@@ -302,7 +303,7 @@ func test_visible_road_tip_remains_in_the_tunnel_through_a_complete_route() -> v
 		rules.distance_units = s * 1000000
 		space.update_view(rules, 0, 0, -1, false, "")
 		var tip := space.camera.to_local(space.path(space.portal_distance))
-		var sky_basis: Basis = space._structures.material.get_shader_parameter("portal_basis")
+		var sky_basis: Basis = space._structures.portal_basis
 		assert_float((-sky_basis.z).dot((space.path(space.portal_distance) - space.camera.position).normalized())).is_greater(0.99999)
 		var screen := space.camera.unproject_position(space.path(space.portal_distance)) / space.get_viewport().get_visible_rect().size
 		assert_float(screen.x).is_between(-0.2, 1.2)
@@ -312,8 +313,19 @@ func test_visible_road_tip_remains_in_the_tunnel_through_a_complete_route() -> v
 
 
 func test_adjacent_targets_are_separated_and_rest_on_the_road() -> void:
+	# New tracks leave empty road between sections; saved rides from earlier generators have
+	# sections that touch. Close the gaps inside each lane block to exercise that layout.
+	var course := NeonCourse.load_course("ls_10_01")
+	for i in range(1, course.events.size()):
+		var earlier: Dictionary = course.events[i - 1]
+		var later: Dictionary = course.events[i]
+		if int(earlier.startMs) / LaneSmashCatalog.BLOCK_MS != int(later.startMs) / LaneSmashCatalog.BLOCK_MS: continue
+		var length := int(later.endMs) - int(later.startMs)
+		later.startMs = int(earlier.endMs)
+		later.endMs = int(later.startMs) + length
+	course.hazards = LaneSmashHazards.generate(course.events, int(course.seed))
 	var rules := NeonRules.new()
-	rules.configure(NeonCourse.load_course("ls_10_01"), "challenging", 150)
+	assert_array(rules.configure(course, "challenging", 150)).is_empty()
 	var pairs := {}
 	for i in range(1, rules.course.events.size()):
 		var before: Dictionary = rules.course.events[i - 1]
@@ -437,3 +449,31 @@ func test_cadence_targets_follow_the_effort_and_bursts_are_spaced() -> void:
 		var expected_bursts := 0
 		for minute in int(course.durationMs) / 60000: expected_bursts += [1, 2, 1, 0][minute % 4]
 		assert_int(bursts).override_failure_message(id).is_equal(expected_bursts)
+
+
+func test_sections_have_clear_starts_and_ends_with_varied_gaps() -> void:
+	for id: String in ["ls_10_01", "ls_15_13", "ls_20_07", "ls_30_25", LaneSmashCatalog.random_id(15, 4242)]:
+		var course := LaneSmashCatalog.load_track(id)
+		var gaps := {}
+		var previous := {}
+		var per_block := {}
+		for event: Dictionary in course.events:
+			var block := int(event.startMs) / LaneSmashCatalog.BLOCK_MS
+			per_block[block] = int(per_block.get(block, 0)) + 1
+			# A section never spills into the next lane block.
+			assert_int(int(event.endMs)).is_less_equal((block + 1) * LaneSmashCatalog.BLOCK_MS)
+			var gap := int(event.startMs) - int(previous.get("endMs", 0))
+			gaps[gap] = true
+			assert_int(gap).override_failure_message("%s %s" % [id, event.eventId]).is_between(LaneSmashCatalog.GAP_MIN_MS, LaneSmashCatalog.GAP_MAX_MS)
+			# The gap in which the lane changes is long enough to turn the knob.
+			if not previous.is_empty() and int(previous.laneIndex) != int(event.laneIndex):
+				assert_int(gap).is_greater_equal(LaneSmashCatalog.LANE_GAP_MIN_MS)
+			# No two sections of the same kind back to back in a block.
+			if not previous.is_empty() and int(previous.startMs) / LaneSmashCatalog.BLOCK_MS == block:
+				assert_str(str(event.type)).is_not_equal(str(previous.type))
+			previous = event
+		# Two sections in every lane block, and the gaps are not all the same length.
+		for block in per_block: assert_int(int(per_block[block])).is_equal(2)
+		assert_int(per_block.size()).is_equal(int(course.durationMs) / LaneSmashCatalog.BLOCK_MS)
+		assert_int(gaps.size()).override_failure_message(id).is_greater_equal(5)
+

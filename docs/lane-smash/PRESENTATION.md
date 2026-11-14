@@ -1,6 +1,6 @@
 # Presentation, controls and audio
 
-Revision 11 rebuilt the look; revision 12 made the road three times faster on screen and tied the road, scenery and interface to the music. Nothing here can change a score: renderers read the rules and never award or remove points.
+Revision 11 rebuilt the look; revision 12 made the road three times faster on screen and tied the road, scenery and interface to the music; revision 13 added the cadence gauge and the power-burst celebration, smoothed the picture's edges and made it much cheaper to draw. Nothing here can change a score: renderers read the rules and never award or remove points.
 
 ## Art direction
 
@@ -28,6 +28,21 @@ One theme (`LaneSmashMenuTheme`) styles the selector, settings, ride HUD, intro 
 **Selector.** Header: Exit, the LANE SMASH wordmark, what the jukebox is playing with a small eight-bar meter of it (`LaneSmashSpectrum`), Settings & history. Left: the track library (random-track button, then 25 cards). Right: one setup panel with Duration, Resistance (and its range), the selected track, sensor status and Start. The backdrop is the selected track's own sky, far back and dark. Track cards preview their palette and sky beneath a dark scrim; Reduced motion freezes the previews and the backdrop.
 
 **Settings & history.** Audio: Music On/Off, the track picker and seek slider, Sound effects On/Off. Ride: Best-ride ghost, Background motion, Graphics. Then the latest 50 rides.
+
+**Cadence gauge** (`LaneSmashCadenceGauge`). From about four seconds before a cadence section until it ends, a panel floats beside the motorcycle, on the side away from the middle of the road so it never covers the lane ahead: a vertical track from the section's lowest rpm (bottom) to its highest (top) with both numbers, a bright band across the middle for the sweet spot, a marker where the rider's cadence is, the measured rpm in large digits beside the marker, and one word underneath. Mint means in range, white-hot means in the sweet spot, red means out of range.
+
+| State | Word | When |
+| --- | --- | --- |
+| Ahead | GET READY | the section is coming; the panel is titled NEXT · RPM |
+| Sweet spot | SWEET SPOT | within 3 rpm of the middle |
+| In range | AIM FOR MIDDLE | in the band, outside the sweet spot |
+| Too slow / too fast | FASTER / SLOWER | outside the band: the marker stops just past the end of the track |
+
+The instruction panel's second line gives the sweet spot in numbers ("82–88 rpm pays +20%"). The design follows the gauge Lanebreak draws on its wheel during a cadence section (a range bar with the limits at its ends and a dot for the rider's cadence), with the sweet spot drawn in.
+
+**Power-burst celebration** (`LaneSmashCelebration`). When a power burst ends with points, the middle of the screen gets a flash, two rings and eighteen rays flying outward, tumbling shards, a word and the points earned in 148 px digits that punch in past full size and settle. It is in within a tenth of a second and gone in 1.3. The word depends on the output against the 150 W reference: POWER BURST, FULL POWER (100%), SUPERCHARGED (140%) or OVERCHARGED (200%). It replaces the small floating number for bursts. Reduced motion keeps the word and number and drops the rest.
+
+**Scrolling.** The track library and the settings list scroll when a finger is dragged anywhere on them, including on a card or a button (`LaneSmashDragScroll`): more than 14 px of travel turns the press into a scroll, the list coasts a little after the finger lifts, and the button it started on is not activated. Before revision 13 only the gaps between cards scrolled, because each card kept the touch for itself.
 
 **Ride HUD.** Top left: rpm / W / resistance, with a chip under it for the track's name (and, while music plays, the same eight-bar meter), speed and distance. Top centre: the current instruction on a glass backing. Top right: time left and score, then Audio and End Ride. Bottom: the six-lane dock (lane number and resistance range; the rider's lane filled, the section's target lane marked along its top in that section's colour), and under it the ride-progress line with the best-ride gap or a hint. Loss and award numbers float from where they happened and are kept inside the play area.
 
@@ -90,21 +105,30 @@ Forward motion is still only the rider's real distance: the music reshapes the f
 
 ## Graphics tiers
 
-The bike's tablet is fill-rate bound and has no headroom for MSAA (docs/GAMES.md, "On the tablet"), so the 3D view has three tiers; the HUD is always full resolution.
+The bike's tablet has little to spare: upstream's measurements on it (docs/GAMES.md, "On the tablet") show a throttling four-core chip where every rendered view costs CPU time, pixels cost frame rate, MSAA halves the frame rate and draws black, and the engine's FXAA does nothing in this renderer. So the 3D view has three tiers; the HUD is always full resolution.
 
-| Tier | 3D view | Extras |
-| --- | --- | --- |
-| High | 0.83 of the screen, MSAA 2× (desktop only), bloom | everything, plus slight colour fringing at speed |
-| Balanced | 0.72, no MSAA, bloom | everything |
-| Performance | 0.62, no MSAA, no bloom | no light streaks, pools of light, rail curtains, trail or stars |
+| Tier | 3D view | Edges | Bloom and grade | Sky | Extras |
+| --- | --- | --- | --- | --- | --- |
+| High | the full screen (0.9 of it on the bike) | MSAA 2× on a desktop, plus the lens pass's smoothing | the engine's | drawn at full size | everything, plus slight colour fringing at speed |
+| Balanced (the bike's default) | 0.80 of the screen (was 0.72) | smoothed in the lens pass | two small passes added in the lens pass | drawn at half size each way | everything |
+| Performance | 0.66 (was 0.62) | smoothed in the lens pass | none; graded in the lens pass | half size | no light streaks, pools of light, rail curtains, trail or stars |
 
-**Settings → Graphics**: **Auto** (default), **High** or **Performance**. Auto starts on High (Balanced on the tablet); if a four-second window of riding averages under 50 fps it steps down one tier, remembers that for the next ride, and never steps back up mid-ride. Every surface is unshaded and lit in its own shader; there are no engine lights or fog. Each material is drawn once behind the intro so shaders compile before scored riding.
+Revision 13 moved three things out of the engine's hands to make that affordable:
+
+- **Edge smoothing** lives in the lens pass (`ride_view.gdshader`), the one pass that already touches every screen pixel to scale the 3D view up. It reads the four diagonal neighbours; where they differ enough to be an edge it blends the pixel along that edge (the FXAA method), and leaves everything else sharp.
+- **Bloom** on the Balanced tier is two quarter-size passes (`bloom_down.gdshader` keeps what is bright by luminance, so the sky's saturated ribbons stay out of it; `bloom_blur.gdshader` blurs it in one pass) added in the lens pass, in place of the engine's chain of passes over a high-range copy of the picture. In the desktop profile the engine's bloom and grade were about half of the picture's fill cost.
+- **The sky's shader**, the heaviest in the picture (about a fifth of the fill cost in the same profile), is drawn into a small off-screen image (`psychedelic_sky_pass.gdshader`) and the sky itself only reads that image. Because the sky's own material no longer changes from frame to frame, the engine also stops re-filtering the sky every frame. The off-screen image is a child of the 3D view, so it is drawn first and is never a frame behind the camera.
+
+The road's pulses went from six to four alive at once (the road, rail and curtain shaders loop over them for every pixel). These are savings by construction and by a desktop profile (`tests/profile_lane_smash_gpu.gd`); the tablet's own frame rate has not been measured.
+
+**Settings → Graphics**: **Auto** (default), **High** or **Performance**. Auto starts on High (Balanced on the tablet). `LaneSmashGovernor` watches four-second windows of riding; after two in a row under 50 fps it steps down one tier, remembers that for the next ride, and never steps back up mid-ride. A single long frame (over 0.2 s) is left out of the count: before revision 13 one hitch could pull a window under the floor and cost the rest of the ride, and every ride after it, its resolution. The tier an earlier build settled on is forgotten once, since the cost of every tier changed. Every surface is unshaded and lit in its own shader; there are no engine lights or fog. Each material is drawn once behind the intro so shaders compile before scored riding.
 
 ## Soundtrack
 
 `Jukebox` (an autoload) plays one long track at a time on its own bus, which feeds the Music bus, so the Music switch, host volume and cue ducking keep working. The default mix (`GameOptions.MUSIC_LEVEL` 0.65, `SFX_LEVEL` 0.5) puts the effects about 2.3 dB under the music; before revision 12 they sat 0.6 dB above it.
 
 - At launch it starts a random track at a random position (at least 60 s before its end) and keeps playing across the selector, rides and results. When a track ends, a different random one starts from the beginning.
+- Nothing starts or stops abruptly. Whatever starts fades in over 0.6 s; whatever was playing (the track being replaced, the old position of a seek, the music when it is switched off or held) fades out over 0.4 s on a second player while the new sound comes in, so a change of track or position is a short crossfade.
 - The Audio panel and Settings show the track's name, one button per track and a seek slider with elapsed / total time. The slider previews while dragged and seeks once on release. Neither ever pauses a ride.
 - Music Off, the rider's own music app or a host mute stop decoding and hold the position; On resumes there.
 - Tracks load on a background thread; only the current one is held in memory.

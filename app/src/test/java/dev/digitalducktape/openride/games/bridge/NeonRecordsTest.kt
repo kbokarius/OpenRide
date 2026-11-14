@@ -203,8 +203,10 @@ class NeonRecordsTest {
             })
         }
         assertEquals(140L, NeonRecords.decode(versioned(7), rider, 0).scoreUnits)
+        // Scoring version 8 adds the cadence sweet-spot bonus; the stored totals have the same shape.
+        assertEquals(140L, NeonRecords.decode(versioned(8), rider, 0).scoreUnits)
         var rejected = false
-        try { NeonRecords.decode(versioned(8), rider, 0) } catch (_: IllegalArgumentException) { rejected = true }
+        try { NeonRecords.decode(versioned(9), rider, 0) } catch (_: IllegalArgumentException) { rejected = true }
         assertTrue(rejected)
     }
 
