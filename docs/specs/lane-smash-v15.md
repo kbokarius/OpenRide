@@ -41,4 +41,12 @@ Course version 9, generator 6, scoring 8, the 11-second warning, two-second char
 - Embedded `assets/games.pck` matches the newly exported game pack byte for byte: SHA-256 `fcebf6968c4d2cc4f366c5538b653914553ef31bc9898d128cfcc21b9eb701c6`. No capture override is included.
 - An 11-second silent simulated-ride preview, `Lane-Smash-revision-15-bomb-preview.mp4`, shows charging, launch, flight and impact in the real desktop renderer.
 
-This request prepares an installer; it does not install or launch it on the Peloton. Desktop rendering checks do not establish the tablet's frame rate.
+The initial packaging request prepared an installer without installing it. Desktop rendering checks do not establish the tablet's frame rate.
+
+## Physical installation follow-up — November 14, 2026
+
+- At the owner's subsequent request, installed `openride-neon-23.apk` over revision 13/code 21 on the connected Original Bike's PLTN-RB1VQ tablet. The device currently reports Android 11, firmware `RQ.260424.C`.
+- `adb install -r` returned **Success**. No uninstall or app-data clear was performed; the original first-install timestamp was retained.
+- Device package metadata confirms code **23**, version **1.2.0-lane-smash.15**. Starting MainActivity returned **Status: ok**, and GameHostActivity became the foreground activity.
+- A physical-device screenshot confirms the rendered track selector and **Bike connected · ready**. No fatal exception, native crash or script/shader error appeared in the inspected startup log. Existing vendor, resource and Godot XR warnings remain.
+- Left the app open at the track selector. No ride was started, and sustained riding performance was not tested. The existing launcher choice was not changed.
