@@ -2,11 +2,15 @@
 
 Checked November 13, 2026.
 
-## Hardware still needed
+## Owner hardware update
 
-The owner identified an Original Bike, but its exact tablet model, Android version and build number are still unknown. Requested those values before prescribing any reset or firmware-dependent workaround. The signed build requires Android 10+ and arm64-v8a.
+On November 13, 2026, the owner confirmed **Android 11, build RQ.260424.A**, on the Original Bike with a non-rotating screen. This meets the Android 10+ minimum. The exact tablet model and ABI have not yet been read from this unit; the signed build requires arm64-v8a.
 
-## Verified installer
+[OpenRide issue #47](https://github.com/digitalducktape/OpenRide/issues/47) contains an October 23 report of upstream OpenRide installed through OpenPelo on a Gen 2 `PLTN-RB1VQ` tablet running this exact Android/build combination. That is supporting evidence for installation, not confirmation of this owner's model or a Lane Smash sensor/performance test. The issue's failure concerns enabling a HOME alias, not installing the APK.
+
+Next: try the existing Build number seven-tap developer access, then enable USB debugging and authorize the Mac. If the control is absent or blocked, record what the tablet displays before recommending any reset. Once connected, read `ro.product.model` and `ro.product.cpu.abilist` to establish the remaining hardware details. No reset or firmware update is established as necessary.
+
+## Historical installer at the time of the initial follow-up
 
 `outputs/openride-neon-14.apk`, version 1.2.0-lane-smash.6, package `dev.digitalducktape.openride.neon`, launch activity `dev.digitalducktape.openride.MainActivity`. The APK is signed and non-debuggable. Physical installation and live sensor performance are not yet tested.
 
