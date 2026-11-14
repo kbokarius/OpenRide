@@ -38,6 +38,8 @@ The [USB walkthrough](https://github.com/doudar/Openpelo/blob/main/usb_debug_ste
 
 ## Daily launch limitation
 
+**Resolved for daily use later on November 13:** installed OpenPelo on the Mac and Lawnchair on the bike, selected Lawnchair as HOME, and placed Lane Smash and Peloton shortcuts side by side. A full tablet restart returned to this choice screen. See [daily-launch setup and verification](09-daily-launch.md). The direct Lane Smash HOME alias limitation below remains true; the installed launcher supplies the choice instead.
+
 Source and packaged manifest confirm that HomeLauncherAlias is disabled. Lane Smash removed the upstream Profile UI containing the enable control. Consequently this build can launch normally but does not currently offer direct automatic HOME startup. Do not tell the user to select Lane Smash as the default launcher or use debug-only run-as commands. OpenPelo can install Lawnchair and choose it as the default launcher; that supplies a home-screen app icon for Lane Smash. Enabling Lane Smash itself as HOME needs an app change or a verified device-specific procedure.
 
 ## First ride
