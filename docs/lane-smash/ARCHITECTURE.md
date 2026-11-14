@@ -46,7 +46,7 @@ Comparison identity includes rider, course fingerprint, difficulty, scoring vers
 
 ## Settings
 
-Music and sound effects use `shared/lane_smash_audio` in `user://game_options.cfg`, shared across screens and riders. Existing per-rider music is migrated once when read. Ghost, motion and the Graphics choice (Auto / High / Performance; High by default from revision 17) remain per-rider; the tier Auto last settled on is stored per device under `shared/lane_smash_graphics`. A failed write rolls back the cached choice and presents an error. These local preferences are separate from ride backups.
+Music and sound effects use `shared/lane_smash_audio` in `user://game_options.cfg`, shared across screens and riders. Existing per-rider music is migrated once when read. Ghost, motion and the Graphics choice (Auto / High / Performance; Auto by default from revision 18) remain per-rider; the tier Auto last settled on is stored per device under `shared/lane_smash_graphics`. A failed write rolls back the cached choice and presents an error. These local preferences are separate from ride backups.
 
 AudioDirector applies persistent mute gates independently of host/segment volume refreshes. Sound effects gates both SFX and spoken countdown cues; music uses its own bus. Re-enabling a switch resumes future effects/current power charge rather than replaying missed events.
 
