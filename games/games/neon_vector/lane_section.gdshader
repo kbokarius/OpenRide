@@ -11,6 +11,8 @@ uniform float flow = 0.0;
 uniform float visible_alpha = 1.0;
 uniform float road_end = 480.0;
 uniform float fade_start = 300.0;
+uniform float zone_start = 0.0;
+uniform float zone_finish = 100.0;
 varying float road_s;
 void vertex() { road_s = UV2.x; }
 void fragment() {
@@ -32,10 +34,22 @@ void fragment() {
         // The leading edge of the stored energy is the brightest line in the zone.
         float front = exp(-pow((UV.y - charge) * 42.0, 2.0)) * step(0.012, charge);
         float energized = filled * (0.20 + intensity * 0.14 + wave * 0.26) + strand * filled * (0.14 + intensity * 0.26) + front * 0.8;
-        // Stay violet: only the charge front and the passing waves approach white.
-        color = mix(tint.rgb, vec3(0.86, 0.95, 1.0), min(0.6, filled * intensity * 0.12 + wave * filled * 0.22 + front * 0.55));
-        alpha = 0.10 + edges * (0.45 + intensity * 0.2) + soft * energized;
-        energy = 1.0 + filled * (0.15 + intensity * 0.18) + front * 0.9 + edges * 0.6;
+        // A saturated, opaque violet bed is readable before it has any charge, even without
+        // bloom. Fixed-width white caps mark its exact bounds, rather than fading those away.
+        float pixel_s = max(0.035, fwidth(road_s));
+        float end_distance = min(road_s - zone_start, zone_finish - road_s);
+        float end_line = 1.0 - smoothstep(0.36, 0.36 + pixel_s, end_distance);
+        float rim = max(edges, end_line);
+        // World-anchored diagonal etching: no stripes that stick to the front wheel.
+        float etch_s = abs(fract((road_s + across * 2.1) / 9.0 + 0.5) - 0.5) * 9.0;
+        float etch = (1.0 - smoothstep(0.16, 0.16 + pixel_s, etch_s)) * (1.0 - smoothstep(0.6, 2.2, pixel_s));
+        color = mix(vec3(0.48, 0.055, 1.0), vec3(0.82, 0.44, 1.0), 0.35 + soft * 0.28 + filled * 0.24);
+        color = mix(color, vec3(0.96, 0.90, 1.0), clamp(rim * 0.9 + front * 0.85 + filled * strand * 0.18, 0.0, 1.0));
+        alpha = 0.76 + rim * 0.2 + filled * 0.08;
+        energy = 1.05 + rim * 1.0 + soft * energized * 0.65 + etch * 0.24;
+        // Leave a dark hairline at the sides to separate this zone from the target-lane wash.
+        color *= 1.0 - smoothstep(0.96, 1.0, across) * (1.0 - end_line) * 0.8;
+        caps = 1.0;
     }
     ALBEDO = color * energy;
     ALPHA = clamp(alpha * caps * visible_alpha, 0.0, 0.92) * (1.0 - smoothstep(fade_start, road_end, road_s));

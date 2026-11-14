@@ -145,20 +145,25 @@ func test_the_gauge_maps_cadence_to_the_track_and_names_what_to_do() -> void:
 	var bounds := Rect2(48, 316, 1824, 584)
 	var live := {"eventId": "a", "laneIndex": 0, "cadenceMin": 80, "cadenceMax": 100, "sweetMin": 87.0, "sweetMax": 93.0, "active": false, "rpm": 90.0, "inBand": true, "inSweet": true, "bonus": true, "startsInMs": 1500}
 	assert_str(gauge.state()).is_empty()
-	gauge.update(0.0, live, Vector2(400, 700), bounds)
+	gauge.update(0.0, live, Vector2(480, 700), bounds)
 	assert_float(gauge.alpha).is_equal(1.0)
 	assert_str(gauge.state()).is_equal("ahead")
 	# With the bike on the left it sits to the bike's left; on the right, to its right; always
 	# inside the play area.
-	assert_float(gauge.centre.x).is_less(400.0)
+	assert_float(gauge.centre.x).is_less(480.0)
 	live.active = true
 	for case: Array in [[90.0, "sweet"], [82.0, "in"], [99.0, "in"], [70.0, "slow"], [112.0, "fast"]]:
 		live.rpm = case[0]
-		gauge.update(0.0, live, Vector2(400, 700), bounds)
+		gauge.update(0.0, live, Vector2(480, 700), bounds)
 		assert_str(gauge.state()).override_failure_message("rpm %.0f" % case[0]).is_equal(case[1])
-	gauge.update(0.0, live, Vector2(1500, 700), bounds)
-	gauge.update(10.0, live, Vector2(1500, 700), bounds)
-	assert_float(gauge.centre.x).is_greater(1500.0)
+	gauge.update(0.0, live, Vector2(1440, 700), bounds)
+	gauge.update(10.0, live, Vector2(1440, 700), bounds)
+	assert_float(gauge.centre.x).is_greater(1440.0)
+	# At the viewport edges the panel must sit inward, not on top of the motorcycle.
+	gauge.update(0.0, live, Vector2(300, 700), bounds)
+	assert_float(gauge.centre.x - LaneSmashCadenceGauge.SIZE.x * 0.5 - 300).is_greater(120.0)
+	gauge.update(0.0, live, Vector2(1620, 700), bounds)
+	assert_float(1620 - gauge.centre.x - LaneSmashCadenceGauge.SIZE.x * 0.5).is_greater(120.0)
 	for bike: Vector2 in [Vector2(60, 320), Vector2(1900, 900), Vector2(960, 600)]:
 		gauge.update(0.0, live, bike, bounds)
 		assert_bool(bounds.encloses(Rect2(gauge.centre - LaneSmashCadenceGauge.SIZE * 0.5, LaneSmashCadenceGauge.SIZE))).override_failure_message(str(bike)).is_true()

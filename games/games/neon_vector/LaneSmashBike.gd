@@ -63,7 +63,7 @@ var _materials: Array[ShaderMaterial] = []
 var _flame_material: ShaderMaterial
 var _glow_material: ShaderMaterial
 var _accent := Color("67d8ff")
-var _lane := -1.0
+var _lane := NAN
 var _clock := 0.0
 var _thrust := 0.0
 var _opacity := 1.0
@@ -145,9 +145,9 @@ func animate(rpm: float, delta: float) -> void:
 		_glow_material.set_shader_parameter("energy", 0.30 + _thrust * 0.35 + beat * 0.06)
 
 
-## Leans into lane changes: `lane` is the smoothed visual lane (0..5), fed every frame.
+## Leans into lane changes, including travel inside the two outside lanes.
 func steer(lane: float, delta: float) -> void:
-	if _lane < 0.0 or delta <= 0.0:
+	if not is_finite(_lane) or delta <= 0.0:
 		_lane = lane
 		lean = 0.0 if delta <= 0.0 else lean
 		return

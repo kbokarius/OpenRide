@@ -12,6 +12,8 @@ A resistance-controlled 3D cycling game built inside OpenRide. Original code, gr
 
 Every track has one scoring lane at a time. Turn the physical knob to reach it. Difficulty sets the resistance at both ends of the six-lane road, without changing the selected track layout.
 
+Resistance moves the motorcycle smoothly within each lane; crossing that lane's resistance limit shifts it into the next one. A pale blue road highlight shows the target lane. **Move Left / Less Resistance** or **Move Right / More Resistance** appears when you need to turn the knob and fades once you are inside the correct range. Bright violet floors with white start/end lines mark Power Bursts; pedal harder through them to build their charge.
+
 | Difficulty | Lane 1 | Lane 2 | Lane 3 | Lane 4 | Lane 5 | Lane 6 |
 | --- | --- | --- | --- | --- | --- | --- |
 | Light | 15–21 | 22–28 | 29–35 | 36–42 | 43–49 | 50–56 |
@@ -87,7 +89,7 @@ OpenPelo's generic Developer Mode Guide includes **Firmware Reset**. First confi
 
 The fork package is `dev.digitalducktape.openride.neon`, with real sensors enabled, a dedicated signing key and a `kbokarius/OpenRide` update channel. It can coexist with upstream OpenRide. This task does not reset the tablet, disable Peloton apps, change the home app, install onto the Bike, or cancel a membership.
 
-For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**. The former Profile and App updates controls are removed. This revision uses version code 21 and keeps the same package/signing identity. No fork release is automatically published by a local build.
+For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**. The former Profile and App updates controls are removed. This revision uses version code 22 and keeps the same package/signing identity. No fork release is automatically published by a local build.
 
 Update this fork in place: do not uninstall it or clear its app data, since that can remove locally stored history. Automatic backups remain enabled, but the former manual Profile controls are removed. Do not uninstall upstream to resolve a signature mismatch. The dedicated fork avoids that conflict. More firmware-specific context and sources: [installation research](research/lanebreak/04-installation.md).
 

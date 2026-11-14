@@ -12,15 +12,15 @@ const SPEED := 18.0
 ## world; sizes of things (the bike, a marker, a mine) are world metres and are divided by
 ## STRETCH where they are added to a road distance.
 const STRETCH := 3.0
-const LANE_WIDTH := 3.0
+const LANE_WIDTH := 4.2
 const ROAD_CHUNK_STEPS := 96
 const ROAD_CHUNK_COUNT := 5
 const STEP := 1.5
 const MARKERS := 112
 const TRAIL_POINTS := 22
 const CAMERA_FOV := 68.0
-const CAMERA_BACK := 12.5
-const CAMERA_UP := 6.2
+const CAMERA_BACK := 17.5
+const CAMERA_UP := 7.4
 const CAMERA_AIM_AHEAD := 34.0
 const CAMERA_AIM_UP := 0.5
 const GOLD := LaneSmashLook.GOLD
@@ -117,6 +117,7 @@ func _ready() -> void:
 	camera.make_current()
 	_road_material = ShaderMaterial.new()
 	_road_material.shader = preload("res://games/neon_vector/coaster_road.gdshader")
+	_road_material.set_shader_parameter("lane_width", LANE_WIDTH)
 	_line_material = ShaderMaterial.new()
 	_line_material.shader = preload("res://games/neon_vector/coaster_rail.gdshader")
 	_curtain_material = ShaderMaterial.new()
@@ -540,6 +541,10 @@ func finish_distance(kind: String, end_ms: int) -> float:
 	return end_ms / 1000.0 * _unit_speed + (wheel_contact_reach(kind) + extent) / STRETCH
 
 
+func set_lane_guidance(weights: PackedFloat32Array) -> void:
+	if _road_material: _road_material.set_shader_parameter("target_weights", weights)
+
+
 func section_completed(kind: String, lane: int, at_ms: int) -> Vector3:
 	var color := GOLD if kind == "cruise" else (GREEN if kind == "hold" else VIOLET)
 	var finish := finish_distance(kind, at_ms)
@@ -615,6 +620,7 @@ func _events(rules: NeonRules, visual_lane: float) -> void:
 				tint.a = fade * (0.18 if muted else 1.0) * rules.barrage.normal_alpha(rules.elapsed_ms)
 				var n: int = counts[bucket]
 				var size := Vector3(2.25, 0.16, 0.32) if bucket == "cruise" else Vector3(1.15, 1.5, 1.15)
+				size.x *= LANE_WIDTH / 3.0
 				var transform := pose(anchor, lateral, marker_height(bucket), size)
 				if bucket == "charge":
 					transform.basis = transform.basis.rotated(transform.basis.y.normalized(), now * 0.0018 + tick)

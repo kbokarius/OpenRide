@@ -8,6 +8,8 @@ render_mode world_vertex_coords, cull_disabled, specular_disabled, blend_mix, de
 // the edges), and the deck takes a faint wash of the same colour. All of it is eased.
 uniform float opacity : hint_range(0.0, 1.0) = 0.74;
 uniform float glow = 1.0;
+uniform float lane_width = 4.2;
+uniform float target_weights[6];  // crossfaded by the HUD; no moving overlay geometry
 uniform float road_end = 480.0;
 uniform float fade_start = 300.0;
 uniform vec3 accent : source_color = vec3(0.35, 0.8, 1.0);
@@ -29,8 +31,8 @@ void vertex() {
 void fragment() {
 	float fade = 1.0 - smoothstep(fade_start, road_end, course_s);
 	if (fade < 0.001) { discard; }
-	float lane = lateral / 3.0;
-	float seam_m = abs(fract(lane + 0.5) - 0.5) * 3.0;
+	float lane = lateral / lane_width;
+	float seam_m = abs(fract(lane + 0.5) - 0.5) * lane_width;
 	float px = fwidth(lateral);
 	float px_s = fwidth(course_s);
 	// Seams keep at least a pixel of width, dimming instead of shimmering when far away.
@@ -50,16 +52,20 @@ void fragment() {
 	for (int i = 0; i < 4; i++) {
 		float behind = wave_front[i] - seam_id * 7.0 - course_s;
 		packet += wave_gain[i] * smoothstep(0.0, 1.4, behind) * exp(-max(behind, 0.0) * 0.12);
-		float across = wave_front[i] - abs(lateral) * 2.3333 - course_s;
+		float across = wave_front[i] - abs(lateral) * (7.0 / lane_width) - course_s;
 		ripple += wave_gain[i] * smoothstep(0.0, 1.0, across) * exp(-max(across, 0.0) * 0.45);
 	}
 	packet *= halo;
-	float edge_m = 9.0 - abs(lateral);
+	float edge_m = 3.0 * lane_width - abs(lateral);
 	float border = 1.0 - smoothstep(0.0, 0.5, edge_m);
 	float facing = abs(dot(normalize(NORMAL), normalize(VIEW)));
 	float sheen = pow(1.0 - facing, 3.0);
 	float stripe = mod(floor(lane + 3.0), 2.0);
 	vec3 deck = vec3(0.007, 0.010, 0.022) + accent * (0.016 + stripe * 0.012);
+	int target_index = int(clamp(floor(lane + 3.0), 0.0, 5.0));
+	float guide = target_weights[target_index] * smoothstep(0.015, 0.14, seam_m);
+	float guide_edge = exp(-pow((seam_m - 0.18) * 9.0, 2.0));
+	vec3 guide_color = vec3(0.58, 0.79, 1.0);
 	ALBEDO = deck;
 	ROUGHNESS = 1.0;
 	METALLIC = 0.0;
@@ -71,6 +77,7 @@ void fragment() {
 		+ accent * (tick * 0.5 + border * (0.25 + music.z * 0.35))
 		+ mix(line, vec3(1.0), 0.5) * packet * 2.6
 		+ wash * (ripple * 0.10 + music.x * 0.022 * (0.6 + stripe))
-		+ second * sheen * 0.16) * glow;
-	ALPHA = clamp(mix(opacity, 0.96, max(seam, sheen * 0.55)) * fade, 0.0, 1.0);
+		+ second * sheen * 0.16) * glow
+		+ guide_color * guide * (0.13 + guide_edge * 0.72);
+	ALPHA = clamp(mix(opacity, 0.96, max(max(seam, sheen * 0.55), guide * 0.55)) * fade, 0.0, 1.0);
 }

@@ -42,12 +42,13 @@ func update_view(rules: NeonRules, delta: float, rider_lane: float) -> void:
 			var gate: MultiMeshInstance3D = zone.gate
 			gate.visible = not rules.barrage.active and not bool(zone.hit) and float(zone.finish) < space.portal_distance - 22.0
 			for ring in 5:
-				var size := (0.26 + float(zone.charge) * 0.74) * (1.0 - ring * 0.14)
+				# A full-size finish outline remains visible before the rider starts charging.
+				var size := 1.0 if ring == 0 else (0.26 + float(zone.charge) * 0.74) * (1.0 - ring * 0.14)
 				var tr: Transform3D = space.pose(float(zone.finish), (int(event.laneIndex) - 2.5) * NeonSpace.LANE_WIDTH, 0.05)
 				tr.basis = tr.basis.scaled_local(Vector3(size, size, 1.0))
 				gate.multimesh.set_instance_transform(ring, tr)
 				var color := NeonSpace.VIOLET.lerp(Color("d2faff"), clampf(float(zone.intensity) * 0.25 + float(zone.charge) * 0.25, 0, 0.85))
-				color.a = (0.5 + float(zone.charge) * 0.5) * (0.75 + 0.25 * sin(flow * 3.0 - ring)) * (1.0 - smoothstep(space.portal_distance - 48.0, space.portal_distance - 22.0, float(zone.finish)))
+				color.a = (1.0 if ring == 0 else (0.5 + float(zone.charge) * 0.5) * (0.75 + 0.25 * sin(flow * 3.0 - ring))) * (1.0 - smoothstep(space.portal_distance - 48.0, space.portal_distance - 22.0, float(zone.finish)))
 				gate.multimesh.set_instance_color(ring, color)
 			if not rules.barrage.active and not bool(zone.hit) and now >= int(event.endMs) and absf(rider_lane - int(event.laneIndex)) < 0.38:
 				zone.hit = true
@@ -69,6 +70,8 @@ func _make_zone(event: Dictionary) -> Dictionary:
 	var start: float = int(event.startMs) / 1000.0 * space._unit_speed + (LaneSmashBike.FRONT_REACH + 1.0) / NeonSpace.STRETCH
 	var finish: float = space.finish_distance(str(event.type), int(event.endMs))
 	var floor_finish: float = finish + (1.0 if event.type == "hold" else 0.1) / NeonSpace.STRETCH
+	material.set_shader_parameter("zone_start", start * NeonSpace.STRETCH)
+	material.set_shader_parameter("zone_finish", floor_finish * NeonSpace.STRETCH)
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var steps := ceili((floor_finish - start) * NeonSpace.STRETCH / 3.0)  # one quad per three world metres
@@ -78,7 +81,7 @@ func _make_zone(event: Dictionary) -> Dictionary:
 			var v := (i + corner.y) / float(steps)
 			var s := lerpf(start, floor_finish, v)
 			surface.set_uv(Vector2(corner.x, v))
-			var lateral := lane_x + (corner.x - 0.5) * 2.72
+			var lateral := lane_x + (corner.x - 0.5) * (NeonSpace.LANE_WIDTH - 0.28)
 			surface.set_uv2(Vector2(s * NeonSpace.STRETCH, lateral))  # world metres, for the shader's hatching and waves
 			surface.set_normal(space.coaster.at(s).basis.y)
 			surface.add_vertex(space.pose(s, lateral, 0.045).origin)
@@ -103,7 +106,8 @@ func _make_zone(event: Dictionary) -> Dictionary:
 	return result
 
 static func _triangle() -> ArrayMesh:
-	var outer := [Vector3(-1.27, 0, 0), Vector3(1.27, 0, 0), Vector3(0, 2.9, 0)]
+	var half_width := NeonSpace.LANE_WIDTH * 0.5 - 0.23
+	var outer := [Vector3(-half_width, 0, 0), Vector3(half_width, 0, 0), Vector3(0, 2.9, 0)]
 	var center := Vector3(0, 0.97, 0)
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)

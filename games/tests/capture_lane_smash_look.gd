@@ -4,7 +4,7 @@ extends SceneTree
 ##
 ##   godot --path games -s res://tests/capture_lane_smash_look.gd -- --out=/abs/dir \
 ##       [--course=ls_15_01] [--begin=0] [--frames=300] [--every=15] [--size=1280x720] \
-##       [--scenario=follow|bomb|hit|pass] [--motion=reduced] [--tier=challenging] [--ghost] \
+##       [--scenario=follow|bomb|hit|pass|steering] [--motion=reduced] [--tier=challenging] [--ghost] \
 ##       [--timeline] [--lane=N] [--rpm=N] [--quality=high|balanced|performance] [--music]
 ##
 ## `--music` drives the jukebox's analysis values with a synthetic 128 BPM track (no audio
@@ -209,5 +209,10 @@ func _sample(rules: NeonRules, t: int, scenario: String, fixed_lane: int, fixed_
 	if fixed_lane >= 0: lane = fixed_lane
 	if fixed_rpm > 0: rpm = fixed_rpm
 	var resistance := NeonRules.band(lane, rules.tier).x + 3
+	# A repeatable knob sweep around the requested lane: wrong lane, threshold, full band.
+	# Only this test harness simulates it; the production controller reads real sensors.
+	if scenario == "steering": resistance += roundi(8.0 * sin(t * 0.0012))
+	var fixed_resistance := int(_arg("resistance", "-1"))
+	if fixed_resistance >= 0: resistance = fixed_resistance
 	var watts := roundi(rpm * (0.3 + resistance * 0.045))
 	rules.push_sample({"t": t, "seq": t + 1, "cadence": rpm, "power": watts, "resistance": resistance})

@@ -11,6 +11,7 @@
 | `LaneSmashBarrage` | Fixed incoming-shot targets, impact timing, hit/pass/held-back outcomes |
 | `NeonVector` | Coordinate input, rules, render state, HUD, sound, ghost, saves and the automatic graphics tier |
 | `NeonTrack` | The 3D view's SubViewport and its tier (resolution, MSAA, bloom), the lens pass, and the drawn HUD pieces: lane dock, track chip, progress line, floating numbers |
+| `LaneSmashSteering` | Smooth within-lane resistance position, fast threshold shifts, target-lane fade weights and left/right HUD cues; presentation only |
 | `NeonSpace` | The 3D scene: fixed road chunks, chase camera, marker pools, shards and shockwaves; owns the components below |
 | `LaneSmashBike` | The rider's motorcycle and the ghost's projection of it; cadence-driven rotors, wheels, thrusters and lean |
 | `LaneSmashScenery`, `LaneSmashEnvironment` | Gantries and light streaks fixed along the route; the music-reactive sky |

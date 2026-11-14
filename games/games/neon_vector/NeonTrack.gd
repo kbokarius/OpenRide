@@ -44,6 +44,7 @@ var rules: NeonRules
 var world_id := "arctic"
 var trail_id := "ion"
 var visual_lane := 2.0
+var steering := LaneSmashSteering.new()
 var ghost_lane := -1.0
 var ghost_delta := 0
 var ghost_distance := -1.0
@@ -202,8 +203,9 @@ func _fit() -> void:
 func update_view(delta: float) -> void:
 	if rules and rules._configured and space:
 		var raw := float(rules.latest.get("resistance", NeonRules.TIERS[rules.tier]))
-		var lane := clampf(floorf((raw - NeonRules.TIERS[rules.tier]) / 7.0), 0.0, 5.0)
-		visual_lane = lerpf(visual_lane, lane, 1.0 - exp(-delta * 12.0)) if delta > 0 else lane
+		steering.update(delta, raw, rules.tier, LaneSmashSteering.target_for(rules))
+		visual_lane = steering.lane
+		space.set_lane_guidance(steering.weights)
 		motion = rules.elapsed_ms / 1000.0
 		var jukebox := LaneSmashLook.jukebox()
 		# The kick as a soft swell (`Jukebox.pulse`), never the raw beat flag.
@@ -262,6 +264,7 @@ func _draw() -> void:
 		return
 	_dock(accent)
 	gauge.paint(self, _caps, _digits, _look)
+	steering.paint(self, _caps, _look, reduced_motion)
 	_popup()
 	celebration.paint(self, CELEBRATION_AT, _caps, _digits, reduced_motion)
 	var progress := clampf(float(rules.elapsed_ms) / float(rules.course.durationMs), 0.0, 1.0)

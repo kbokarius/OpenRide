@@ -12,8 +12,8 @@ const GANTRY_SLOTS := 10
 const MOTE_SPACING := 6.0
 const MOTE_SLOTS := 112
 ## A piece is retired only once it is this far behind the rider. The chase camera sits about
-## 12.5 m behind the rider, so everything flies past the edges of the screen before it goes.
-const BEHIND := 34.0
+## 17.5 m behind the rider, so everything flies past the edges of the screen before it goes.
+const BEHIND := 40.0
 ## Half the arch, outward from the road centre: (lateral, height) in metres.
 const ARCH := [Vector2(10.3, -0.9), Vector2(12.9, 3.0), Vector2(10.9, 9.8), Vector2(4.6, 13.2), Vector2(0.0, 13.6)]
 
@@ -107,7 +107,7 @@ func update_view(distance: float, road_end: float, fade_start: float, presence: 
 			var seed_c := fposmod(sin(index * 39.425 + 4.1) * 13758.1173, 1.0)
 			var frame: Transform3D = space.coaster.at(s)
 			var angle := seed_a * TAU
-			var radius := 13.5 + seed_b * 19.0
+			var radius := 3.0 * NeonSpace.LANE_WIDTH + 4.5 + seed_b * 19.0
 			var origin := frame.origin + frame.basis.x * cos(angle) * radius + frame.basis.y * (sin(angle) * radius * 0.72 + 4.0)
 			var length := 2.5 + seed_c * 5.5
 			var slot := posmod(index, MOTE_SLOTS)
@@ -131,8 +131,8 @@ static func _gantry_mesh() -> ArrayMesh:
 	var alloy := Color(0.07, 0.085, 0.125, 1.0)
 	for side: float in [-1.0, 1.0]:
 		for i in ARCH.size() - 1:
-			var a := Vector3(side * ARCH[i].x, ARCH[i].y, 0)
-			var b := Vector3(side * ARCH[i + 1].x, ARCH[i + 1].y, 0)
+			var a := Vector3(side * ARCH[i].x * NeonSpace.LANE_WIDTH / 3.0, ARCH[i].y, 0)
+			var b := Vector3(side * ARCH[i + 1].x * NeonSpace.LANE_WIDTH / 3.0, ARCH[i + 1].y, 0)
 			kit.outline = 0.0
 			kit.glow = 0.0
 			kit.add(MeshKit3D.box(Vector3(0.42, 1.0, 0.9)), MeshKit3D.between(a, b), alloy.lightened(0.04 * i))
@@ -144,7 +144,7 @@ static func _gantry_mesh() -> ArrayMesh:
 		# A foot ties the leg to the rail.
 		kit.outline = 0.0
 		kit.glow = 0.0
-		kit.add(MeshKit3D.box(Vector3(0.30, 1.0, 0.7)), MeshKit3D.between(Vector3(side * 9.55, -0.24, 0), Vector3(side * ARCH[0].x, ARCH[0].y, 0)), alloy)
+		kit.add(MeshKit3D.box(Vector3(0.30, 1.0, 0.7)), MeshKit3D.between(Vector3(side * (3.0 * NeonSpace.LANE_WIDTH + 0.55), -0.24, 0), Vector3(side * ARCH[0].x * NeonSpace.LANE_WIDTH / 3.0, ARCH[0].y, 0)), alloy)
 	return kit.commit()
 
 
