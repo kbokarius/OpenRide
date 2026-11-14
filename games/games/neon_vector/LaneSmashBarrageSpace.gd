@@ -1,7 +1,7 @@
 class_name LaneSmashBarrageSpace
 extends Node3D
 ## A single reusable attacker; analytic, world-fixed flight paths and bounded landing geometry.
-const ENERGY := Color("7dffe0")
+const ENERGY := LaneSmashLook.PLASMA  ## hostile energy: never the mint of a cadence target
 const DEPTH := 110.0
 const ACTOR_SCALE := 7.0
 var space: Node3D
@@ -31,10 +31,15 @@ func _ready() -> void:
 	ball.height = 2.0
 	ball.radial_segments = 12
 	ball.rings = 6
-	_dots = space._instances(ball, 40, NeonSpace._material(Color.WHITE, 1.5, true, true))
-	_trail = space._instances(ball, 32, NeonSpace._material(Color.WHITE, 2.0, true, true))
+	var soft := LaneSmashLook.emissive(true, 2.0)
+	soft.set_shader_parameter("soft", 0.0)
+	_dots = space._instances(ball, 40, soft)
+	var tail := LaneSmashLook.emissive(true, 2.6)
+	tail.set_shader_parameter("soft", 0.0)
+	_trail = space._instances(ball, 32, tail)
 	_plasma = ShaderMaterial.new()
 	_plasma.shader = preload("res://games/neon_vector/barrage_plasma.gdshader")
+	_plasma.set_shader_parameter("tint", Color(ENERGY, 1.0))
 	_orb = space._instances(ball, 2, _plasma)
 	_zone_material = ShaderMaterial.new()
 	_zone_material.shader = preload("res://games/neon_vector/barrage_zone.gdshader")
@@ -67,12 +72,15 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 		_feedback = {}
 	var charge := clampf(float(now - int(shot.lockMs)) / LaneSmashBarrage.CHARGE_MS, 0, 1)
 	var since_fire := (now - int(shot.fireMs)) / 1000.0
-	var fade := smoothstep(0.0, 0.8, (now - int(shot.lockMs)) / 1000.0) * (1.0 - smoothstep(0.15, 1.3, since_fire))
+	# The raider fades in over the first 1.4 s of the two-second charge, stays for the shot,
+	# and fades out over the 1.6 s after it. It never moves into or out of place.
+	var since_lock := (now - int(shot.lockMs)) / 1000.0
+	var fade := smoothstep(0.0, 1.4, since_lock) * (1.0 - smoothstep(0.4, 2.0, since_fire))
 	# Before the shot, the translocator holds its soldier above the road in screen space.
 	# After launch, projectile coordinates are frozen independently of that visual rig.
 	var actor_at := _actor_transform(float(rules.road_distance()), int(shot.slot))
 	attacker.transform = actor_at
-	attacker.animate(fade, now / 1000.0, since_fire)
+	attacker.animate(fade, now / 1000.0, since_fire, charge if since_fire < 0 else 0.0)
 	if since_fire < 0:
 		_source = attacker.muzzle.global_position
 		_control = _source.lerp(_target, 0.5) + _camera_at(space.distance).basis.y * 17.0
@@ -92,7 +100,7 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 	_zone_material.set_shader_parameter("visibility", smoothstep(0.0, 0.5, (now - int(shot.lockMs)) / 1000.0) * (1.0 - smoothstep(0.25, 1.0, since_impact)))
 	_zone_material.set_shader_parameter("detonation", (1.0 - smoothstep(0.0, 0.6, since_impact)) if since_impact >= 0 else 0.0)
 	_plasma.set_shader_parameter("phase", now / 1000.0)
-	var dot_alpha := (0.28 if since_fire < 0 else 0.14) * (1.0 - smoothstep(-0.2, 0.15, since_impact))
+	var dot_alpha := lerpf(0.28, 0.14, smoothstep(-0.2, 0.6, since_fire)) * smoothstep(0.2, 1.4, since_lock) * (1.0 - smoothstep(-0.2, 0.15, since_impact))
 	for i in 40:
 		var t := (i + 1) / 40.0
 		var pos := curve(t)
@@ -121,10 +129,15 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 	if bool(shot.resolved) and not _impact_done:
 		_impact_done = true
 		effects_count += 1
+		var ground: Basis = space.road_basis(float(shot.targetMeters))
 		for lane_x in [-6.0, 0.0, 6.0]:
 			space._explode(space.pose(float(shot.targetMeters), lane_x, 0.8).origin, ENERGY, 32, 2.6)
+			space.fx.blast(space.pose(float(shot.targetMeters) + lane_x * 0.6, lane_x, 1.5).origin, ground, ENERGY.lerp(LaneSmashLook.DANGER, 0.3), 7.5 if lane_x == 0.0 else 5.5, 0.85)
+		space.fx.beam(space.pose(float(shot.targetMeters), 0, 0.1).origin, ground, ENERGY, 26.0, 0.9)
+		# The knock is felt hardest inside the blast and only faintly from a safe distance.
+		space.shake(0.9 if bool(shot.hit) else 0.3)
 		_feedback = {"hit": shot.hit, "points": shot.points,
-			"anchor": space.pose(space.distance + LaneSmashCyclist.FRONT_REACH, (rules.selected_lane - 2.5) * NeonSpace.LANE_WIDTH, 2.5).origin,
+			"anchor": space.pose(space.distance + LaneSmashBike.FRONT_REACH, (rules.selected_lane - 2.5) * NeonSpace.LANE_WIDTH, 2.5).origin,
 			"up": space.road_basis(space.distance).y}
 
 func curve(t: float) -> Vector3:
@@ -150,14 +163,12 @@ func take_feedback() -> Dictionary:
 	return result
 
 func _camera_at(distance: float) -> Transform3D:
-	var road: Transform3D = space.coaster.at(distance)
-	var origin := road.origin + road.basis.z * 12.0 + road.basis.y * 6.0
-	return Transform3D(Basis.IDENTITY, origin).looking_at(road.origin - road.basis.z * 34.0 + road.basis.y * 1.6, road.basis.y)
+	return space.camera_pose(distance)
 
 func _actor_transform(distance: float, slot: int) -> Transform3D:
 	var cam := _camera_at(distance)
 	var uv: Vector2 = LaneSmashBarrage.SCREEN_SLOTS[slot]
-	var height := tan(deg_to_rad(68.0 * 0.5)) * DEPTH
+	var height := tan(deg_to_rad(NeonSpace.CAMERA_FOV * 0.5)) * DEPTH
 	var center := cam * Vector3((uv.x * 2.0 - 1.0) * height * 16.0 / 9.0, (1.0 - uv.y * 2.0) * height, -DEPTH)
 	var origin := center - cam.basis.y * 1.9 * ACTOR_SCALE
 	var aim := origin.lerp(_target, 0.5) + cam.basis.y * 12.0

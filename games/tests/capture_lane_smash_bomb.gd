@@ -77,7 +77,7 @@ func _run() -> void:
 			last_second = rules.elapsed_ms / 1000
 			hud.timer.set_value("%d:%02d" % [(900 - last_second) / 60, (900 - last_second) % 60])
 			hud.score.set_value(str(rules.score_units / NeonRules.UNIT))
-		if track._completion_kind == "bomb" and track._completion_text == "−%d" % (100 * rules.score_scale): saw_popup = true
+		if track._completion_kind == "bomb" and track._completion_text == "−%s" % HudTheme.grouped(100 * rules.score_scale): saw_popup = true
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_jpg(out.path_join("frame-%04d.jpg" % frame), 0.93)
 	if not saw_popup: failures.append("Missing negative score popup")

@@ -8,6 +8,7 @@ var session: Node
 var director: Node
 var checks := 0
 var storage_path := ""
+var _saves: Array[int] = []
 
 
 func _initialize() -> void:
@@ -87,7 +88,10 @@ func _run() -> void:
 	_check(game.rules.score_units > 0, "correct resistance earns continuous points")
 	_check(game.track.ghost_visible and not game._ghost.is_empty(), "matching completed ghost loads into the real game")
 	_check(root.get_node("Effort").whole_points(root.get_node("Effort").score) == game.rules.score_units / NeonRules.UNIT, "HUD score equals exact rules total")
-	_check(root.get_node("AudioDirector").current_music_key().contains("neon_vector_drive"), "original soundtrack is playing")
+	var jukebox: Node = root.get_node("Jukebox")
+	# Headless runs leave the jukebox off (nothing loads or plays by itself there).
+	_check(not jukebox.autoplay or (jukebox.current >= 0 and (jukebox.is_playing() or jukebox.is_loading())), "jukebox soundtrack is playing")
+	_check(not jukebox.autoplay or root.get_node("AudioDirector").current_music_key().is_empty(), "no second soundtrack plays under the jukebox")
 	game.change_option("music", "off")
 	await create_timer(0.8).timeout
 	_check(not root.get_node("AudioDirector").user_music_enabled, "music can be muted")
@@ -111,11 +115,11 @@ func _run() -> void:
 	var elapsed: int = game.rules.elapsed_ms
 	session.request_pause()
 	await create_timer(0.5).timeout
-	_check(not session.paused and game.rules.elapsed_ms > elapsed, "manual pause cannot stop an uninterrupted ride")
+	_check(not session.paused and game.rules.elapsed_ms > elapsed, "manual pause cannot stop an uninterrupted ride (paused=%s reason=%s)" % [session.paused, game.rules.pause_reason])
 	director.pause_overlay.show_confirm()
 	elapsed = game.rules.elapsed_ms
 	await create_timer(0.5).timeout
-	_check(game.rules.elapsed_ms > elapsed, "end confirmation does not pause the ride")
+	_check(game.rules.elapsed_ms > elapsed, "end confirmation does not pause the ride (paused=%s reason=%s)" % [session.paused, game.rules.pause_reason])
 	director.pause_overlay.hide_confirm()
 	root.get_node("InputBus")._sim_neon_sensors = false
 	await create_timer(1.8).timeout
@@ -140,6 +144,7 @@ func _run() -> void:
 		printerr("FAIL ", failure)
 	var saved := NeonRecords.local_request({"action": "state"}, str(session.plan.get("rider_id", "guest")).trim_suffix(".0"))
 	_check(saved.history.size() == 2 and saved.completions == 1, "partial history is saved without a completion")
+	for task in _saves: WorkerThreadPool.wait_for_task_completion(task)
 	print("NEON PLAY %s checks=%d failures=%d" % ["PASS" if failures.is_empty() else "FAIL", checks, failures.size()])
 	for file in DirAccess.get_files_at(storage_path):
 		DirAccess.remove_absolute(storage_path.path_join(file))
@@ -165,7 +170,10 @@ func _shot(name: String) -> void:
 	if out.is_empty():
 		return
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png(out.path_join(name + ".png"))
+	# Encode off the main thread: a slow PNG save must not look like a display stall to the ride.
+	var picture := root.get_texture().get_image()
+	var path := out.path_join(name + ".png")
+	_saves.append(WorkerThreadPool.add_task(func(): picture.save_png(path)))
 
 
 func _seed_ghost(setup: Node) -> void:

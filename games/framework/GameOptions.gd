@@ -105,6 +105,17 @@ static func _config() -> ConfigFile:
 static func _option_section(game_id: String, key: String, rider_id: String) -> String:
 	return AUDIO_SECTION if game_id == "neon_vector" and key in ["music", "sfx"] else _section(game_id, rider_id)
 
+## Lane Smash's automatic graphics tier, remembered per device (not per rider): the tier the
+## last ride settled on, so the next one starts there instead of stepping down again.
+const GRAPHICS_SECTION := "shared/lane_smash_graphics"
+
+static func graphics_tier(fallback: String) -> String:
+	return str(_config().get_value(GRAPHICS_SECTION, "auto_tier", fallback))
+
+static func set_graphics_tier(tier: String) -> void:
+	_config().set_value(GRAPHICS_SECTION, "auto_tier", tier)
+	_config().save(path)
+
 static func audio_values() -> Dictionary:
 	return {"music": str(_config().get_value(AUDIO_SECTION, "music", "on")) != "off",
 		"sfx": str(_config().get_value(AUDIO_SECTION, "sfx", "on")) != "off"}

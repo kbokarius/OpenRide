@@ -27,3 +27,6 @@ games.pck
 
 # Kotlin incremental compiler cache
 .kotlin/
+
+# A temporary project-settings override for Movie Maker renders (see tests/demo_lane_smash_showcase.gd)
+games/override.cfg

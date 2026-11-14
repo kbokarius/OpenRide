@@ -8,8 +8,16 @@ const TICK := 10
 const CURRENT_TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35}
 const TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35,
 	"beginner": 20, "intermediate": 24, "advanced": 30, "expert": 34}
-const SCORING_VERSION := 6
+const SCORING_VERSION := 7
 const CURRENT_SCORE_SCALE := 18
+## Machine-gun fire over cadence sections (scoring version 7). Attackers strafe the road ahead
+## of and behind the rider; holding the section's cadence band keeps the rider in the gap.
+## Outside the band the fire closes in and rounds land, each costing whole points.
+const GUN_GRACE_MS := 2000        ## after a cadence section begins, before any round can land
+const GUN_FIRST_HIT_MS := 600     ## time outside the band before the first round lands
+const GUN_HIT_INTERVAL_MS := 500  ## then one round every half second while still outside
+const GUN_HIT_POINTS := 60        ## whole points lost per round; the score never goes below zero
+const GUN_MAX_HITS := 15          ## rounds that can land in one section, so a stop cannot drain a ride
 var score_scale := 1
 const MAX_SPEED_MPS := 60.0 / 3.6
 const MAX_CADENCE := 140.0
@@ -27,6 +35,9 @@ var elapsed_ms := 0
 var score_units := 0
 var barrage := LaneSmashBarrage.new()
 var penalty_units := 0
+var gun_hits := 0            ## rounds that have hit the rider this ride
+var gun_penalty_units := 0   ## their share of penalty_units
+var _gun_event := -1         ## the cadence section under fire on this tick, or -1
 var hazard_states: Array[Dictionary] = []
 var _hazard_cursor := 0
 var base_units := 0
@@ -85,13 +96,16 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	distance_based = bool(course.get("distanceBased", false))
 	score_units = 0
 	penalty_units = 0
+	gun_hits = 0
+	gun_penalty_units = 0
+	_gun_event = -1
 	_hazard_cursor = 0
 	hazard_states.clear()
 	for hazard: Dictionary in course.get("hazards", []):
 		hazard_states.append({"hit": false, "resolved": false, "penaltyUnits": 0})
 	base_units = 0
 	score_scale = CURRENT_SCORE_SCALE if int(course.courseVersion) >= 7 else 1
-	scoring_version = (SCORING_VERSION if int(course.courseVersion) >= 7 else (5 if int(course.courseVersion) >= 6 else (4 if int(course.courseVersion) >= 5 else 3))) if distance_based else (1 if int(course.courseVersion) == 1 else 2)
+	scoring_version = (SCORING_VERSION if int(course.courseVersion) >= 8 else (6 if int(course.courseVersion) == 7 else (5 if int(course.courseVersion) >= 6 else (4 if int(course.courseVersion) >= 5 else 3)))) if distance_based else (1 if int(course.courseVersion) == 1 else 2)
 	max_units = NeonCourse.maximum(course, false, reference_power)
 	max_base_units = NeonCourse.maximum(course, true, reference_power)
 	if distance_based:
@@ -112,7 +126,11 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	ghost_trace.clear()
 	event_states.clear()
 	for event: Dictionary in course.events:
-		event_states.append({"eventId": event.eventId, "choice": -1, "scoreUnits": 0, "baseUnits": 0, "validMs": 0, "chargeIntegral": 0, "energyMilliJoules": 0, "validTravelUnits": 0, "possibleTravelUnits": 0, "possibleMs": 0, "possibleBaseUnits": 0, "hit": false})
+		var state := {"eventId": event.eventId, "choice": -1, "scoreUnits": 0, "baseUnits": 0, "validMs": 0, "chargeIntegral": 0, "energyMilliJoules": 0, "validTravelUnits": 0, "possibleTravelUnits": 0, "possibleMs": 0, "possibleBaseUnits": 0, "hit": false}
+		# Only new-scoring cadence sections carry gunfire state; older snapshots stay byte-identical.
+		if scoring_version >= 7 and event.type == "hold":
+			state.merge({"gunMs": 0, "gunExposedMs": 0, "gunNextHitMs": GUN_FIRST_HIT_MS, "gunHits": 0, "gunPenaltyUnits": 0})
+		event_states.append(state)
 	_configured = true
 	return errors
 
@@ -223,6 +241,7 @@ func _tick() -> void:
 		distance_units += travel_step
 	barrage.update(self)
 	_apply_hazards()
+	_gun_event = -1
 	var position_ms := road_time_ms()
 	while _event_cursor < course.events.size() and int(course.events[_event_cursor].endMs) <= position_ms:
 		_event_cursor += 1
@@ -241,6 +260,8 @@ func _tick() -> void:
 		max_base_units += possible - int(state.possibleBaseUnits)
 		state.possibleBaseUnits = possible
 		max_units = max_base_units
+	if scoring_version >= 7 and event.type == "hold":
+		_apply_gunfire(event, state, rpm)
 	if settled_lane < 0 or rpm < 20:
 		return
 	var options := NeonCourse.choices(event)
@@ -290,6 +311,44 @@ func _tick() -> void:
 	score_units += int(state.scoreUnits) - old_score
 
 
+## One tick of machine-gun fire over an active cadence section. Lane does not matter: the fire
+## rakes the whole road, and only cadence keeps the rider in the gap. Exposure builds while the
+## rider is outside the band and drains twice as fast once back inside, so brushing the edge is
+## forgiven but riding outside it is not.
+func _apply_gunfire(event: Dictionary, state: Dictionary, rpm: float) -> void:
+	_gun_event = _event_cursor
+	state.gunMs += TICK
+	if int(state.gunMs) <= GUN_GRACE_MS or int(state.gunHits) >= GUN_MAX_HITS:
+		return
+	if rpm >= float(event.cadenceMin) and rpm <= float(event.cadenceMax):
+		state.gunExposedMs = maxi(0, int(state.gunExposedMs) - TICK * 2)
+		if int(state.gunExposedMs) == 0: state.gunNextHitMs = GUN_FIRST_HIT_MS
+		return
+	state.gunExposedMs += TICK
+	if int(state.gunExposedMs) < int(state.gunNextHitMs):
+		return
+	state.gunNextHitMs += GUN_HIT_INTERVAL_MS
+	state.gunHits += 1
+	gun_hits += 1
+	var loss := lose_points(GUN_HIT_POINTS) * UNIT
+	state.gunPenaltyUnits += loss
+	gun_penalty_units += loss
+
+
+## The machine-gun fire over the rider right now, for presentation and sound; empty when no
+## cadence section is under fire. Reading it never changes the rules.
+func gunfire() -> Dictionary:
+	if _gun_event < 0 or _gun_event >= course.events.size() or not pause_reason.is_empty():
+		return {}
+	var event: Dictionary = course.events[_gun_event]
+	var state: Dictionary = event_states[_gun_event]
+	var rpm := float(latest.get("cadence", 0))
+	return {"eventId": event.eventId, "cadenceMin": int(event.cadenceMin), "cadenceMax": int(event.cadenceMax),
+		"graceLeftMs": maxi(0, GUN_GRACE_MS - int(state.gunMs)),
+		"exposed": int(state.gunMs) > GUN_GRACE_MS and (rpm < float(event.cadenceMin) or rpm > float(event.cadenceMax)),
+		"exposedMs": int(state.gunExposedMs), "hits": int(state.gunHits), "spent": int(state.gunHits) >= GUN_MAX_HITS}
+
+
 func current_event() -> Dictionary:
 	return course.events[_event_cursor] if _event_cursor < course.get("events", []).size() else {}
 
@@ -305,6 +364,7 @@ func result(status: String = "completed") -> Dictionary:
 		"activeDurationMs": elapsed_ms, "distanceMm": distance_units / 1000, "scoreUnits": score_units, "maxScoreUnits": max_units,
 		"baseUnits": base_units, "maxBaseUnits": max_base_units, "stars": stars,
 		"earnedScoreUnits": score_units + penalty_units, "penaltyUnits": penalty_units, "barrage": barrage.result(),
+		"gunfire": {"hits": gun_hits, "penaltyUnits": gun_penalty_units},
 		"events": event_states.duplicate(true), "courseId": course.get("courseId", ""),
 		"courseVersion": course.get("courseVersion", 1), "courseHash": NeonCourse.fingerprint(course),
 		"difficulty": tier, "referencePower": reference_power, "scoringVersion": scoring_version, "scoreScale": score_scale,

@@ -2,7 +2,13 @@ extends Game
 ## NEON VECTOR: an authored resistance-controlled ride, integrated with OpenRide's host.
 ## Rules never depend on render delta. The host's monotonic clock and delivery log drive them.
 
-static var look := GameTheme.new(Color("79b8d5"), Color("0b1019"), 0.0, false, true)
+static var look: GameTheme = LaneSmashMenuTheme.shared()
+
+## Automatic graphics: the average frame rate over each window while riding decides whether
+## the 3D view steps down a tier. It never steps back up within a ride.
+const QUALITY_WINDOW_SEC := 4.0
+const QUALITY_SETTLE_SEC := 3.0
+const QUALITY_MIN_FPS := 50.0
 
 var rules := NeonRules.new()
 var track: NeonTrack
@@ -24,6 +30,8 @@ var _finalizing := false
 var _save_error := ""
 var _ghost: Array = []
 var _ghost_cursor := 0
+var _quality_time := -QUALITY_SETTLE_SEC
+var _quality_frames := 0
 
 
 func info() -> GameInfo:
@@ -42,6 +50,7 @@ func info() -> GameInfo:
 		{"key": "music", "label": "Music", "choices": ["on", "off"], "labels": ["On", "Off"], "default": "on", "kind": "segmented"},
 		{"key": "sfx", "label": "Sound effects", "choices": ["on", "off"], "labels": ["On", "Off"], "default": "on", "kind": "segmented"},
 		{"key": "motion", "label": "Background motion", "choices": ["full", "reduced"], "labels": ["Full", "Reduced"], "default": "full", "kind": "segmented"},
+		{"key": "graphics", "label": "Graphics", "choices": ["auto", "high", "performance"], "labels": ["Auto", "High", "Performance"], "default": "auto", "kind": "segmented"},
 	]
 	i.summary_stats = [
 		{"key": "completion_percent", "label": "course targets", "suffix": "%"},
@@ -53,6 +62,15 @@ func info() -> GameInfo:
 
 func ui_theme() -> GameTheme:
 	return look
+
+
+## The ride HUD's skin, shared with the capture harnesses so reviews match the real game.
+static func hud_skin() -> Dictionary:
+	var skin := look.hud_skin()
+	skin["manual_pause"] = false
+	skin["text_interval"] = 1.0
+	skin["score_rollup"] = true
+	return skin
 
 
 func target_text(_seg: Dictionary) -> String:
@@ -90,11 +108,10 @@ func _on_prepare(_seg: Dictionary) -> void:
 	track.world_id = str(rules.course.get("theme", "arctic"))
 	track.rules = rules
 	track.reduced_motion = option("motion") == "reduced"
-	var skin := look.hud_skin()
-	skin["manual_pause"] = false
-	skin["text_interval"] = 1.0
-	skin["score_rollup"] = true
-	hud.set_skin(skin)
+	track.apply_quality(_starting_quality())
+	_quality_time = -QUALITY_SETTLE_SEC
+	_quality_frames = 0
+	hud.set_skin(hud_skin())
 	status = NeonStatus.new()
 	status.rules = rules
 	hud.add_widget(status)
@@ -263,6 +280,7 @@ func _on_frame(delta: float) -> void:
 	Effort.set_unmultiplied_total(float(rules.score_units) / NeonRules.UNIT)
 	_update_ghost()
 	sounds.active = rules.pause_reason.is_empty()
+	_govern_quality(delta)
 	track.update_view(delta)
 	sounds.update_audio()
 	status.refresh()
@@ -272,6 +290,32 @@ func _on_frame(delta: float) -> void:
 		_complete("completed")
 	elif rules.elapsed_ms - _checkpoint_ms >= 5000 and not _save_busy:
 		_checkpoint()
+
+
+## The tier this ride starts on: the rider's explicit choice, or (Auto) the tier the last ride
+## settled on for this device.
+func _starting_quality() -> String:
+	var choice := option("graphics")
+	if choice in ["high", "performance"]: return choice
+	return GameOptions.graphics_tier(NeonTrack.default_quality())
+
+
+## Auto only: one step down when a window's average frame rate is under the floor.
+func _govern_quality(delta: float) -> void:
+	if option("graphics") != "auto" or DisplayServer.get_name() == "headless": return
+	_quality_time += delta
+	if _quality_time < 0.0: return
+	_quality_frames += 1
+	if _quality_time < QUALITY_WINDOW_SEC: return
+	var fps := _quality_frames / _quality_time
+	_quality_time = 0.0
+	_quality_frames = 0
+	var index := NeonTrack.TIERS.find(track.quality)
+	if fps >= QUALITY_MIN_FPS or index < 0 or index >= NeonTrack.TIERS.size() - 1: return
+	var lower: String = NeonTrack.TIERS[index + 1]
+	track.apply_quality(lower)
+	GameOptions.set_graphics_tier(lower)
+	print("OPENRIDE_GAMES lane_smash quality tier=%s fps=%.1f" % [lower, fps])
 
 
 func _pause(reason: String) -> void:
@@ -337,7 +381,9 @@ func pause_message() -> String:
 
 func _apply_music() -> void:
 	GameOptions.apply_audio()
-	AudioDirector.play_music({"name": "neon_vector_drive", "stem_files": {"drive": "res://games/neon_vector/audio/vector_drive.ogg"}, "loop_from": 0.0}, 128.0)
+	# The jukebox owns the soundtrack across menu and ride: a ride never restarts the music.
+	AudioDirector.stop_music(0.2)
+	Jukebox.ensure_started()
 
 
 func _on_option_changed(key: String, value: String) -> void:
@@ -345,6 +391,8 @@ func _on_option_changed(key: String, value: String) -> void:
 		GameOptions.apply_audio()
 	elif key == "motion":
 		track.reduced_motion = value == "reduced"
+	elif key == "graphics":
+		track.apply_quality(_starting_quality())
 	elif key == "ghost":
 		track.ghost_visible = value == "on" and track.ghost_lane >= 0
 

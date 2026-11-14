@@ -100,7 +100,7 @@ func _run() -> void:
 		for kind in ["cruise", "hold", "burst"]:
 			if not moments.has(kind) and int(track.completed_sections[kind]) > 0: moments[kind] = frame / 30.0
 		if track._completion_kind == "bomb" and not moments.has("bomb"): moments.bomb = frame / 30.0
-		if track._completion_kind == "bomb" and track._completion_text == "−%d" % (100 * rules.score_scale): saw_popup = true
+		if track._completion_kind == "bomb" and track._completion_text == "−%s" % HudTheme.grouped(100 * rules.score_scale): saw_popup = true
 		await RenderingServer.frame_post_draw
 		if not movie: root.get_texture().get_image().save_jpg(out.path_join("frame-%04d.jpg" % frame), 0.93)
 		if frame % 900 == 0: print("SHOWCASE progress_s=", frame / 30)

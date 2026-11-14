@@ -52,6 +52,14 @@ func play(new_audio: Dictionary = {}) -> void:
 		audio = new_audio
 	_apply_volumes()
 	AudioDirector.set_bus_effects(AudioDirector.MASTER_BUS, GameMix.master_effects())
+	# Lane Smash's jukebox keeps one soundtrack playing across the menu and every ride: the
+	# hub's own theme stays silent while it does. (Headless tests leave the jukebox off, so
+	# the theme's behaviour below is still what they exercise.)
+	if Jukebox.owns_music():
+		playing = false
+		AudioDirector.stop_music(0.2)
+		Jukebox.ensure_started()
+		return
 	playing = ENABLED and not HubMusicIndex.STEM_FILES.is_empty() and bool(audio.get("music", true))
 	if playing:
 		AudioDirector.play_music(style(), HubMusicIndex.BPM)

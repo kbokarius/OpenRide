@@ -11,6 +11,6 @@ void fragment() {
 	float countdown = 1.0 - smoothstep(0.015, 0.05, abs(abs(UV.y - 0.5) * 2.0 - (1.0 - progress)));
 	float pulse = 0.85 + 0.15 * sin(progress * 35.0);
 	vec3 tint = mix(vec3(1.0, 0.49, 0.23), vec3(1.0, 0.13, 0.24), progress);
-	ALBEDO = mix(tint, vec3(0.72, 1.0, 0.95), detonation);
+	ALBEDO = mix(tint * 1.6, vec3(1.0, 0.9, 0.75) * 1.5, detonation);
 	ALPHA = visibility * clamp(0.11 + stripes * 0.10 + border * 0.68 + cross * 0.32 + countdown * 0.30 + detonation * 0.55, 0.0, 0.9) * pulse;
 }

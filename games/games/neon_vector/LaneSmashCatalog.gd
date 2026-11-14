@@ -1,6 +1,7 @@
 class_name LaneSmashCatalog
 extends RefCounted
-## Frozen generator v4. IDs fully describe reproducible content; snapshots preserve replays.
+## Frozen generator v4 (layout). Course version 8 adds machine-gun fire to cadence sections
+## (scoring 7). IDs fully describe reproducible content; snapshots preserve replays.
 const LENGTHS := [10, 15, 20, 30]
 const NAMES := ["Nightfall", "Vector Run", "Cold Circuit", "Apex Protocol", "Iron Horizon", "Deep Current", "Solar Array", "Black Meridian", "Velocity", "Carbon Ridge", "Arc Reactor", "Zero Gravity", "Afterburn", "Steel Pulse", "Blue Shift", "Outer Ring", "Ion Storm", "Altitude", "Dark Matter", "Redline", "Titan", "Slipstream", "Overdrive", "Summit Relay", "Event Horizon"]
 const PATTERNS := ["Rolling", "Cadence", "Power", "Climbing", "Mixed"]
@@ -71,7 +72,7 @@ static func generate(minutes: int, seed_value: int, index: int, id: String, rand
 				else:
 					events.append(event)
 			previous_lane = lane
-	return {"schemaVersion": 1, "courseVersion": 7, "generatorVersion": 4, "courseId": id,
+	return {"schemaVersion": 1, "courseVersion": 8, "generatorVersion": 4, "courseId": id,
 		"title": "Random / %06d" % (seed_value % 1000000) if random_track else NAMES[index],
 		"family": "random" if random_track else "catalog", "durationMs": minutes * 60000,
 		"theme": THEMES[(seed_value / 97) % 8] if random_track else THEMES[index % 8],

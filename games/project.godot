@@ -22,6 +22,7 @@ Stage="*res://autoload/Stage.gd"
 InputBus="*res://autoload/InputBus.gd"
 Effort="*res://autoload/Effort.gd"
 AudioDirector="*res://autoload/AudioDirector.gd"
+Jukebox="*res://games/neon_vector/LaneSmashJukebox.gd"
 Session="*res://autoload/Session.gd"
 
 [display]

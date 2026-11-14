@@ -65,7 +65,7 @@ func _make_zone(event: Dictionary) -> Dictionary:
 	material.shader = SHADER
 	material.set_shader_parameter("tint", NeonSpace.GREEN if event.type == "hold" else NeonSpace.VIOLET)
 	material.set_shader_parameter("power_zone", 1.0 if event.type == "burst" else 0.0)
-	var start: float = int(event.startMs) / 1000.0 * space._unit_speed + LaneSmashCyclist.FRONT_REACH + 1.0
+	var start: float = int(event.startMs) / 1000.0 * space._unit_speed + LaneSmashBike.FRONT_REACH + 1.0
 	var finish: float = space.finish_distance(str(event.type), int(event.endMs))
 	var floor_finish: float = finish + (1.0 if event.type == "hold" else 0.1)
 	var surface := SurfaceTool.new()
@@ -95,7 +95,7 @@ func _make_zone(event: Dictionary) -> Dictionary:
 		multi.mesh = _triangle()
 		multi.instance_count = 5
 		gate.multimesh = multi
-		gate.material_override = NeonSpace._material(Color.WHITE, 1.1, true, true)
+		gate.material_override = NeonSpace._material(Color.WHITE, 2.4, true, true)
 		gate.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		holder.add_child(gate)
 		result.gate = gate

@@ -193,6 +193,21 @@ class NeonRecordsTest {
         assertTrue(NeonRecords.payload(detailed).getValue("result").jsonObject.containsKey("events"))
     }
 
+    @Test fun `machine gun scoring version seven is accepted and unknown versions are rejected`() = runTest {
+        fun versioned(version: Int): JsonObject {
+            val source = Json.parseToJsonElement(record(status = "pending", elapsed = 1000, score = 140).payloadJson).jsonObject
+            return JsonObject(source.toMutableMap().apply {
+                put("result", JsonObject(source.getValue("result").jsonObject.toMutableMap().apply {
+                    put("scoringVersion", JsonPrimitive(version)); put("earnedScoreUnits", JsonPrimitive(200L)); put("penaltyUnits", JsonPrimitive(60L))
+                }))
+            })
+        }
+        assertEquals(140L, NeonRecords.decode(versioned(7), rider, 0).scoreUnits)
+        var rejected = false
+        try { NeonRecords.decode(versioned(8), rider, 0) } catch (_: IllegalArgumentException) { rejected = true }
+        assertTrue(rejected)
+    }
+
     @Test fun `bomb losses save and replay while earned and penalty totals cannot roll back`() = runTest {
         fun bombRow(earned: Long, penalty: Long, elapsed: Long, status: String = "pending"): NeonAttempt {
             val source = Json.parseToJsonElement(record(status = status, elapsed = elapsed, score = earned - penalty).payloadJson).jsonObject

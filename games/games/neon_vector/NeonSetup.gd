@@ -1,12 +1,30 @@
 class_name NeonSetup
 extends HubScreen
-## Scrollable track library; primary ride controls stay fixed and no scrollbar is shown.
+## The Lane Smash selector: the only landing screen. A scrollable track library on the left,
+## the ride's setup and Start on the right; no scrollbar is shown.
+##
+## Layout (1920x1080 stage, LaneSmashMenuTheme's 8 px grid, 56 px screen margin):
+##   Header   y 24-144    Exit · LANE SMASH · now playing · Settings & history
+##   Library  x 56-1096   caption row at y 172, then the list from y 224 to 1056
+##   Setup    x 1136-1864 one panel from y 172 to 1056: duration, resistance, the selected
+##                         track, sensor status and Start, on 32 px side padding
+## Every touch target is at least 120 px tall and 24 px from its neighbours (the hub's rule),
+## and no text is under 34 px.
+const TOP := 24.0
+const HEADER_H := 120.0
+const CONTENT_TOP := 172.0
+const CONTENT_BOTTOM := 1056.0
+const LIBRARY_W := 1040.0
+const PANEL_X := 1136.0
+const PANEL_W := 728.0
+const PANEL_PAD := 32.0
+
 var minutes := 20
 var tier := "challenging"
 var reference_power := 150
 var selected_index := 0
 var random_seed := 0
-var look := LaneSmashMenuTheme.new()
+var look := LaneSmashMenuTheme.shared()
 var course: Dictionary = {}
 var tier_buttons: Dictionary = {}
 var track_buttons: Array[LaneSmashTrackCard] = []
@@ -16,8 +34,11 @@ var length_picker: Segmented
 var length_label: Label
 var range_label: Label
 var course_label: Label
+var palette_label: Label
+var score_label: Label
 var start_button: Button
 var sensor_label: Label
+var playing_label: Label
 var track_list: VBoxContainer
 var track_scroll: ScrollContainer
 var _waiting := false
@@ -26,64 +47,145 @@ var _progress: Dictionary = {}
 var _panel: Control
 var _replay_id := ""
 var _replay_course: Dictionary = {}
+var _backdrop: ShaderMaterial
+var _travel := 0.0
+var _reduced := false
+
 
 func build() -> void:
 	var info := GameRegistry.info("neon_vector")
 	for key in ["music", "sfx"]: GameOptions.get_value(info, key, rider_id)
 	GameOptions.apply_audio()
-	var background := LaneSmashMenuTheme.gradient(Color("102431"), Color("080f1a"))
-	background.size = size
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(background)
-	var control_panel := Panel.new()
-	control_panel.position = Vector2(1122, 148)
-	control_panel.size = Vector2(766, 914)
-	control_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var panel_style := look.panel_style(Color("101f2d"))
-	panel_style.border_color = Color("294351")
-	control_panel.add_theme_stylebox_override("panel", panel_style)
-	add_child(control_panel)
-	var divider := ColorRect.new()
-	divider.position = Vector2(56, 148)
-	divider.size = Vector2(1040, 2)
-	divider.color = Color("365467")
-	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(divider)
-	var bar := top_bar("Lane Smash", look)
-	look.style_button(bar.get_node("Back"), GameTheme.SECONDARY)
-	bar.get_node("Title").text = "Lane Smash"
-	bar.get_node("Back").text = "Exit"
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.add_child(spacer)
+	_reduced = GameOptions.get_value(info, "motion", rider_id) == "reduced"
+	_build_backdrop()
+	_build_header()
+	_build_library()
+	_build_setup()
+	InputBus.frame_updated.connect(_refresh_sensors)
+	_rebuild_tracks()
+	_refresh_course()
+	_load_progress.call_deferred()
+
+
+## The selected track's own sky, far back and dark, across the whole window.
+func _build_backdrop() -> void:
+	_backdrop = ShaderMaterial.new()
+	_backdrop.shader = preload("res://games/neon_vector/menu_backdrop.gdshader")
+	var sky := ColorRect.new()
+	sky.name = "Backdrop"
+	sky.material = _backdrop
+	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(sky)
+	Stage.bleed(sky)
+	_backdrop.set_shader_parameter("aspect", Stage.visible_size.x / Stage.visible_size.y)
+
+
+func _build_header() -> void:
+	# One row across the margins, so nothing in it can overlap whatever its text measures.
+	var bar := HBoxContainer.new()
+	bar.name = "TopBar"
+	bar.position = Vector2(LaneSmashMenuTheme.MARGIN, TOP)
+	bar.size = Vector2(HubTheme.W - 2 * LaneSmashMenuTheme.MARGIN, HEADER_H)
+	bar.add_theme_constant_override("separation", LaneSmashMenuTheme.S4)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bar)
+	var exit := look.button("Exit", back_pressed, GameTheme.SECONDARY)
+	exit.name = "Back"
+	exit.custom_minimum_size = Vector2(220, HEADER_H)
+	bar.add_child(exit)
+	# The wordmark: one line in two colours, on the header's centre line.
+	var mark := HBoxContainer.new()
+	mark.name = "Title"
+	mark.add_theme_constant_override("separation", 18)
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(mark)
+	for part: Array in [["LANE", LaneSmashMenuTheme.TEXT], ["SMASH", LaneSmashMenuTheme.ACCENT]]:
+		var word := look.label(part[0], 92, part[1])
+		word.add_theme_font_override("font", look.caps_font())
+		word.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		mark.add_child(word)
+	# What the jukebox is playing, right-aligned against the settings button.
+	var playing := VBoxContainer.new()
+	playing.name = "NowPlaying"
+	playing.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	playing.alignment = BoxContainer.ALIGNMENT_CENTER
+	playing.add_theme_constant_override("separation", 0)
+	playing.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(playing)
+	var playing_caption := look.caption("Now playing", LaneSmashMenuTheme.TEXT_FAINT, LaneSmashMenuTheme.LABEL)
+	playing_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	playing.add_child(playing_caption)
+	playing_label = look.label("", LaneSmashMenuTheme.BODY, LaneSmashMenuTheme.TEXT_MUTED)
+	playing_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	playing_label.clip_text = true
+	playing_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	playing.add_child(playing_label)
 	var extras := look.button("Settings & history", _open_extras, GameTheme.SECONDARY)
-	extras.custom_minimum_size = Vector2(380, 120)
+	extras.name = "Extras"
+	extras.custom_minimum_size = Vector2(400, HEADER_H)
 	bar.add_child(extras)
-	var label := look.label("TRACK LIBRARY", 34, GameTheme.MUTED)
-	label.position = Vector2(56, 170)
-	add_child(label)
-	var count := look.label("25 tracks · scroll to explore", 34, GameTheme.MUTED)
-	count.position = Vector2(590, 170)
+	var jukebox := LaneSmashLook.jukebox()
+	if jukebox != null:
+		jukebox.track_changed.connect(func(_index: int): _refresh_playing())
+		jukebox.playback_changed.connect(_refresh_playing)
+	AudioDirector.user_audio_changed.connect(_refresh_playing)
+	_refresh_playing()
+	var rule := ColorRect.new()
+	rule.position = Vector2(LaneSmashMenuTheme.MARGIN, TOP + HEADER_H + 12)
+	rule.size = Vector2(HubTheme.W - 2 * LaneSmashMenuTheme.MARGIN, 2)
+	rule.color = Color(LaneSmashMenuTheme.ACCENT, 0.22)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(rule)
+
+
+func _refresh_playing() -> void:
+	if not is_instance_valid(playing_label): return
+	var jukebox := LaneSmashLook.jukebox()
+	var title := str(jukebox.title()) if jukebox != null else ""
+	playing_label.text = "Music off" if not AudioDirector.user_music_enabled else (title if not title.is_empty() else "—")
+
+
+func _build_library() -> void:
+	var caption := look.caption("Track library", LaneSmashMenuTheme.TEXT_MUTED, LaneSmashMenuTheme.LABEL)
+	caption.position = Vector2(LaneSmashMenuTheme.MARGIN, CONTENT_TOP)
+	add_child(caption)
+	var count := look.caption("25 tracks · scroll to explore", LaneSmashMenuTheme.TEXT_FAINT, LaneSmashMenuTheme.LABEL)
+	count.position = Vector2(LaneSmashMenuTheme.MARGIN, CONTENT_TOP)
+	count.size = Vector2(LIBRARY_W, 0)
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(count)
 	track_scroll = ScrollContainer.new()
-	track_scroll.position = Vector2(56, 234)
-	track_scroll.size = Vector2(1040, 810)
+	track_scroll.position = Vector2(LaneSmashMenuTheme.MARGIN, CONTENT_TOP + 52)
+	track_scroll.size = Vector2(LIBRARY_W, CONTENT_BOTTOM - CONTENT_TOP - 52)
 	track_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	track_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	track_scroll.follow_focus = true
 	add_child(track_scroll)
 	track_list = VBoxContainer.new()
-	track_list.custom_minimum_size = Vector2(1016, 0)
-	track_list.add_theme_constant_override("separation", 24)
+	track_list.custom_minimum_size = Vector2(LIBRARY_W, 0)
+	track_list.add_theme_constant_override("separation", LaneSmashMenuTheme.S3)
 	track_scroll.add_child(track_list)
-	var right := VBoxContainer.new()
-	right.position = Vector2(1150, 170)
-	right.custom_minimum_size = Vector2(714, 0)
-	right.add_theme_constant_override("separation", 12)
-	add_child(right)
-	length_label = look.label("DURATION", 34, GameTheme.MUTED)
-	right.add_child(length_label)
-	length_picker = Segmented.new(["10", "15", "20", "30"], ["10 min", "15 min", "20 min", "30 min"], str(minutes), look, 160)
+
+
+func _build_setup() -> void:
+	var inner := PANEL_W - 2 * PANEL_PAD
+	var panel := Panel.new()
+	panel.name = "Setup"
+	panel.position = Vector2(PANEL_X, CONTENT_TOP)
+	panel.size = Vector2(PANEL_W, CONTENT_BOTTOM - CONTENT_TOP)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_theme_stylebox_override("panel", look.panel_style(Color(LaneSmashMenuTheme.SURFACE_SOLID, 0.9)))
+	add_child(panel)
+	var box := VBoxContainer.new()
+	box.position = Vector2(PANEL_X + PANEL_PAD, CONTENT_TOP + LaneSmashMenuTheme.S3)
+	box.size = Vector2(inner, CONTENT_BOTTOM - CONTENT_TOP - 2 * LaneSmashMenuTheme.S3)
+	box.add_theme_constant_override("separation", 0)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(box)
+	length_label = look.caption("Duration", LaneSmashMenuTheme.TEXT_MUTED, LaneSmashMenuTheme.LABEL)
+	box.add_child(length_label)
+	box.add_child(_gap(LaneSmashMenuTheme.S1))
+	length_picker = Segmented.new(["10", "15", "20", "30"], ["10 min", "15 min", "20 min", "30 min"], str(minutes), look, 140)
 	length_picker.font_size = 34
 	length_picker.animate_selection = false
 	for button in length_picker.buttons:
@@ -97,39 +199,81 @@ func build() -> void:
 		_replay_course = {}
 		_rebuild_tracks()
 		_refresh_course())
-	right.add_child(length_picker)
-	right.add_child(look.label("RESISTANCE", 34, GameTheme.MUTED))
+	box.add_child(length_picker)
+	box.add_child(_gap(LaneSmashMenuTheme.S2))
+	var resistance := HBoxContainer.new()
+	resistance.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(resistance)
+	var resistance_caption := look.caption("Resistance", LaneSmashMenuTheme.TEXT_MUTED, LaneSmashMenuTheme.LABEL)
+	resistance_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	resistance.add_child(resistance_caption)
+	range_label = look.caption("", LaneSmashMenuTheme.TEXT_FAINT, LaneSmashMenuTheme.LABEL)
+	range_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	resistance.add_child(range_label)
+	box.add_child(_gap(LaneSmashMenuTheme.S1))
 	var tiers := VBoxContainer.new()
-	tiers.add_theme_constant_override("separation", 24)
-	right.add_child(tiers)
+	tiers.add_theme_constant_override("separation", LaneSmashMenuTheme.S3)
+	box.add_child(tiers)
 	for row_ids in [["light", "moderate", "hard"], ["challenging", "extreme"]]:
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 24)
+		row.add_theme_constant_override("separation", LaneSmashMenuTheme.S3)
 		tiers.add_child(row)
 		for id: String in row_ids:
 			var button := look.button(id.capitalize(), func(): _pick_tier(id), GameTheme.SECONDARY)
-			button.custom_minimum_size = Vector2(222 if row_ids.size() == 3 else 345, 120)
+			button.name = "Tier_" + id
+			button.custom_minimum_size = Vector2(180, 120)
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			button.add_theme_font_size_override("font_size", 34)
 			row.add_child(button)
 			tier_buttons[id] = button
-	range_label = look.label("", 34, GameTheme.MUTED)
-	right.add_child(range_label)
-	course_label = look.label("", 38)
-	course_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	course_label.custom_minimum_size = Vector2(714, 0)
-	right.add_child(course_label)
-	sensor_label = look.label("", 34, GameTheme.MUTED)
-	sensor_label.position = Vector2(1150, 864)
-	add_child(sensor_label)
+	box.add_child(_gap(LaneSmashMenuTheme.S2))
+	var rule := ColorRect.new()
+	rule.custom_minimum_size = Vector2(inner, 2)
+	rule.color = Color(LaneSmashMenuTheme.ACCENT, 0.18)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(rule)
+	box.add_child(_gap(LaneSmashMenuTheme.S2 - 4))
+	course_label = look.label("", LaneSmashMenuTheme.HEADING, LaneSmashMenuTheme.TEXT)
+	course_label.clip_text = true
+	course_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	box.add_child(course_label)
+	palette_label = look.label("", LaneSmashMenuTheme.LABEL, LaneSmashMenuTheme.ACCENT.lerp(Color.WHITE, 0.3))
+	palette_label.clip_text = true
+	box.add_child(palette_label)
+	score_label = look.label("", LaneSmashMenuTheme.LABEL, LaneSmashMenuTheme.TEXT_MUTED)
+	score_label.clip_text = true
+	score_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	box.add_child(score_label)
+	var spring := Control.new()
+	spring.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	spring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(spring)
+	sensor_label = look.label("", LaneSmashMenuTheme.LABEL, LaneSmashMenuTheme.TEXT_MUTED)
+	box.add_child(sensor_label)
+	box.add_child(_gap(LaneSmashMenuTheme.S1 + 4))
 	start_button = look.button("Start ride", _start, GameTheme.PRIMARY)
 	start_button.name = "Start"
-	start_button.position = Vector2(1150, 925)
-	start_button.custom_minimum_size = Vector2(714, 120)
-	add_child(start_button)
-	InputBus.frame_updated.connect(_refresh_sensors)
-	_rebuild_tracks()
-	_refresh_course()
-	_load_progress.call_deferred()
+	start_button.custom_minimum_size = Vector2(inner, 120)
+	box.add_child(start_button)
+
+
+static func _gap(height: float) -> Control:
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, height)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return gap
+
+
+func _process(delta: float) -> void:
+	if _backdrop == null or is_instance_valid(_panel) or not is_visible_in_tree(): return
+	if _reduced: return
+	_travel += delta * 3.5
+	_backdrop.set_shader_parameter("travel", _travel)
+	var jukebox := LaneSmashLook.jukebox()
+	if jukebox != null:
+		_backdrop.set_shader_parameter("music", Vector4(jukebox.calm_bass, jukebox.calm_mid, jukebox.calm_treble, jukebox.pulse))
+		_backdrop.set_shader_parameter("swirl", jukebox.flow)
+
 
 func _rebuild_tracks() -> void:
 	for child in track_list.get_children():
@@ -139,14 +283,15 @@ func _rebuild_tracks() -> void:
 	_track_keys.clear()
 	_track_rows = LaneSmashCatalog.tracks(minutes)
 	var random_button := look.button("Generate random track  ↻", _random_track, GameTheme.SECONDARY)
-	random_button.custom_minimum_size = Vector2(1016, 120)
+	random_button.name = "Random"
+	random_button.custom_minimum_size = Vector2(LIBRARY_W, 120)
 	track_list.add_child(random_button)
 	for item in _track_rows:
 		var index := track_buttons.size()
 		var button := LaneSmashTrackCard.new()
 		button.preview_clip = track_scroll
 		button.configure(item, index, look, func(): _pick_track(index))
-		button.reduced_motion = GameOptions.get_value(GameRegistry.info("neon_vector"), "motion", rider_id) == "reduced"
+		button.reduced_motion = _reduced
 		track_list.add_child(button)
 		track_buttons.append(button)
 	track_scroll.scroll_vertical = 0
@@ -182,9 +327,17 @@ func _refresh_course() -> void:
 	length_picker.visible = _replay_id.is_empty()
 	length_label.text = "DURATION" if _replay_id.is_empty() else "SAVED RIDE · %d MIN" % minutes
 	var lo: int = NeonRules.TIERS[tier]
-	range_label.text = "%d–%d resistance across six lanes" % [lo, lo + 41]
+	range_label.text = "%d–%d ACROSS SIX LANES" % [lo, lo + 41]
 	var palette := NeonWorlds.world(str(course.get("theme", "arctic")))
-	course_label.text = "%s\n%s  ·  %s\n%s" % [course.get("title", ""), palette.title, LaneSmashEnvironment.TITLES.get(course.get("background", "orbital"), "Prismatic flow"), _score_text(str(course.get("courseId", "")))]
+	var sky_id := str(course.get("background", "orbital"))
+	course_label.text = str(course.get("title", ""))
+	palette_label.text = "%s  ·  %s" % [palette.title, LaneSmashEnvironment.TITLES.get(sky_id, "Prismatic flow")]
+	score_label.text = _score_text(str(course.get("courseId", "")))
+	# The backdrop previews the selected track's own colours and sky.
+	var colors := LaneSmashEnvironment.palette(Color(palette.accent))
+	_backdrop.set_shader_parameter("primary", colors[0])
+	_backdrop.set_shader_parameter("secondary", colors[1])
+	_backdrop.set_shader_parameter("style", maxi(0, LaneSmashEnvironment.TITLES.keys().find(sky_id)))
 	_refresh_sensors()
 
 func _refresh_sensors() -> void:
@@ -192,6 +345,7 @@ func _refresh_sensors() -> void:
 	var fresh := InputBus.sample_age_ms <= 1500
 	start_button.disabled = _waiting or _loading_records or not fresh or course.is_empty()
 	sensor_label.text = "Loading saved rides…" if _loading_records else ("Bike connected · ready" if fresh else "Waiting for bike sensor data")
+	sensor_label.add_theme_color_override("font_color", GameTheme.GOOD if fresh and not _loading_records else LaneSmashMenuTheme.TEXT_MUTED)
 
 func _start() -> void:
 	if start_button.disabled: return
@@ -230,58 +384,78 @@ func handle_back() -> bool:
 func _modal(title: String) -> VBoxContainer:
 	_close_panel()
 	for card in track_buttons: card.set_process(false)
+	var width := HubTheme.W - 2 * LaneSmashMenuTheme.MARGIN
 	_panel = Control.new()
 	_panel.size = Vector2(1920, 1080)
 	add_child(_panel)
 	var shade := ColorRect.new()
-	shade.color = Color("0c1926")
-	shade.size = _panel.size
+	shade.color = Color("060b15")
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	_panel.add_child(shade)
-	var heading := look.label(title, 48)
-	heading.position = Vector2(80, 60)
+	Stage.bleed(shade)
+	var heading := look.label(title, LaneSmashMenuTheme.TITLE, LaneSmashMenuTheme.TEXT)
+	heading.add_theme_font_override("font", look.caps_font())
+	heading.position = Vector2(LaneSmashMenuTheme.MARGIN, TOP)
+	heading.size = Vector2(width - 340, HEADER_H)
+	heading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_panel.add_child(heading)
 	var done := look.button("Done", _close_panel, GameTheme.PRIMARY)
-	done.position = Vector2(1530, 30)
-	done.custom_minimum_size = Vector2(310, 120)
+	done.name = "Done"
+	done.custom_minimum_size = Vector2(300, HEADER_H)
+	done.size = done.custom_minimum_size
+	done.position = Vector2(HubTheme.W - LaneSmashMenuTheme.MARGIN - 300, TOP)
 	_panel.add_child(done)
+	var rule := ColorRect.new()
+	rule.position = Vector2(LaneSmashMenuTheme.MARGIN, TOP + HEADER_H + 12)
+	rule.size = Vector2(width, 2)
+	rule.color = Color(LaneSmashMenuTheme.ACCENT, 0.22)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_panel.add_child(rule)
 	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(80, 180)
-	scroll.size = Vector2(1760, 850)
+	scroll.position = Vector2(LaneSmashMenuTheme.MARGIN, CONTENT_TOP)
+	scroll.size = Vector2(width, CONTENT_BOTTOM - CONTENT_TOP)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	scroll.follow_focus = true
 	_panel.add_child(scroll)
 	var content := VBoxContainer.new()
-	content.custom_minimum_size = Vector2(1730, 0)
-	content.add_theme_constant_override("separation", 24)
+	content.custom_minimum_size = Vector2(width, 0)
+	content.add_theme_constant_override("separation", LaneSmashMenuTheme.S3)
 	scroll.add_child(content)
 	return content
 
 
 func _open_extras() -> void:
-	var box := _modal("SETTINGS & RIDE HISTORY")
+	var box := _modal("Settings & ride history")
+	var width := HubTheme.W - 2 * LaneSmashMenuTheme.MARGIN
 	var info := GameRegistry.info("neon_vector")
-	for key in ["music", "sfx", "ghost", "motion"]:
-		var row := OptionRow.new(info.option_spec(key), GameOptions.get_value(info, key, rider_id), 1700, look)
-		row.changed.connect(func(k: String, v: String):
-			if not GameOptions.set_value(info, k, v, rider_id):
-				notice.emit("Could not save this setting. Please try again.")
-				_open_extras.call_deferred()
-				return
-			if k == "motion":
-				for card in track_buttons: card.reduced_motion = v == "reduced")
-		box.add_child(row)
-		if row.segmented != null: row.segmented.animate_selection = false
-	box.add_child(look.label("RECENT RIDES · tap one to replay its saved course", 40))
+	for group: Array in [["Audio", ["music", "sfx"]], ["Ride", ["ghost", "motion", "graphics"]]]:
+		box.add_child(look.caption(group[0], LaneSmashMenuTheme.TEXT_MUTED, LaneSmashMenuTheme.LABEL))
+		for key: String in group[1]:
+			var row := OptionRow.new(info.option_spec(key), GameOptions.get_value(info, key, rider_id), width, look)
+			row.changed.connect(func(k: String, v: String):
+				if not GameOptions.set_value(info, k, v, rider_id):
+					notice.emit("Could not save this setting. Please try again.")
+					_open_extras.call_deferred()
+					return
+				if k == "motion":
+					_reduced = v == "reduced"
+					for card in track_buttons: card.reduced_motion = _reduced)
+			box.add_child(row)
+			if row.segmented != null: row.segmented.animate_selection = false
+			if key == "music":
+				# The track picker and seek slider sit directly under the Music switch.
+				box.add_child(LaneSmashMusicPanel.new(look, width, HubTheme.TARGET, HubTheme.GAP))
+	box.add_child(look.caption("Recent rides · tap one to replay its saved course", LaneSmashMenuTheme.TEXT_MUTED, LaneSmashMenuTheme.LABEL))
 	var history: Array = _progress.get("history", [])
 	if history.is_empty():
-		box.add_child(look.label("Your rides appear here after you start a track.\nTap a saved ride to replay the same course.", 36, GameTheme.MUTED))
+		box.add_child(look.label("Your rides appear here after you start a track.\nTap a saved ride to replay the same course.", LaneSmashMenuTheme.BODY, LaneSmashMenuTheme.TEXT_FAINT))
 	for record: Dictionary in history:
 		var result: Dictionary = record.result
 		var date := Time.get_date_string_from_unix_time(int(record.get("updatedMs", 0)) / 1000)
-		var text := "%s · %s · %s\n%s · %d points · %d stars · %s" % [date, result.get("title", result.courseId), str(result.status).capitalize(), HubTheme.clock(int(result.activeDurationMs) / 1000.0), int(result.scoreUnits) / NeonRules.UNIT, int(result.get("stars", 0)), str(result.get("difficulty", "challenging")).capitalize()]
+		var text := "%s · %s · %s\n%s · %s points · %d stars · %s" % [date, result.get("title", result.courseId), str(result.status).capitalize(), HubTheme.clock(int(result.activeDurationMs) / 1000.0), HudTheme.grouped(int(result.scoreUnits) / NeonRules.UNIT), int(result.get("stars", 0)), str(result.get("difficulty", "challenging")).capitalize()]
 		var replay := look.button(text, func(): _replay(str(record.attemptId)), GameTheme.SECONDARY)
-		replay.custom_minimum_size = Vector2(1700, 160)
+		replay.custom_minimum_size = Vector2(width, 160)
 		replay.add_theme_font_size_override("font_size", 34)
 		box.add_child(replay)
 
@@ -337,7 +511,7 @@ func _score_text(id: String) -> String:
 		_track_keys[cache_key] = rules.comparison_key(rider_id)
 	var stats: Dictionary = _progress.get("trackStats", {}).get(_track_keys[cache_key], {})
 	if stats.is_empty(): return "No previous ride at this difficulty"
-	var last := "Last: %d" % (int(stats.lastScoreUnits) / NeonRules.UNIT)
+	var last := "Last %s" % HudTheme.grouped(int(stats.lastScoreUnits) / NeonRules.UNIT)
 	if stats.lastStatus != "completed": last += " (partial)"
-	var best := "Best: %d" % (int(stats.bestScoreUnits) / NeonRules.UNIT) if int(stats.bestScoreUnits) >= 0 else "No completed best"
-	return "%s  /  %s" % [last, best]
+	var best := "Best %s" % HudTheme.grouped(int(stats.bestScoreUnits) / NeonRules.UNIT) if int(stats.bestScoreUnits) >= 0 else "No completed best"
+	return "%s  ·  %s" % [last, best]

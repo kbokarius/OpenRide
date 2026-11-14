@@ -16,13 +16,19 @@ var _meter_target := 0.0
 var _power_points := PointRollup.new()
 var _power_event_id := ""
 var _show_power_points := false
-var _look := GameTheme.new(Color("79b8d5"), Color("0b1019"), 0.0, false, true)
+var _look: GameTheme = LaneSmashMenuTheme.shared()
+var _backing: StyleBoxFlat
 
 
 func _init() -> void:
-	custom_minimum_size = Vector2(740, 166)
+	custom_minimum_size = Vector2(740, 176)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_theme_constant_override("separation", 4)
+	# Top padding inside the backing (a container has none of its own).
+	var inset := Control.new()
+	inset.custom_minimum_size = Vector2(0, 6)
+	inset.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(inset)
 	heading = _look.label("TARGET LANE", 34, GameTheme.MUTED)
 	target = _look.label("Turn resistance to steer", 44)
 	var tabular := FontVariation.new()
@@ -65,6 +71,14 @@ func _init() -> void:
 	barrage_gauge = LaneSmashBarrageGauge.new()
 	add_child(barrage_gauge)
 	barrage_gauge.visible = false
+
+
+## A glass backing exactly the size of the block, so its edges line up with the ride and clock
+## panels beside it and instructions stay readable over the brightest part of the sky.
+func _draw() -> void:
+	if _backing == null:
+		_backing = LaneSmashMenuTheme.shared()._shape(Color(LaneSmashMenuTheme.SURFACE, 0.72), Color(LaneSmashMenuTheme.ACCENT, 0.28), 1)
+	draw_style_box(_backing, Rect2(Vector2.ZERO, size))
 
 
 func refresh() -> void:
@@ -153,7 +167,12 @@ func refresh() -> void:
 	else:
 		target.text = direction
 	# Lane numbers/ranges are already shown in the dock; don't repeat them here.
-	detail.text = "Pedal to earn points" if rpm < 20 and active else ""
+	var fire := rules.gunfire()
+	if active and event.type == "hold" and not fire.is_empty():
+		# Cadence sections are strafed: say plainly whether the rider is in the gap or in the fire.
+		detail.text = "Taking fire · −%d a hit" % NeonRules.GUN_HIT_POINTS if bool(fire.exposed) else "Under fire · hold this pace"
+	else:
+		detail.text = "Pedal to earn points" if rpm < 20 and active else ""
 	detail.visible = not detail.text.is_empty()
 
 

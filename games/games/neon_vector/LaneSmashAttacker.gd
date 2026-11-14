@@ -1,12 +1,14 @@
 class_name LaneSmashAttacker
 extends Node3D
-## Original armored marksman: merged beveled plates, articulated upper body and energy rifle.
-const ARMOR := Color("617365")
-const EDGE := Color("93a391")
-const DARK := Color("142330")
-const GOLD := Color("edc274")
-const LIGHT := Color("8afce1")
-const SHADER := preload("res://games/neon_vector/barrage_armor.gdshader")
+## Original armoured raider on a hover sled: merged bevelled plates, an articulated upper body
+## and a heavy repeater. Graphite armour with hostile plasma-orange lights, a slit visor and
+## helmet fins, so it never reads as the rider's side. Hand-lit; fades in with scan lines.
+const ARMOR := Color(0.24, 0.25, 0.30, 0.85)
+const EDGE := Color(0.42, 0.43, 0.50, 0.9)
+const DARK := Color(0.07, 0.075, 0.10, 0.4)
+const GOLD := Color(1, 1, 1, 1)   ## visor: drawn in the accent through the glow material
+const LIGHT := Color(1, 1, 1, 1)  ## every lamp and coil: the accent
+const SHADER := preload("res://games/neon_vector/ls_hull_fade.gdshader")
 var upper: Node3D
 var muzzle: Marker3D
 var _materials: Array[ShaderMaterial] = []
@@ -58,11 +60,14 @@ func _ready() -> void:
 		_plate(_upper_solid, Vector3(side * 0.32, 1.18, 0.18), Vector3(0.16, 0.36, 0.27), ARMOR)
 		_plate(_upper_solid, Vector3(side * 0.37, 1.25, -0.02), Vector3(0.12, 0.27, 0.28), DARK)
 		_plate(_upper_glow, Vector3(side * 0.32, 1.33, 0.33), Vector3(0.06, 0.04, 0.04), LIGHT)
+	# A narrow slit visor wrapping the face, and two swept fins on the crown.
 	for segment in 16:
 		var a := lerpf(-1.0, 1.0, segment / 16.0)
 		var b := lerpf(-1.0, 1.0, (segment + 1) / 16.0)
-		var p := [Vector3(a * 0.31, 1.38 - 0.04 * absf(a), 0.32 + 0.10 * (1 - a * a)), Vector3(b * 0.31, 1.38 - 0.04 * absf(b), 0.32 + 0.10 * (1 - b * b)), Vector3(a * 0.31, 1.19 + 0.035 * absf(a), 0.31 + 0.10 * (1 - a * a)), Vector3(b * 0.31, 1.19 + 0.035 * absf(b), 0.31 + 0.10 * (1 - b * b))]
+		var p := [Vector3(a * 0.33, 1.315 - 0.03 * absf(a), 0.335 + 0.10 * (1 - a * a)), Vector3(b * 0.33, 1.315 - 0.03 * absf(b), 0.335 + 0.10 * (1 - b * b)), Vector3(a * 0.33, 1.245 + 0.02 * absf(a), 0.33 + 0.10 * (1 - a * a)), Vector3(b * 0.33, 1.245 + 0.02 * absf(b), 0.33 + 0.10 * (1 - b * b))]
 		_quad(_upper_glow, p[0], p[1], p[2], p[3], GOLD)
+	for side in [-1.0, 1.0]:
+		_plate(_upper_solid, Vector3(side * 0.21, 1.66, -0.10), Vector3(0.05, 0.34, 0.42), EDGE, Vector3(0.5, 0, side * -0.22))
 	# Shoulder pauldrons and bent arms hold the rifle with both hands.
 	for side in [-1.0, 1.0]:
 		var shoulder := Vector3(side * 0.73, 0.57, 0)
@@ -88,6 +93,15 @@ func _ready() -> void:
 	muzzle = Marker3D.new()
 	muzzle.position = Vector3(0.36, -0.01, 2.10)
 	upper.add_child(muzzle)
+	# The sled: a wedge deck, a raked blast shield at the bow and two lift pods glowing below.
+	_plate(_solid, Vector3(0, -0.06, 0.25), Vector3(2.5, 3.6, 0.26), DARK, Vector3(-PI / 2, 0, 0))
+	_plate(_solid, Vector3(0, 0.01, 0.25), Vector3(1.9, 3.0, 0.14), ARMOR, Vector3(-PI / 2, 0, 0))
+	_plate(_solid, Vector3(0, 0.50, 1.86), Vector3(2.3, 0.95, 0.16), EDGE, Vector3(0.42, 0, 0))
+	_plate(_glow, Vector3(0, 0.52, 1.955), Vector3(1.7, 0.07, 0.03), LIGHT, Vector3(0.42, 0, 0))
+	for side in [-1.0, 1.0]:
+		_plate(_solid, Vector3(side * 1.42, -0.12, 0.05), Vector3(0.62, 2.3, 0.42), ARMOR, Vector3(-PI / 2, 0, 0))
+		_plate(_glow, Vector3(side * 1.42, -0.345, 0.05), Vector3(0.40, 1.9, 0.03), LIGHT, Vector3(PI / 2, 0, 0))
+		_plate(_glow, Vector3(side * 1.74, -0.10, 0.05), Vector3(2.0, 0.05, 0.03), LIGHT, Vector3(0, side * PI / 2, 0))
 	_finish(_solid, self, false)
 	_finish(_glow, self, true)
 	_finish(_upper_solid, upper, false)
@@ -98,11 +112,12 @@ func _ready() -> void:
 	_upper_solid = null
 	_upper_glow = null
 
-func animate(alpha: float, time: float, since_fire: float) -> void:
+func animate(alpha: float, time: float, since_fire: float, charge := 0.0) -> void:
 	visible = alpha > 0.001
 	for material in _materials:
 		material.set_shader_parameter("visibility", alpha)
 		material.set_shader_parameter("phase", time)
+		material.set_shader_parameter("pulse", charge * (0.6 + 0.4 * sin(time * 30.0)))
 	var recoil := exp(-maxf(0, since_fire) * 12.0) if since_fire >= 0 and since_fire < 0.7 else 0.0
 	upper.rotation.x = -0.10 + sin(time * 1.8) * 0.015 - recoil * 0.12
 	upper.position.z = -recoil * 0.13
@@ -113,7 +128,10 @@ func _finish(surface: SurfaceTool, parent: Node3D, glow: bool) -> void:
 	mesh.mesh = surface.commit()
 	var material := ShaderMaterial.new()
 	material.shader = SHADER
-	material.set_shader_parameter("luminous", 0.65 if glow else 0.0)
+	material.set_shader_parameter("accent", LaneSmashLook.PLASMA)
+	material.set_shader_parameter("rim_color", LaneSmashLook.PLASMA.lerp(Color(1.0, 0.25, 0.3), 0.5))
+	material.set_shader_parameter("force_accent", 1.0 if glow else 0.0)
+	material.set_shader_parameter("force_glow", 1.0 if glow else 0.0)
 	mesh.material_override = material
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(mesh)
@@ -146,6 +164,7 @@ func _append(surface: SurfaceTool, mesh: Mesh, transform: Transform3D, color: Co
 	var normal_basis := transform.basis.inverse().transposed()
 	for index in indices:
 		surface.set_color(color)
+		surface.set_uv(Vector2.ZERO)  # the hull shader reads flags from UV; never leave it unset
 		surface.set_normal((normal_basis * normals[index]).normalized())
 		surface.add_vertex(transform * vertices[index])
 
@@ -169,8 +188,10 @@ func _quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3,
 	_triangle(surface, b, c, d, color)
 
 func _triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:
-	var normal := (b - a).cross(c - a).normalized()
+	# Front faces are clockwise in Godot, so the outward normal is (c - a) x (b - a).
+	var normal := (c - a).cross(b - a).normalized()
 	for vertex: Vector3 in [a, b, c]:
 		surface.set_normal(normal)
 		surface.set_color(color)
+		surface.set_uv(Vector2.ZERO)
 		surface.add_vertex(vertex)

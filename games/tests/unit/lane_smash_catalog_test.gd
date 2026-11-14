@@ -34,7 +34,7 @@ func test_random_tracks_reproduce_and_reject_invalid_ids() -> void:
 		assert_dict(NeonCourse.load_course(id)).is_empty()
 
 func test_cyclist_crank_tracks_actual_cadence() -> void:
-	var bike := LaneSmashCyclist.new()
+	var bike := LaneSmashBike.new()
 	add_child(bike)
 	bike.animate(60, 0.25)
 	assert_float(bike.crank_phase).is_equal_approx(PI / 2, 0.001)
