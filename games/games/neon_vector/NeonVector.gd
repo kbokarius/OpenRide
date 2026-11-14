@@ -29,7 +29,7 @@ func info() -> GameInfo:
 	var i := GameInfo.new()
 	i.id = "neon_vector"
 	i.title = "Lane Smash"
-	i.how_to = "Turn resistance to change lanes. Collect points, match cadence targets and build power in the marked lane. Avoid red bombs: each hit costs up to 100 points."
+	i.how_to = "Turn resistance to change lanes. Collect points, match cadence targets and build power in the marked lane. Avoid red bombs. During Incoming Fire, change pace to dodge the marked blast. Hits cost up to 100 points; evades earn 100."
 	i.supports = ["minutes"]
 	i.min_sec = 300
 	i.max_sec = 1800

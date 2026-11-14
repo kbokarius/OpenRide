@@ -8,7 +8,7 @@ const TICK := 10
 const CURRENT_TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35}
 const TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35,
 	"beginner": 20, "intermediate": 24, "advanced": 30, "expert": 34}
-const SCORING_VERSION := 4
+const SCORING_VERSION := 5
 const MAX_SPEED_MPS := 60.0 / 3.6
 const MAX_CADENCE := 140.0
 var distance_units := 0 # micrometres, integer integration independent of render rate
@@ -23,6 +23,7 @@ var tier := "challenging"
 var reference_power := 150.0
 var elapsed_ms := 0
 var score_units := 0
+var barrage := LaneSmashBarrage.new()
 var penalty_units := 0
 var hazard_states: Array[Dictionary] = []
 var _hazard_cursor := 0
@@ -72,6 +73,7 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	if not errors.is_empty():
 		return errors
 	course = data.duplicate(true)
+	barrage.configure(course)
 	tier = difficulty_id
 	reference_power = watts
 	elapsed_ms = 0
@@ -86,7 +88,7 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	for hazard: Dictionary in course.get("hazards", []):
 		hazard_states.append({"hit": false, "resolved": false, "penaltyUnits": 0})
 	base_units = 0
-	scoring_version = (SCORING_VERSION if int(course.courseVersion) >= 5 else 3) if distance_based else (1 if int(course.courseVersion) == 1 else 2)
+	scoring_version = (SCORING_VERSION if int(course.courseVersion) >= 6 else (4 if int(course.courseVersion) >= 5 else 3)) if distance_based else (1 if int(course.courseVersion) == 1 else 2)
 	max_units = NeonCourse.maximum(course, false, reference_power)
 	max_base_units = NeonCourse.maximum(course, true, reference_power)
 	if distance_based:
@@ -216,10 +218,12 @@ func _tick() -> void:
 		travel_step = floori(exact_travel)
 		_distance_remainder = exact_travel - travel_step
 		distance_units += travel_step
+	barrage.update(self)
 	_apply_hazards()
 	var position_ms := road_time_ms()
 	while _event_cursor < course.events.size() and int(course.events[_event_cursor].endMs) <= position_ms:
 		_event_cursor += 1
+	if barrage.active: return
 	if _event_cursor >= course.events.size():
 		return
 	var event: Dictionary = course.events[_event_cursor]
@@ -296,7 +300,7 @@ func result(status: String = "completed") -> Dictionary:
 	return {"status": "completed" if complete else ("ended" if status == "completed" else status),
 		"activeDurationMs": elapsed_ms, "distanceMm": distance_units / 1000, "scoreUnits": score_units, "maxScoreUnits": max_units,
 		"baseUnits": base_units, "maxBaseUnits": max_base_units, "stars": stars,
-		"earnedScoreUnits": score_units + penalty_units, "penaltyUnits": penalty_units,
+		"earnedScoreUnits": score_units + penalty_units, "penaltyUnits": penalty_units, "barrage": barrage.result(),
 		"events": event_states.duplicate(true), "courseId": course.get("courseId", ""),
 		"courseVersion": course.get("courseVersion", 1), "courseHash": NeonCourse.fingerprint(course),
 		"difficulty": tier, "referencePower": reference_power, "scoringVersion": scoring_version,
@@ -325,11 +329,15 @@ func _apply_hazards() -> void:
 		var hazard: Dictionary = hazards[_hazard_cursor]
 		var state: Dictionary = hazard_states[_hazard_cursor]
 		state.resolved = true
-		if selected_lane == int(hazard.laneIndex):
+		if not barrage.active and selected_lane == int(hazard.laneIndex):
 			state.hit = true
 			# Whole visible points only; score never drops below zero.
-			var loss := mini(int(hazard.penaltyPoints), score_units / UNIT) * UNIT
+			var loss := lose_points(int(hazard.penaltyPoints)) * UNIT
 			state.penaltyUnits = loss
-			penalty_units += loss
-			score_units -= loss
 		_hazard_cursor += 1
+
+func lose_points(points: int) -> int:
+	var loss := mini(points, score_units / UNIT)
+	penalty_units += loss * UNIT
+	score_units -= loss * UNIT
+	return loss

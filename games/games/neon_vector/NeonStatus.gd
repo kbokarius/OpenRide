@@ -7,6 +7,7 @@ var heading: Label
 var target: Label
 var detail: Label
 var meter: ProgressBar
+var barrage_gauge: LaneSmashBarrageGauge
 var _event_id := ""
 var _last_refresh_second := -1
 var _meter_target := 0.0
@@ -38,6 +39,9 @@ func _init() -> void:
 	meter.add_theme_stylebox_override("fill", fill)
 	add_child(meter)
 	meter.visible = false
+	barrage_gauge = LaneSmashBarrageGauge.new()
+	add_child(barrage_gauge)
+	barrage_gauge.visible = false
 
 
 func refresh() -> void:
@@ -48,6 +52,13 @@ func refresh() -> void:
 		heading.text = "RIDE INTERRUPTED"
 		target.text = {"sensor": "Waiting for fresh bike data", "pedalling": "Pedalling stopped", "stall": "Waiting for the display to recover"}.get(rules.pause_reason, "Ready when you are")
 		detail.text = "Course time and points are frozen"
+		return
+	barrage_gauge.visible = rules.barrage.active and not rules.barrage.current_shot().is_empty() and not bool(rules.barrage.current_shot().get("resolved", false))
+	if barrage_gauge.visible:
+		barrage_gauge.offset = rules.barrage.projected_offset(rules)
+		barrage_gauge.queue_redraw()
+	if rules.barrage.active:
+		_refresh_barrage()
 		return
 	var event := rules.current_event()
 	var event_id := str(event.get("eventId", ""))
@@ -109,3 +120,27 @@ func refresh() -> void:
 
 func _process(delta: float) -> void:
 	meter.value = lerpf(meter.value, _meter_target, 1.0 - exp(-delta * 9))
+
+func _refresh_barrage() -> void:
+	var shot := rules.barrage.current_shot()
+	var key := str(rules.barrage.section.barrageId) + str(shot.get("shotId", "")) + str(shot.get("resolved", false))
+	var second := rules.elapsed_ms / 1000
+	if key == _event_id and second == _last_refresh_second: return
+	_event_id = key
+	_last_refresh_second = second
+	meter.visible = false
+	heading.text = "INCOMING FIRE"
+	detail.visible = true
+	if shot.is_empty():
+		target.text = "LOWER RESISTANCE" if rules.selected_lane > 0 else "GET READY TO CHANGE PACE"
+		detail.text = "Use lane 1 for the attack"
+		return
+	if bool(shot.resolved):
+		target.text = "KEEP PEDALLING"
+		detail.text = "Next shot shortly" if rules.barrage._next_shot < 2 else "Returning to the track"
+		return
+	var left := ceili((int(shot.impactMs) - rules.elapsed_ms) / 1000.0)
+	var safe := absf(rules.barrage.projected_offset(rules)) > LaneSmashBarrage.HALF_LENGTH + LaneSmashBarrage.RIDER_RADIUS + 2.0
+	var prompt := "KEEP THIS PACE" if safe else ("PEDAL FASTER" if shot.direction == "faster" else "PEDAL SLOWER")
+	target.text = prompt if safe else "%s · %d rpm" % [prompt, shot.targetRpm]
+	detail.text = "%d s · %s" % [maxi(0, left), "Hold your pace to evade" if safe else ("Pass the red zone" if shot.direction == "faster" else "Stay behind the red zone")]

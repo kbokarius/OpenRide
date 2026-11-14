@@ -11,11 +11,19 @@ func _run() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="): out = arg.trim_prefix("--out=")
 	DirAccess.make_dir_recursive_absolute(out)
-	DisplayServer.window_set_size(Vector2i(1280, 720))
+	root.mode = Window.MODE_WINDOWED
+	root.size = Vector2i(1280, 720)
 	Engine.max_fps = 60
 	var rules := NeonRules.new()
 	assert(rules.configure(NeonCourse.load_course("ls_15_01"), "challenging", 150).is_empty())
 	var hazard: Dictionary = rules.course.hazards[0]
+	for candidate: Dictionary in rules.course.hazards:
+		var clear := true
+		for barrage: Dictionary in rules.course.barrages:
+			if candidate.hitMs > barrage.startMs - 5000 and candidate.hitMs < barrage.endMs + 5000: clear = false
+		if clear:
+			hazard = candidate
+			break
 	var begin := int(hazard.hitMs) - 4000
 	for t in range(0, begin, 50):
 		var lane := int(rules.current_event().get("laneIndex", 0))
@@ -26,7 +34,7 @@ func _run() -> void:
 	track.world_id = rules.course.theme
 	track.visual_lane = hazard.laneIndex
 	track._completion_cursor = rules._event_cursor
-	track.ghost_visible = true
+	track.ghost_visible = false
 	track.ghost_lane = rules.course.events[rules._event_cursor].laneIndex
 	root.add_child(track)
 	var hud: Node = load("res://framework/hud/Hud.gd").new()
@@ -49,6 +57,10 @@ func _run() -> void:
 		track.update_view(0)
 		await process_frame
 	track.space._warming = false
+	root.mode = Window.MODE_WINDOWED
+	root.size = Vector2i(1280, 720)
+	await process_frame
+	var prior_penalty := rules.penalty_units
 	var next_sample := begin
 	var saw_popup := false
 	var last_second := -1
@@ -59,8 +71,6 @@ func _run() -> void:
 			rules.push_sample({"t": next_sample, "seq": next_sample + 1, "cadence": 140, "power": 250, "resistance": NeonRules.band(lane, rules.tier).x + 3})
 			next_sample += 50
 		rules.advance(target)
-		track.ghost_distance = rules.road_distance() + 8
-		track.ghost_gap = 8
 		track.update_view(1.0 / 30)
 		status.refresh()
 		if rules.elapsed_ms / 1000 != last_second:
@@ -69,9 +79,9 @@ func _run() -> void:
 			hud.score.set_value(str(rules.score_units / NeonRules.UNIT))
 		if track._completion_kind == "bomb" and track._completion_text == "−100": saw_popup = true
 		await RenderingServer.frame_post_draw
-		root.get_texture().get_image().save_png(out.path_join("frame-%04d.png" % frame))
+		root.get_texture().get_image().save_jpg(out.path_join("frame-%04d.jpg" % frame), 0.93)
 	if not saw_popup: failures.append("Missing negative score popup")
-	if rules.penalty_units != 100 * NeonRules.UNIT: failures.append("Expected exactly one 100-point penalty")
+	if rules.penalty_units - prior_penalty != 100 * NeonRules.UNIT: failures.append("Expected exactly one 100-point penalty")
 	if not rules.pause_reason.is_empty(): failures.append("Unexpected pause")
 	print("BOMB DEMO penalty=", rules.penalty_units / NeonRules.UNIT, " popup=", saw_popup, " failures=", failures)
 	track.queue_free()

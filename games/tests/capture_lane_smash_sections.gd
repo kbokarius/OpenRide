@@ -1,5 +1,5 @@
 extends SceneTree
-## Two-minute real-renderer showcase: every target type, a scored bomb hit, and a real prior-ride trace.
+## Real-renderer showcase; --seconds=55 captures standard targets before the Incoming Fire chapter.
 var failures: Array[String] = []
 func _initialize() -> void:
 	root.set_flag(Window.FLAG_NO_FOCUS, true)
@@ -8,10 +8,13 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var out := "user://sections-review"
+	var seconds := 55
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="): out = arg.trim_prefix("--out=")
+		if arg.begins_with("--seconds="): seconds = int(arg.trim_prefix("--seconds="))
 	DirAccess.make_dir_recursive_absolute(out)
-	DisplayServer.window_set_size(Vector2i(1280, 720))
+	root.mode = Window.MODE_WINDOWED
+	root.size = Vector2i(1280, 720)
 	Engine.max_fps = 60
 	var rules := NeonRules.new()
 	assert(rules.configure(NeonCourse.load_course("ls_15_01"), "challenging", 150).is_empty())
@@ -55,11 +58,14 @@ func _run() -> void:
 		track.update_view(0)
 		await process_frame
 	track.space._warming = false
+	root.mode = Window.MODE_WINDOWED
+	root.size = Vector2i(1280, 720)
+	await process_frame
 	var next_sample := begin
 	var saw_popup := false
 	var last_second := -1
 	var moments := {}
-	for frame in 3600:
+	for frame in seconds * 30:
 		var target := begin + floori((frame + 1) * 1000.0 / 30 / 10) * 10
 		while next_sample < target:
 			_sample(rules, next_sample, true)
@@ -81,10 +87,8 @@ func _run() -> void:
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_jpg(out.path_join("frame-%04d.jpg" % frame), 0.93)
 		if frame % 900 == 0: print("SHOWCASE progress_s=", frame / 30)
-	if not saw_popup: failures.append("Missing negative score popup")
-	if rules.penalty_units != 100 * NeonRules.UNIT: failures.append("Expected exactly one 100-point penalty")
 	if not rules.pause_reason.is_empty(): failures.append("Unexpected pause")
-	for kind in ["cruise", "hold", "burst", "bomb"]:
+	for kind in ["cruise", "hold", "burst"]:
 		if not moments.has(kind): failures.append("Missing " + kind)
 	var report := FileAccess.open(out.path_join("moments.json"), FileAccess.WRITE)
 	report.store_string(JSON.stringify(moments, "  "))
@@ -103,7 +107,13 @@ func _sample(rules: NeonRules, t: int, live: bool) -> void:
 	var rpm := 132 if live else 136
 	if event.get("type", "") == "hold": rpm = int(event.cadenceMin) + (10 if live else 12)
 	if event.get("type", "") == "burst": rpm = roundi(125 + 15 * sin(t * 0.001)) if live else 135
-	if live:
+	if rules.barrage.active:
+		lane = 0
+		var shot := rules.barrage.current_shot()
+		if not shot.is_empty():
+			var blend := clampf((t - int(shot.lockMs) - 2000) / 4000.0, 0, 1)
+			rpm = roundi(lerpf(float(shot.baselineRpm), float(shot.targetRpm), blend))
+	if live and not rules.barrage.active:
 		var bomb: Dictionary = rules.course.hazards[0]
 		if rules.road_time_ms() >= int(bomb.hitMs) - 2200 and rules.road_time_ms() <= int(bomb.hitMs) + 1000:
 			lane = int(bomb.laneIndex)

@@ -27,6 +27,26 @@ func _run() -> void:
 	for value in timings: total += value
 	timings.sort()
 	print("PROFILE updates=", timings.size(), " mean_ms=", total / timings.size(), " p50_ms=", timings[timings.size()/2], " p95_ms=", timings[int(timings.size()*.95)], " max_ms=", timings[-1])
+	# Sample the new effect's complete active interval separately from ordinary cruising.
+	var attack := NeonRules.new()
+	attack.configure(NeonCourse.load_course("ls_15_01"), "challenging", 150)
+	var begin := int(attack.course.barrages[0].startMs)
+	for t in range(0, begin, 50):
+		attack.push_sample({"t": t, "seq": t + 1, "cadence": 80, "power": 150, "resistance": 33})
+		attack.advance(t + 50)
+	space.update_view(attack, 0, 0, -1, false, "")
+	timings.clear()
+	for t in range(begin, begin + 35000, 20):
+		attack.push_sample({"t": t, "seq": t + 1, "cadence": 80, "power": 150, "resistance": 33})
+		attack.advance(t + 20)
+		start = Time.get_ticks_usec()
+		space.update_view(attack, 0.02, 0, -1, false, "")
+		timings.append((Time.get_ticks_usec() - start) / 1000.0)
+		if t % 1000 == 0: await process_frame
+	total = 0
+	for value in timings: total += value
+	timings.sort()
+	print("PROFILE incoming_fire updates=", timings.size(), " mean_ms=", total / timings.size(), " p95_ms=", timings[int(timings.size()*.95)], " max_ms=", timings[-1], " effects=", space.barrage_view.effects_count)
 	space.queue_free()
 	await process_frame
 	quit()

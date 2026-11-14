@@ -40,7 +40,7 @@ func update_view(rules: NeonRules) -> void:
 		if int(hazard.hitMs) < now - 1500 or bool(rules.hazard_states[i].hit): continue
 		var anchor := int(hazard.hitMs) / 1000.0 * rules.road_speed_scale() + LaneSmashCyclist.FRONT_REACH + 0.72
 		if anchor > space.portal_distance - 20 or n >= CAPACITY: break
-		var alpha := smoothstep(-16.0, -2.0, anchor - space.distance) * (1.0 - smoothstep(space.portal_distance - 55, space.portal_distance - 20, anchor))
+		var alpha := rules.barrage.normal_alpha(rules.elapsed_ms) * smoothstep(-16.0, -2.0, anchor - space.distance) * (1.0 - smoothstep(space.portal_distance - 55, space.portal_distance - 20, anchor))
 		var pose: Transform3D = space.pose(anchor, (int(hazard.laneIndex) - 2.5) * NeonSpace.LANE_WIDTH, 0.74)
 		_shells.multimesh.set_instance_transform(n, pose)
 		_shells.multimesh.set_instance_color(n, Color(0.11, 0.025, 0.035, alpha))

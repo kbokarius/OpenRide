@@ -37,10 +37,10 @@ func update_view(rules: NeonRules, delta: float, rider_lane: float) -> void:
 		zone.material.set_shader_parameter("flow", flow)
 		zone.material.set_shader_parameter("road_end", space.portal_distance)
 		zone.material.set_shader_parameter("fade_start", space.distance + (space.portal_distance - space.distance) * 0.62)
-		zone.material.set_shader_parameter("visible_alpha", 1.0 - smoothstep(float(event.endMs), float(event.endMs) + 1400.0, now))
+		zone.material.set_shader_parameter("visible_alpha", (1.0 - smoothstep(float(event.endMs), float(event.endMs) + 1400.0, now)) * rules.barrage.normal_alpha(rules.elapsed_ms))
 		if event.type == "burst":
 			var gate: MultiMeshInstance3D = zone.gate
-			gate.visible = not bool(zone.hit) and float(zone.finish) < space.portal_distance - 22.0
+			gate.visible = not rules.barrage.active and not bool(zone.hit) and float(zone.finish) < space.portal_distance - 22.0
 			for ring in 5:
 				var size := (0.26 + float(zone.charge) * 0.74) * (1.0 - ring * 0.14)
 				var tr: Transform3D = space.pose(float(zone.finish), (int(event.laneIndex) - 2.5) * NeonSpace.LANE_WIDTH, 0.05)
@@ -49,7 +49,7 @@ func update_view(rules: NeonRules, delta: float, rider_lane: float) -> void:
 				var color := NeonSpace.VIOLET.lerp(Color("d2faff"), clampf(float(zone.intensity) * 0.25 + float(zone.charge) * 0.25, 0, 0.85))
 				color.a = (0.5 + float(zone.charge) * 0.5) * (0.75 + 0.25 * sin(flow * 3.0 - ring)) * (1.0 - smoothstep(space.portal_distance - 48.0, space.portal_distance - 22.0, float(zone.finish)))
 				gate.multimesh.set_instance_color(ring, color)
-			if not bool(zone.hit) and now >= int(event.endMs) and absf(rider_lane - int(event.laneIndex)) < 0.38:
+			if not rules.barrage.active and not bool(zone.hit) and now >= int(event.endMs) and absf(rider_lane - int(event.laneIndex)) < 0.38:
 				zone.hit = true
 				gate.visible = false
 				if int(state.scoreUnits) <= 0: space._explode(space.pose(float(zone.finish), (int(event.laneIndex) - 2.5) * NeonSpace.LANE_WIDTH, 1.2).origin, NeonSpace.VIOLET)

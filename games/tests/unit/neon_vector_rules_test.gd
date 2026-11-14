@@ -181,6 +181,7 @@ func test_bombs_leave_target_lane_clear_and_cannot_make_points_negative() -> voi
 func test_saved_v4_course_keeps_its_previous_scoring_identity() -> void:
 	var course := _bomb_course()
 	course.erase("hazards")
+	course.erase("barrages")
 	course.courseVersion = 4
 	course.generatorVersion = 2
 	var r := NeonRules.new()

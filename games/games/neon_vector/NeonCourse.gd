@@ -159,6 +159,10 @@ static func validate(course: Dictionary) -> Array[String]:
 		errors.append("Invalid bomb hazards")
 	if int(course.courseVersion) >= 5 and not course.has("hazards"):
 		errors.append("Missing bomb hazards")
+	if course.has("barrages") and (int(course.courseVersion) < 6 or not bool(course.get("distanceBased", false)) or not LaneSmashBarrage.valid(course.barrages, int(course.durationMs))):
+		errors.append("Invalid incoming-fire sections")
+	if int(course.courseVersion) >= 6 and not course.has("barrages"):
+		errors.append("Missing incoming-fire sections")
 	var previous: Dictionary = {}
 	var charge_end: int = -30000
 	for event: Dictionary in course.events:

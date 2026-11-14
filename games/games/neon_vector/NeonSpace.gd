@@ -45,6 +45,7 @@ var environment_id := ""
 var _structures: LaneSmashEnvironment
 var sections: LaneSmashSections
 var bombs: LaneSmashBombs
+var barrage_view: LaneSmashBarrageSpace
 var portal_distance := 250.0
 var _road_material: ShaderMaterial
 var _line_material: ShaderMaterial
@@ -139,6 +140,9 @@ func _ready() -> void:
 	bombs = LaneSmashBombs.new()
 	bombs.space = self
 	add_child(bombs)
+	barrage_view = LaneSmashBarrageSpace.new()
+	barrage_view.space = self
+	add_child(barrage_view)
 	set_world("arctic")
 	# Exercise every material during the host's three-second intro. Mobile GL can
 	# otherwise compile the first ghost/arrow/crystal shader during scored gameplay.
@@ -226,6 +230,7 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 	_events(rules, lane)
 	sections.update_view(rules, delta, lane)
 	bombs.update_view(rules)
+	barrage_view.update_view(rules, delta)
 	_animate_impacts(delta)
 
 
@@ -387,7 +392,7 @@ func _events(rules: NeonRules, visual_lane: float) -> void:
 				if anchor > portal_distance - 18.0: break
 				var front_extent := 0.92 if bucket == "hold" else back_extent
 				var contact := anchor - wheel_contact_reach(bucket) - back_extent
-				if not _collected.has(key) and _previous_distance >= 0 and now - _previous_ms <= 250 and _previous_distance + 0.38 <= anchor + front_extent and distance >= contact and absf(visual_lane - lane) < 0.38:
+				if not rules.barrage.active and not _collected.has(key) and _previous_distance >= 0 and now - _previous_ms <= 250 and _previous_distance + 0.38 <= anchor + front_extent and distance >= contact and absf(visual_lane - lane) < 0.38:
 					_collected[key] = at
 					_explode(pose(anchor, lateral, 0.65).origin, color)
 				if _collected.has(key):
@@ -398,7 +403,7 @@ func _events(rules: NeonRules, visual_lane: float) -> void:
 					break
 				var fade := smoothstep(-16.0, -2.0, ahead) * (1.0 - smoothstep(portal_distance - 50.0, portal_distance - 18.0, anchor))
 				var tint := color
-				tint.a = fade * (0.18 if muted else 1.0)
+				tint.a = fade * (0.18 if muted else 1.0) * rules.barrage.normal_alpha(rules.elapsed_ms)
 				var n: int = counts[bucket]
 				var size := Vector3(2.25, 0.16, 0.32) if bucket == "cruise" else Vector3(1.15, 1.5, 1.15)
 				var transform := pose(anchor, lateral, marker_height(bucket), size)

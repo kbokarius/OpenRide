@@ -34,12 +34,25 @@ func _run() -> void:
 			var lanes := {}
 			var last_lane := -1
 			var lane_since := 0
+			var barrage_rpm := 80.0
 			for time in range(0, int(course.durationMs), 50):
 				var event := rules.current_event()
 				var lane := int(event.get("laneIndex", 0))
 				var kind := str(event.get("type", "cruise"))
 				var rpm := (float(event.cadenceMin) + float(event.cadenceMax)) / 2 if kind == "hold" else (140.0 if kind == "burst" else 95.0)
-				if lane != last_lane:
+				if rules.barrage.active:
+					lane = 0
+					var shot := rules.barrage.current_shot()
+					if not shot.is_empty():
+						var blend := clampf((time - int(shot.lockMs) - 2000) / 4000.0, 0, 1)
+						barrage_rpm = lerpf(float(shot.baselineRpm), float(shot.targetRpm), blend)
+					rpm = barrage_rpm
+				else: barrage_rpm = rpm
+				# During Incoming Fire, pace is the target; reset the ordinary lane timer.
+				if rules.barrage.active:
+					last_lane = -1
+					lane_since = time
+				elif lane != last_lane:
 					_check(time - lane_since <= 60000, id + " lane unchanged over 60 seconds")
 					lane_since = time
 					last_lane = lane
@@ -49,6 +62,7 @@ func _run() -> void:
 				lanes[lane] = true
 			var result := rules.result()
 			_check(result.status == "completed" and rules.pause_reason.is_empty(), id + " incomplete/stalled")
+			_check(result.barrage.hits == 0 and result.barrage.dodges == course.barrages.size() * 2, id + " incoming fire response")
 			_check(result.stars == 3 and result.scoreUnits > 0, id + " target-following score/stars")
 			_check(seen.size() == 3 and lanes.size() == 6, id + " missing section type or lane")
 			_check(rules.ghost_trace.size() == int(course.durationMs) / 100, id + " ghost coverage")

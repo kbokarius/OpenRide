@@ -122,21 +122,24 @@ func test_ghost_rows_cannot_mix_legacy_and_distance_formats() -> void:
 func test_history_omits_heavy_payloads_but_replay_and_best_preserve_them() -> void:
 	var record := _record()
 	record.result.events = [{"eventId": "sample", "scoreUnits": 100}]
+	record.result.barrage = {"hits": 1, "dodges": 1, "shots": [{"shotId": "test"}]}
 	_finish(record)
 	var history := NeonRecords.local_request({"action": "state"}, "1")
 	assert_bool(history.history[0].has("course")).is_false()
 	assert_bool(history.history[0].has("ghost")).is_false()
 	assert_bool(history.history[0].result.has("events")).is_false()
+	assert_bool(history.history[0].result.has("barrage")).is_false()
 	var best := NeonRecords.local_request({"action": "best", "key": record.comparisonKey}, "1")
 	assert_array(best.record.ghost).is_equal(JSON.parse_string(JSON.stringify(record.ghost)))
 	assert_array(best.record.result.events).is_equal(JSON.parse_string(JSON.stringify(record.result.events)))
+	assert_dict(best.record.result.barrage).is_equal(JSON.parse_string(JSON.stringify(record.result.barrage)))
 	var replay := NeonRecords.local_request({"action": "get", "attemptId": record.attemptId}, "1")
 	assert_dict(replay.record.course).is_equal(JSON.parse_string(JSON.stringify(record.course)))
 
 
 func test_bomb_checkpoints_allow_net_losses_but_not_earned_or_penalty_rollback() -> void:
 	var record := _record()
-	record.result.merge({"scoringVersion": 4, "earnedScoreUnits": 0, "penaltyUnits": 0})
+	record.result.merge({"scoringVersion": 5, "earnedScoreUnits": 0, "penaltyUnits": 0})
 	assert_bool(_save(record).ok).is_true()
 	record.result.merge({"activeDurationMs": 1000, "scoreUnits": 200, "earnedScoreUnits": 200}, true)
 	assert_bool(_save(record).ok).is_true()

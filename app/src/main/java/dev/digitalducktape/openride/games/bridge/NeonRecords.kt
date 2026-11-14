@@ -127,7 +127,7 @@ class NeonRecords(
             require(status in setOf("pending", "completed", "ended", "interrupted"))
             require(status != "completed" || elapsed == duration)
             val scoringVersion = result["scoringVersion"]?.jsonPrimitive?.int ?: 1
-            require(scoringVersion in 1..4)
+            require(scoringVersion in 1..5)
             val earned = if (scoringVersion >= 4) result.getValue("earnedScoreUnits").jsonPrimitive.long else score
             val penalty = if (scoringVersion >= 4) result.getValue("penaltyUnits").jsonPrimitive.long else 0L
             require(earned in 0..10_000_000_000_000L && penalty in 0..earned && earned - penalty == score)
@@ -162,7 +162,7 @@ class NeonRecords(
                 put("updatedMs", JsonPrimitive(row.updatedMs))
                 put("result", JsonObject(data.getValue("result").jsonObject.toMutableMap().apply {
                     put("status", JsonPrimitive(row.status))
-                    if (!details) remove("events")
+                    if (!details) { remove("events"); remove("barrage") }
                     if (row.status != "completed") put("stars", JsonPrimitive(0))
                 }))
                 if (!details) { remove("ghost"); remove("course") }

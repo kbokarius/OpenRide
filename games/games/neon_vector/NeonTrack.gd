@@ -112,7 +112,7 @@ func _draw() -> void:
 		if not space.camera.is_position_behind(position_3d):
 			var screen := space.camera.unproject_position(position_3d) * Vector2(1920, 1080) / Vector2(view.size)
 			var alpha := smoothstep(0.0, 0.08, _completion_age) * (1.0 - smoothstep(0.65, 1.4, _completion_age))
-			var color := LaneSmashBombs.COLOR if _completion_kind == "bomb" else (GOLD if _completion_kind == "cruise" else (HOLD if _completion_kind == "hold" else CHARGE))
+			var color := LaneSmashBombs.COLOR if _completion_kind == "bomb" else (HOLD if _completion_kind == "evade" else (GOLD if _completion_kind == "cruise" else (HOLD if _completion_kind == "hold" else CHARGE)))
 			var width := _font.get_string_size(_completion_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 46).x
 			var at := screen - Vector2(width / 2, 0)
 			draw_string_outline(_font, at, _completion_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 46, 7, Color(0.015, 0.025, 0.05, alpha))
@@ -180,7 +180,7 @@ func _update_completions(delta: float) -> void:
 		var event: Dictionary = rules.course.events[_completion_cursor]
 		var points := int(rules.event_states[_completion_cursor].scoreUnits) / NeonRules.UNIT
 		_completion_cursor += 1
-		if points <= 0: continue
+		if points <= 0 or rules.barrage.active: continue
 		_completion_kind = str(event.type)
 		_completion_text = "+%d" % points
 		_completion_age = 0.0
@@ -195,3 +195,11 @@ func _update_completions(delta: float) -> void:
 		_completion_age = 0.0
 		_completion_anchor = hit.anchor
 		_completion_up = hit.up
+
+	var strike := space.barrage_view.take_feedback()
+	if not strike.is_empty():
+		_completion_kind = "bomb" if bool(strike.hit) else "evade"
+		_completion_text = ("−%d" % absi(int(strike.points)) if int(strike.points) < 0 else "BOMB HIT") if bool(strike.hit) else "EVADED +%d" % int(strike.points)
+		_completion_age = 0.0
+		_completion_anchor = strike.anchor
+		_completion_up = strike.up
