@@ -13,7 +13,16 @@ extends SceneTree
 ##   [display]
 ##   window/size/window_width_override=1920
 ##   window/size/window_height_override=1080
-## Then encode, e.g. `ffmpeg -i demo.avi -c:v libx264 -crf 19 -pix_fmt yuv420p -c:a aac -b:a 192k demo.mp4`.
+## Then encode, delaying the soundtrack by one frame (1600 samples at 48 kHz), e.g.
+##   ffmpeg -i demo.avi -filter_complex "[0:a]adelay=1600S:all=1[a]" -map 0:v -map "[a]" \
+##       -c:v libx264 -crf 19 -pix_fmt yuv420p -c:a aac -b:a 192k demo.mp4
+## Why the delay: Movie Maker mixes a frame's audio after that frame's scripts have run, so
+## the picture can only show a sound on the next frame. `probe_lane_smash_sync.gd` measures
+## it: a kick reaches the picture 5-65 ms after it is heard (median 35 ms at 30 fps); with the
+## one-frame delay it is -28 to +32 ms (median 2 ms). The game itself has no such offset.
+##
+## Sound and picture fade together at every cut (`_cut`, `_fade`): a quick fade out, a beat
+## of black and silence while the ride skips ahead, and a quick fade back in.
 ## Without --write-movie it simply plays in a window in real time.
 ##
 ## Between scenes the ride is fast-forwarded through the rules alone (no rendering), so the
@@ -44,6 +53,20 @@ var _duration := 900000
 var _last_second := -1
 var _held_rpm := 78.0
 var _free_rpm := 90.0  ## the cadence the "free" policy rides at outside cadence sections
+var _music_bus := -1
+var _sfx_bus := -1
+var _sfx_base_db := 0.0
+var _gain := 1.0
+var ticker: Ticker
+
+
+## Steps the showcase from inside the frame's processing, after the autoloads. The game reads
+## the jukebox's analysis in the same frame it is made; `SceneTree.process_frame` fires before
+## any node has processed, so stepping from it showed every musical response one frame late.
+class Ticker extends Node:
+	signal ticked
+	func _process(_delta: float) -> void:
+		ticked.emit()
 var _options_path := ""
 var notes: Array[String] = []
 
@@ -69,6 +92,9 @@ func _run() -> void:
 	root.size = Vector2i(1920, 1080)
 	Engine.max_fps = int(FPS)
 	jukebox = root.get_node_or_null("Jukebox")
+	ticker = Ticker.new()
+	root.add_child(ticker)
+	_music_gain(0.0)
 	_build_overlay()
 	await _selector()
 	await _ride()
@@ -141,12 +167,30 @@ func _fade(to: float, frames := 9, tick := Callable()) -> void:
 		var cards := clampf(shade.color.a * 2.0 - 1.0, 0.0, 1.0)
 		card_title.modulate.a = cards
 		card_line.modulate.a = cards
+		# The soundtrack dips with the picture: a quick fade out and back in at every cut.
+		_music_gain(1.0 - shade.color.a)
 		if tick.is_valid(): tick.call()
-		await process_frame
+		await ticker.ticked
 
 
 func _wait(seconds: float) -> void:
-	for i in int(seconds * FPS): await process_frame
+	for i in int(seconds * FPS): await ticker.ticked
+
+
+## The recording's sound level, 0..1 (squared, so the fade sounds even): the soundtrack, and
+## the effects on top of whatever level the game gave them, so a cut never chops the engine
+## or a gun mid-note. The jukebox's analyser sits before the music bus's fader, so the
+## picture keeps following the music while it is faded down.
+func _music_gain(gain: float) -> void:
+	if _music_bus < 0: _music_bus = AudioServer.get_bus_index("LaneSmashMusic")
+	if _sfx_bus < 0: _sfx_bus = AudioServer.get_bus_index(str(root.get_node("AudioDirector").SFX_BUS))
+	var level := clampf(gain, 0.0, 1.0)
+	var db := linear_to_db(maxf(level * level, 0.00001))
+	if _music_bus >= 0: AudioServer.set_bus_volume_db(_music_bus, db)
+	if _sfx_bus >= 0:
+		if _gain >= 1.0: _sfx_base_db = AudioServer.get_bus_volume_db(_sfx_bus)
+		AudioServer.set_bus_volume_db(_sfx_bus, _sfx_base_db + db)
+	_gain = level
 
 
 # --- Part 1: the real selector and settings ---
@@ -255,7 +299,7 @@ func _ride() -> void:
 	_build_ride(COURSE, true)
 	for i in 70:
 		track.update_view(0)
-		await process_frame
+		await ticker.ticked
 	track.space._warming = false
 	sounds.active = true
 	_caption("COLLECT", "Turn the resistance knob to the marked lane and ride over the gold bars")
@@ -347,7 +391,15 @@ func _palettes() -> void:
 func _closing() -> void:
 	_caption("", "")
 	_card("LANE SMASH", "A faster road · pulses on the beat · colour from the music · tracks tuned as a workout")
-	await _wait(3.2)
+	# The music comes back under the closing card and fades out with it.
+	for i in 12:
+		_music_gain((i + 1) / 12.0)
+		await ticker.ticked
+	await _wait(2.4)
+	for i in 27:
+		_music_gain(1.0 - (i + 1) / 27.0)
+		await ticker.ticked
+	await _wait(0.2)
 
 
 # --- Ride plumbing ---
@@ -455,12 +507,16 @@ func _skip(until: Callable, policy: Callable) -> void:
 	_resync()
 
 
-## A cut: fade out, skip ahead, fade back in on the new moment.
+## A cut: picture and sound fade out together, the ride skips ahead under a beat of black
+## and silence, and both fade back in on the new moment.
 func _cut(until: Callable, policy: Callable) -> void:
-	await _fade(1.0, 7, _tick)
+	await _fade(1.0, 9, _tick)
 	_skip(until, policy)
+	for i in 4:
+		_tick()
+		await ticker.ticked
 	sounds.active = true
-	await _fade(0.0, 7, _tick)
+	await _fade(0.0, 9, _tick)
 
 
 ## After a skip, the presentation forgets everything that happened off screen.
@@ -503,7 +559,7 @@ func _play_until(until: Callable, max_seconds: float, policy: Callable) -> void:
 		while _next_sample < target: _push(policy)
 		rules.advance(target)
 		_frame(1.0 / FPS)
-		await process_frame
+		await ticker.ticked
 
 
 func _frame(delta: float) -> void:
