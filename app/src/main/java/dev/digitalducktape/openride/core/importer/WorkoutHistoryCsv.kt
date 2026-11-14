@@ -107,7 +107,7 @@ object WorkoutHistoryCsv {
      *   lacks the date, length or discipline column).
      */
     fun parse(text: String, fallbackZone: ZoneId = ZoneId.systemDefault()): WorkoutHistory {
-        val rows = parseRows(text.removePrefix("﻿")).filter { row -> row.any { it.isNotBlank() } }
+        val rows = parseRows(text.removePrefix("\uFEFF")).filter { row -> row.any { it.isNotBlank() } }
         val header = rows.firstOrNull()?.map { it.trim().lowercase(Locale.US) }.orEmpty()
         require(REQUIRED.all { it in header }) { "not a workout-history CSV" }
         val index = header.withIndex().associate { (i, name) -> name to i }
