@@ -139,7 +139,7 @@ func test_history_omits_heavy_payloads_but_replay_and_best_preserve_them() -> vo
 
 func test_bomb_checkpoints_allow_net_losses_but_not_earned_or_penalty_rollback() -> void:
 	var record := _record()
-	record.result.merge({"scoringVersion": 5, "earnedScoreUnits": 0, "penaltyUnits": 0})
+	record.result.merge({"scoringVersion": 6, "earnedScoreUnits": 0, "penaltyUnits": 0})
 	assert_bool(_save(record).ok).is_true()
 	record.result.merge({"activeDurationMs": 1000, "scoreUnits": 200, "earnedScoreUnits": 200}, true)
 	assert_bool(_save(record).ok).is_true()

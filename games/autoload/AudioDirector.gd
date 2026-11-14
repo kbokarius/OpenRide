@@ -25,6 +25,8 @@ extends Node
 ## the boundary and the stem levels carried over (docs/GAMES.md, "Tempo changes on a phrase
 ## boundary").
 
+signal user_audio_changed
+
 signal sound_played(sound: String, bus: String)  ## an effect or cue started
 signal music_started(key: String)  ## a rendered music request started playing
 ## A pending tempo change swapped in, `since_boundary` seconds after the phrase boundary (the
@@ -60,6 +62,9 @@ const CUE_SEGMENT_END := "segment_end"  ## a segment's result is in
 const CUE_PAUSE := "pause"
 const CUE_RESUME := "resume"
 const CUE_SUMMARY := "summary"  ## the session summary appears
+
+var user_music_enabled := true
+var user_sfx_enabled := true
 
 var music_enabled := true  ## `segment.audio.music` (false only from an older Kotlin, or a test)
 var rider_music := false  ## the rider's own music app has a track: game music stays off
@@ -119,6 +124,7 @@ func _ready() -> void:
 		_sfx_players.append(_player(SFX_BUS))
 	for i in CUE_VOICES:
 		_cue_players.append(_player(CUES_BUS))
+	GameOptions.apply_audio()
 	_apply_bus_volumes()
 	if ResourceLoader.exists(HOOK_SCRIPT):
 		var hook_script: Script = load(HOOK_SCRIPT)
@@ -159,6 +165,7 @@ func has_music_generator() -> bool:
 
 ## Plays a named effect on the SFX bus. Returns false (silence) when nothing provides it.
 func play_sfx(sound: String, volume_db := 0.0, pitch := 1.0) -> bool:
+	if not user_sfx_enabled: return false
 	var player := _sfx_players[_next_sfx]
 	_next_sfx = (_next_sfx + 1) % _sfx_players.size()
 	return _play(player, sound, volume_db, pitch)
@@ -166,6 +173,7 @@ func play_sfx(sound: String, volume_db := 0.0, pitch := 1.0) -> bool:
 
 ## Plays a named cue on the Cues bus and ducks the music under it.
 func play_cue(sound: String) -> bool:
+	if not user_sfx_enabled: return false
 	var player := _cue_players[_next_cue]
 	_next_cue = (_next_cue + 1) % _cue_players.size()
 	var played := _play(player, sound, 0.0, 1.0)
@@ -359,7 +367,7 @@ func _process(delta: float) -> void:
 
 
 func _music_on() -> bool:
-	return music_enabled and not rider_music
+	return music_enabled and user_music_enabled and not rider_music
 
 
 func _want(key: String) -> void:
@@ -661,3 +669,18 @@ func _player(bus: String) -> AudioStreamPlayer:
 
 static func _gain_db(linear: float) -> float:
 	return SILENT_DB if linear <= 0.0001 else maxf(SILENT_DB, linear_to_db(linear))
+
+
+## Persistent Lane Smash switches are independent of host segment-volume refreshes.
+func set_user_audio(music_on: bool, sfx_on: bool) -> void:
+	var changed := music_on != user_music_enabled or sfx_on != user_sfx_enabled
+	user_music_enabled = music_on
+	user_sfx_enabled = sfx_on
+	AudioServer.set_bus_mute(AudioServer.get_bus_index(MUSIC_BUS), not music_on)
+	for bus in [SFX_BUS, CUES_BUS]: AudioServer.set_bus_mute(AudioServer.get_bus_index(bus), not sfx_on)
+	if not sfx_on:
+		for player in _sfx_players + _cue_players: player.stop()
+		_cue_left = 0.0
+	if not music_on: stop_music(0.15)
+	elif changed and _music_on() and not _requested_key.is_empty(): _want(_requested_key)
+	if changed: user_audio_changed.emit()

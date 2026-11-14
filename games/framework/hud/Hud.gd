@@ -71,6 +71,8 @@ var _message_left := 0.0  ## seconds until a timed message hides (`show_message`
 var _paused := false
 var text_interval := 0.0
 var _score_refresh_left := 0.0
+var _roll_score := false
+var _score_rollup := PointRollup.new()
 var _message_pop := false  ## a skin's `message_font`: the message pops in
 ## What `set_skin` overrode, to put back: [Control, kind, name, had_override, old value].
 var _skin_saved: Array = []
@@ -235,6 +237,15 @@ func set_skin(skin: Dictionary) -> void:
 	text_interval = float(skin.get("text_interval", 0.0))
 	metrics.text_interval = text_interval
 	_score_refresh_left = 0.0
+	_roll_score = bool(skin.get("score_rollup", false))
+	_score_rollup.reset(Effort.whole_points(Effort.score))
+	if _roll_score:
+		# Keep the caption and panel still across digit boundaries. Seven digits fit even
+		# an unusually powerful ride; tabular figures stop individual digits shifting.
+		_skin_set(score, "property", "tight_from", 0)
+		_skin_set(score._caption, "property", "custom_minimum_size", Vector2(92, 0))
+		_skin_set(score._value, "property", "custom_minimum_size", Vector2(260, 0))
+		_skin_set(score._value, "property", "clip_text", true)
 	if skin.has("message_font"):
 		_skin_set(_message, "font", "font", skin.message_font)
 		_message_pop = true
@@ -292,6 +303,11 @@ func set_skin(skin: Dictionary) -> void:
 			for state in ["normal", "hover", "disabled"]:
 				_skin_set(b, "stylebox", state, style)
 			_skin_set(b, "stylebox", "pressed", skin.get("button_pressed", style))
+	if _roll_score:
+		var tabular := FontVariation.new()
+		tabular.base_font = score._value.get_theme_font("font")
+		tabular.opentype_features = {"tnum": 1}
+		_skin_set(score._value, "font", "font", tabular)
 
 
 ## Moves the camera strip's row while a skin is on, without re-skinning (a re-skin re-lays out
@@ -306,6 +322,8 @@ func set_status_area(width: float, reserve_bottom: float) -> void:
 
 func clear_skin() -> void:
 	text_interval = 0.0
+	_roll_score = false
+	_score_rollup.reset()
 	metrics.text_interval = 0.0
 	_squeeze_clock(false)
 	_message_pop = false
@@ -427,9 +445,12 @@ func _process(delta: float) -> void:
 		if _message_left <= 0.0:
 			hide_message()
 	_score_refresh_left -= delta
-	if _score_refresh_left > 0: return
-	_score_refresh_left = text_interval
-	var shown := str(Effort.whole_points(Effort.score))
+	if _score_refresh_left <= 0:
+		_score_refresh_left = text_interval
+		var points := Effort.whole_points(Effort.score)
+		if _roll_score: _score_rollup.aim(points)
+		else: _score_rollup.reset(points)
+	var shown := str(_score_rollup.advance(delta))
 	if shown != _score_text:
 		_score_text = shown
 		score.set_value(shown)

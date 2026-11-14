@@ -9,6 +9,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var out := "user://sections-review"
 	var seconds := 55
+	var movie := "--movie" in OS.get_cmdline_user_args()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="): out = arg.trim_prefix("--out=")
 		if arg.begins_with("--seconds="): seconds = int(arg.trim_prefix("--seconds="))
@@ -40,19 +41,32 @@ func _run() -> void:
 	root.add_child(track)
 	var hud: Node = load("res://framework/hud/Hud.gd").new()
 	root.add_child(hud)
-	var info: RefCounted = load("res://framework/GameInfo.gd").new()
-	info.id = "neon_vector"
-	info.title = "Lane Smash"
+	var info: RefCounted = load("res://games/Registry.gd").info("neon_vector")
 	hud.setup(info, {"duration_sec": 900, "effort": false})
 	hud.set_process(false)
 	hud.timer.set_process(false)
 	hud.metrics.set_process(false)
 	var skin: Dictionary = load("res://framework/ui/GameTheme.gd").new(Color("79b8d5"), Color("0b1019"), 0.0, false, true).hud_skin()
 	skin.manual_pause = false
+	skin.score_rollup = true
+	skin.text_interval = 1.0
 	hud.set_skin(skin)
+	var audio_controls: Node = load("res://games/neon_vector/LaneSmashAudioControls.gd").new()
+	audio_controls.info = info
+	var buttons: Node = hud.end_button.get_parent()
+	buttons.add_child(audio_controls)
+	buttons.move_child(audio_controls, hud.end_button.get_index())
 	var status: Node = load("res://games/neon_vector/NeonStatus.gd").new()
 	status.rules = rules
 	hud.add_widget(status)
+	status.set_process(false)
+	var sounds: Node = load("res://games/neon_vector/LaneSmashSound.gd").new()
+	sounds.track = track
+	track.add_child(sounds)
+	sounds.active = true
+	replay._apply_music()
+	var sound_counts := {}
+	root.get_node("AudioDirector").sound_played.connect(func(key: String, _bus: String): sound_counts[key] = int(sound_counts.get(key, 0)) + 1)
 
 	for i in 60:
 		track.update_view(0)
@@ -74,18 +88,21 @@ func _run() -> void:
 		replay._update_ghost()
 		track.update_view(1.0 / 30)
 		status.refresh()
+		status._process(1.0 / 30)
+		sounds.update_audio()
+		root.get_node("Effort")._meter.score = float(rules.score_units) / NeonRules.UNIT
+		hud._process(1.0 / 30)
 		if rules.elapsed_ms / 1000 != last_second:
 			last_second = rules.elapsed_ms / 1000
 			hud.timer.set_value("%d:%02d" % [(900 - last_second) / 60, (900 - last_second) % 60])
-			hud.score.set_value(str(rules.score_units / NeonRules.UNIT))
 			for pair in [[hud.metrics._rpm, "cadence"], [hud.metrics._watts, "power"], [hud.metrics._resistance, "resistance"]]:
 				pair[0].text = str(roundi(float(rules.latest.get(pair[1], 0))))
 		for kind in ["cruise", "hold", "burst"]:
 			if not moments.has(kind) and int(track.completed_sections[kind]) > 0: moments[kind] = frame / 30.0
 		if track._completion_kind == "bomb" and not moments.has("bomb"): moments.bomb = frame / 30.0
-		if track._completion_kind == "bomb" and track._completion_text == "−100": saw_popup = true
+		if track._completion_kind == "bomb" and track._completion_text == "−%d" % (100 * rules.score_scale): saw_popup = true
 		await RenderingServer.frame_post_draw
-		root.get_texture().get_image().save_jpg(out.path_join("frame-%04d.jpg" % frame), 0.93)
+		if not movie: root.get_texture().get_image().save_jpg(out.path_join("frame-%04d.jpg" % frame), 0.93)
 		if frame % 900 == 0: print("SHOWCASE progress_s=", frame / 30)
 	if not rules.pause_reason.is_empty(): failures.append("Unexpected pause")
 	for kind in ["cruise", "hold", "burst"]:
@@ -94,9 +111,11 @@ func _run() -> void:
 	report.store_string(JSON.stringify(moments, "  "))
 	report.close()
 	print("SHOWCASE penalty=", rules.penalty_units / NeonRules.UNIT, " moments=", moments, " failures=", failures)
+	print("SHOWCASE sounds=", sound_counts)
 	replay.free()
 	track.queue_free()
 	hud.queue_free()
+	DirAccess.remove_absolute(options.path)
 	await process_frame
 	await process_frame
 	quit(0 if failures.is_empty() else 1)

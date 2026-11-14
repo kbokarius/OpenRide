@@ -5,12 +5,17 @@ extends VBoxContainer
 var rules: NeonRules
 var heading: Label
 var target: Label
+var power_row: HBoxContainer
+var power_value: Label
 var detail: Label
 var meter: ProgressBar
 var barrage_gauge: LaneSmashBarrageGauge
 var _event_id := ""
 var _last_refresh_second := -1
 var _meter_target := 0.0
+var _power_points := PointRollup.new()
+var _power_event_id := ""
+var _show_power_points := false
 var _look := GameTheme.new(Color("79b8d5"), Color("0b1019"), 0.0, false, true)
 
 
@@ -20,10 +25,28 @@ func _init() -> void:
 	add_theme_constant_override("separation", 4)
 	heading = _look.label("TARGET LANE", 34, GameTheme.MUTED)
 	target = _look.label("Turn resistance to steer", 44)
+	var tabular := FontVariation.new()
+	tabular.base_font = target.get_theme_font("font")
+	tabular.opentype_features = {"tnum": 1}
+	target.add_theme_font_override("font", tabular)
 	detail = _look.label("Follow the marked lane.", 34, GameTheme.MUTED)
 	for label in [heading, target, detail]:
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		add_child(label)
+	power_row = HBoxContainer.new()
+	power_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	power_row.add_theme_constant_override("separation", 12)
+	power_row.add_child(_look.label("PEDAL FASTER ·", 44))
+	power_value = _look.label("0", 44)
+	power_value.add_theme_font_override("font", tabular)
+	power_value.custom_minimum_size.x = 155
+	power_value.clip_text = true
+	power_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	power_row.add_child(power_value)
+	power_row.add_child(_look.label("points", 44))
+	add_child(power_row)
+	move_child(power_row, target.get_index() + 1)
+	power_row.hide()
 	meter = ProgressBar.new()
 	meter.custom_minimum_size = Vector2(620, 12)
 	meter.max_value = 200
@@ -48,6 +71,10 @@ func refresh() -> void:
 	if rules == null:
 		return
 	if not rules.pause_reason.is_empty():
+		_last_refresh_second = -1
+		_show_power_points = false
+		target.show()
+		power_row.hide()
 		detail.visible = true
 		heading.text = "RIDE INTERRUPTED"
 		target.text = {"sensor": "Waiting for fresh bike data", "pedalling": "Pedalling stopped", "stall": "Waiting for the display to recover"}.get(rules.pause_reason, "Ready when you are")
@@ -58,12 +85,18 @@ func refresh() -> void:
 		barrage_gauge.offset = rules.barrage.projected_offset(rules)
 		barrage_gauge.queue_redraw()
 	if rules.barrage.active:
+		_show_power_points = false
+		target.show()
+		power_row.hide()
 		_refresh_barrage()
 		return
 	var event := rules.current_event()
 	var event_id := str(event.get("eventId", ""))
 	var second := rules.elapsed_ms / 1000
 	if second == _last_refresh_second and event_id == _event_id: return
+	_show_power_points = false
+	target.show()
+	power_row.hide()
 	_event_id = event_id
 	_last_refresh_second = second
 	meter.visible = false
@@ -100,7 +133,14 @@ func refresh() -> void:
 		target.text = "%d–%d rpm · %s" % [event.cadenceMin, event.cadenceMax, "PEDAL FASTER" if rpm < event.cadenceMin else ("PEDAL SLOWER" if rpm > event.cadenceMax else "KEEP THIS SPEED")]
 	elif active and event.type == "burst":
 		var joules := int(state.energyMilliJoules) / 1000.0
-		target.text = "PEDAL FASTER · %d points" % (int(state.scoreUnits) / NeonRules.UNIT)
+		if _power_event_id != event_id:
+			_power_event_id = event_id
+			_power_points.reset()
+		_power_points.aim(int(state.scoreUnits) / NeonRules.UNIT)
+		_show_power_points = true
+		target.hide()
+		power_row.show()
+		_update_power_text(_power_points.advance(0))
 		meter.visible = true
 		meter.max_value = 100
 		_meter_target = minf(100, joules / (rules.reference_power * (int(event.endMs) - int(event.startMs)) / 1000.0) * 100)
@@ -120,6 +160,22 @@ func refresh() -> void:
 
 func _process(delta: float) -> void:
 	meter.value = lerpf(meter.value, _meter_target, 1.0 - exp(-delta * 9))
+	if _show_power_points: _update_power_text(_power_points.advance(delta))
+
+func _update_power_text(points: int) -> void:
+	var text := str(points)
+	if power_value.text != text: power_value.text = text
+
+func show_notice(title: String, instruction: String, explanation: String) -> void:
+	_show_power_points = false
+	_last_refresh_second = -1
+	power_row.hide()
+	meter.hide()
+	target.show()
+	detail.show()
+	heading.text = title
+	target.text = instruction
+	detail.text = explanation
 
 func _refresh_barrage() -> void:
 	var shot := rules.barrage.current_shot()

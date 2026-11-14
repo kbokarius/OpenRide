@@ -94,14 +94,19 @@ func update(rules: RefCounted) -> void:
 		shot.resolved = true
 		shot.impactRiderMeters = rules.road_distance()
 		shot.hit = absf(float(shot.impactRiderMeters) - float(shot.targetMeters)) <= HALF_LENGTH + RIDER_RADIUS
-		rules.max_base_units += POINTS * NeonRules.UNIT
-		rules.max_units += POINTS * NeonRules.UNIT
+		var points: int = POINTS * rules.score_scale
+		rules.max_base_units += points * NeonRules.UNIT
+		rules.max_units += points * NeonRules.UNIT
 		if bool(shot.hit):
-			shot.points = -rules.lose_points(POINTS)
+			shot.points = -rules.lose_points(points)
+			shot.outcome = "hit"
 		else:
-			shot.points = POINTS
-			rules.score_units += POINTS * NeonRules.UNIT
-			rules.base_units += POINTS * NeonRules.UNIT
+			var passed := float(shot.impactRiderMeters) > float(shot.targetMeters)
+			shot.outcome = "passed" if passed else "held_back"
+			shot.points = points if passed or rules.scoring_version < 6 else 0
+			rules.score_units += int(shot.points) * NeonRules.UNIT
+			# Stars measure successful avoidance; the points reward only passing in v6.
+			rules.base_units += points * NeonRules.UNIT
 
 func current_shot() -> Dictionary:
 	if not active or shots.is_empty(): return {}

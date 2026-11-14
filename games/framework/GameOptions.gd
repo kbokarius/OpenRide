@@ -6,6 +6,9 @@ extends RefCounted
 ##
 ## Stored in `user://game_options.cfg`, one section per rider and game: `<rider>/<game_id>`.
 ## The rider is `session_started`'s `rider_id`, or "guest" when no rider is active.
+## Lane Smash music/SFX use one shared device section, independent of rider or screen.
+
+const AUDIO_SECTION := "shared/lane_smash_audio"
 
 const DEFAULT_PATH := "user://game_options.cfg"
 
@@ -28,7 +31,11 @@ static func get_value(info: GameInfo, key: String, rider_id := rider()) -> Strin
 	if spec.is_empty():
 		push_warning("GameOptions: %s declares no option '%s'" % [info.id, key])
 		return ""
-	var stored := str(_config().get_value(_section(info.id, rider_id), key, spec.default))
+	var section := _option_section(info.id, key, rider_id)
+	# Migrate a prior per-rider music preference once, then share audio across every screen.
+	if section == AUDIO_SECTION and not _config().has_section_key(section, key) and _config().has_section_key(_section(info.id, rider_id), key):
+		set_value(info, key, str(_config().get_value(_section(info.id, rider_id), key)), rider_id)
+	var stored := str(_config().get_value(section, key, spec.default))
 	return stored if (spec.choices as Array).has(stored) else str(spec.default)
 
 
@@ -38,10 +45,17 @@ static func set_value(info: GameInfo, key: String, value: String, rider_id := ri
 	if spec.is_empty() or not (spec.choices as Array).has(value):
 		return false
 	var config := _config()
-	config.set_value(_section(info.id, rider_id), key, value)
+	var section := _option_section(info.id, key, rider_id)
+	var existed := config.has_section_key(section, key)
+	var previous: Variant = config.get_value(section, key) if existed else null
+	config.set_value(section, key, value)
 	var err := config.save(path)
 	if err != OK:
 		push_warning("GameOptions: can't save %s (%d)" % [path, err])
+		if existed: config.set_value(section, key, previous)
+		else: config.erase_section_key(section, key)
+		return false
+	if section == AUDIO_SECTION: apply_audio()
 	return true
 
 
@@ -86,3 +100,18 @@ static func _config() -> ConfigFile:
 		if FileAccess.file_exists(path):
 			_file.load(path)
 	return _file
+
+
+static func _option_section(game_id: String, key: String, rider_id: String) -> String:
+	return AUDIO_SECTION if game_id == "neon_vector" and key in ["music", "sfx"] else _section(game_id, rider_id)
+
+static func audio_values() -> Dictionary:
+	return {"music": str(_config().get_value(AUDIO_SECTION, "music", "on")) != "off",
+		"sfx": str(_config().get_value(AUDIO_SECTION, "sfx", "on")) != "off"}
+
+static func apply_audio() -> void:
+	var director := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("AudioDirector")
+	if director != null:
+		var values := audio_values()
+		director.set_volumes(true, 0.65, 0.7)
+		director.set_user_audio(values.music, values.sfx)

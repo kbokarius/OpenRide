@@ -1,5 +1,7 @@
 class_name NeonTrack
 extends Node2D
+signal section_finished(kind: String)
+signal blast_resolved(hit: bool, points: int)
 ## A 3D space course under the existing, full-resolution 2D HUD.
 ## Geometry travels in course coordinates, independent of scoring and display frame rate.
 
@@ -184,6 +186,7 @@ func _update_completions(delta: float) -> void:
 		_completion_kind = str(event.type)
 		_completion_text = "+%d" % points
 		_completion_age = 0.0
+		section_finished.emit(_completion_kind)
 		completed_sections[_completion_kind] = int(completed_sections.get(_completion_kind, 0)) + 1
 		_completion_anchor = space.section_completed(_completion_kind, int(event.laneIndex), int(event.endMs))
 		_completion_up = space.road_basis(int(event.endMs) / 1000.0 * space._unit_speed).y
@@ -193,13 +196,15 @@ func _update_completions(delta: float) -> void:
 		_completion_kind = "bomb"
 		_completion_text = "−%d" % int(hit.points) if int(hit.points) > 0 else "BOMB HIT"
 		_completion_age = 0.0
+		blast_resolved.emit(true, -int(hit.points))
 		_completion_anchor = hit.anchor
 		_completion_up = hit.up
 
 	var strike := space.barrage_view.take_feedback()
 	if not strike.is_empty():
 		_completion_kind = "bomb" if bool(strike.hit) else "evade"
-		_completion_text = ("−%d" % absi(int(strike.points)) if int(strike.points) < 0 else "BOMB HIT") if bool(strike.hit) else "EVADED +%d" % int(strike.points)
+		_completion_text = ("−%d" % absi(int(strike.points)) if int(strike.points) < 0 else "BOMB HIT") if bool(strike.hit) else ("PASSED +%d" % int(strike.points) if int(strike.points) > 0 else "BLAST AVOIDED")
 		_completion_age = 0.0
+		blast_resolved.emit(bool(strike.hit), int(strike.points))
 		_completion_anchor = strike.anchor
 		_completion_up = strike.up

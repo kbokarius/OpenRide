@@ -198,7 +198,7 @@ class NeonRecordsTest {
             val source = Json.parseToJsonElement(record(status = status, elapsed = elapsed, score = earned - penalty).payloadJson).jsonObject
             val data = JsonObject(source.toMutableMap().apply {
                 put("result", JsonObject(source.getValue("result").jsonObject.toMutableMap().apply {
-                    put("scoringVersion", JsonPrimitive(5)); put("earnedScoreUnits", JsonPrimitive(earned)); put("penaltyUnits", JsonPrimitive(penalty))
+                    put("scoringVersion", JsonPrimitive(6)); put("earnedScoreUnits", JsonPrimitive(earned)); put("penaltyUnits", JsonPrimitive(penalty))
                 }))
                 if (elapsed >= 2000) put("ghost", Json.parseToJsonElement("[[1000,0,200,1000],[2000,1,100,2000]]"))
             })

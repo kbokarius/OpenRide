@@ -88,9 +88,10 @@ func _process(delta: float) -> void:
 		_meter.multiplier = EffortMeter.multiplier_for(InputBus.resistance, InputBus.cadence, _meter.enabled)
 
 
-## Exact deterministic total for games with their own fixed-point scoring. No multiplier bypass.
+## Exact deterministic net total for games with their own fixed-point scoring, including
+## penalties. No multiplier bypass. The rules own validation; presentation must mirror them.
 func set_unmultiplied_total(points: float) -> void:
-	if enabled or not is_scoring() or not is_finite(points) or points < _meter.score:
+	if enabled or not is_scoring() or not is_finite(points) or points < 0.0:
 		return
 	var gained := points - _meter.score
 	_meter.score = points

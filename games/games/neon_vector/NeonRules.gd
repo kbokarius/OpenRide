@@ -8,7 +8,9 @@ const TICK := 10
 const CURRENT_TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35}
 const TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35,
 	"beginner": 20, "intermediate": 24, "advanced": 30, "expert": 34}
-const SCORING_VERSION := 5
+const SCORING_VERSION := 6
+const CURRENT_SCORE_SCALE := 18
+var score_scale := 1
 const MAX_SPEED_MPS := 60.0 / 3.6
 const MAX_CADENCE := 140.0
 var distance_units := 0 # micrometres, integer integration independent of render rate
@@ -88,7 +90,8 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	for hazard: Dictionary in course.get("hazards", []):
 		hazard_states.append({"hit": false, "resolved": false, "penaltyUnits": 0})
 	base_units = 0
-	scoring_version = (SCORING_VERSION if int(course.courseVersion) >= 6 else (4 if int(course.courseVersion) >= 5 else 3)) if distance_based else (1 if int(course.courseVersion) == 1 else 2)
+	score_scale = CURRENT_SCORE_SCALE if int(course.courseVersion) >= 7 else 1
+	scoring_version = (SCORING_VERSION if int(course.courseVersion) >= 7 else (5 if int(course.courseVersion) >= 6 else (4 if int(course.courseVersion) >= 5 else 3))) if distance_based else (1 if int(course.courseVersion) == 1 else 2)
 	max_units = NeonCourse.maximum(course, false, reference_power)
 	max_base_units = NeonCourse.maximum(course, true, reference_power)
 	if distance_based:
@@ -233,7 +236,8 @@ func _tick() -> void:
 	if distance_based:
 		state.possibleTravelUnits += travel_step
 		state.possibleMs += TICK
-		var possible := roundi(reference_power) * int(state.possibleMs) * UNIT / 5000 if event.type == "burst" else NeonCourse.base_units(event, {"laneIndex": event.laneIndex}, reference_power) * int(state.possibleTravelUnits) / roundi((int(event.endMs) - int(event.startMs)) * MAX_SPEED_MPS * 1000)
+		var possible := roundi(reference_power) * int(state.possibleMs) * UNIT / 5000 if event.type == "burst" else _distance_credit(NeonCourse.base_units(event, {"laneIndex": event.laneIndex}, reference_power), int(state.possibleTravelUnits), roundi((int(event.endMs) - int(event.startMs)) * MAX_SPEED_MPS * 1000))
+		possible *= score_scale
 		max_base_units += possible - int(state.possibleBaseUnits)
 		state.possibleBaseUnits = possible
 		max_units = max_base_units
@@ -250,7 +254,7 @@ func _tick() -> void:
 	var choice: Dictionary = options[int(state.choice)]
 	if int(choice.laneIndex) != settled_lane:
 		return
-	var base_max := NeonCourse.base_units(event, choice, reference_power)
+	var base_max := NeonCourse.base_units(event, choice, reference_power) * score_scale
 	var old_score := int(state.scoreUnits)
 	var old_base := int(state.baseUnits)
 	match str(event.type):
@@ -265,8 +269,8 @@ func _tick() -> void:
 		"burst":
 			state.validMs += TICK
 			state.energyMilliJoules += roundi(float(latest.power)) * TICK
-			state.scoreUnits = int(state.energyMilliJoules) * UNIT / 5000 * int(choice.get("rewardPercent", 100)) / 100
-			state.baseUnits = mini(roundi(reference_power) * int(state.validMs) * UNIT / 5000 if distance_based else base_max, int(state.scoreUnits))
+			state.scoreUnits = int(state.energyMilliJoules) * UNIT / 5000 * int(choice.get("rewardPercent", 100)) / 100 * score_scale
+			state.baseUnits = mini(roundi(reference_power) * int(state.validMs) * UNIT / 5000 * score_scale if distance_based else base_max, int(state.scoreUnits))
 		"hold":
 			if rpm >= float(event.cadenceMin) and rpm <= float(event.cadenceMax):
 				state.validMs += TICK
@@ -303,7 +307,7 @@ func result(status: String = "completed") -> Dictionary:
 		"earnedScoreUnits": score_units + penalty_units, "penaltyUnits": penalty_units, "barrage": barrage.result(),
 		"events": event_states.duplicate(true), "courseId": course.get("courseId", ""),
 		"courseVersion": course.get("courseVersion", 1), "courseHash": NeonCourse.fingerprint(course),
-		"difficulty": tier, "referencePower": reference_power, "scoringVersion": scoring_version,
+		"difficulty": tier, "referencePower": reference_power, "scoringVersion": scoring_version, "scoreScale": score_scale,
 		"envelopeVersion": ENVELOPE_VERSION, "laneBands": range(6).map(func(lane: int): var limits := band(lane, tier); return [limits.x, limits.y]), "title": course.get("title", "")}
 
 
@@ -321,7 +325,7 @@ func _section_credit(state: Dictionary, event: Dictionary, maximum: int, travel_
 		return maximum * int(state.validMs) / (int(event.endMs) - int(event.startMs))
 	state.validTravelUnits += travel_step
 	var length_units := roundi((int(event.endMs) - int(event.startMs)) * MAX_SPEED_MPS * 1000)
-	return mini(maximum, maximum * int(state.validTravelUnits) / length_units)
+	return mini(maximum, _distance_credit(maximum, int(state.validTravelUnits), length_units))
 
 func _apply_hazards() -> void:
 	var hazards: Array = course.get("hazards", [])
@@ -332,12 +336,18 @@ func _apply_hazards() -> void:
 		if not barrage.active and selected_lane == int(hazard.laneIndex):
 			state.hit = true
 			# Whole visible points only; score never drops below zero.
-			var loss := lose_points(int(hazard.penaltyPoints)) * UNIT
+			var loss := lose_points(int(hazard.penaltyPoints) * score_scale) * UNIT
 			state.penaltyUnits = loss
 		_hazard_cursor += 1
 
 func lose_points(points: int) -> int:
-	var loss := mini(points, score_units / UNIT)
+	var loss := mini(points, maxi(0, score_units / UNIT))
 	penalty_units += loss * UNIT
 	score_units -= loss * UNIT
 	return loss
+
+
+func _distance_credit(base: int, travel: int, length: int) -> int:
+	# v6's larger subpoint totals can overflow an integer intermediate on long saved sections.
+	# Input integers remain authoritative; the deterministic ratio is independent of frame rate.
+	return floori(float(base) * float(travel) / float(length)) if scoring_version >= 6 else base * travel / length

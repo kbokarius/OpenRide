@@ -90,10 +90,21 @@ func _run() -> void:
 	_check(root.get_node("AudioDirector").current_music_key().contains("neon_vector_drive"), "original soundtrack is playing")
 	game.change_option("music", "off")
 	await create_timer(0.8).timeout
-	_check(not root.get_node("AudioDirector").music_enabled, "music can be muted")
+	_check(not root.get_node("AudioDirector").user_music_enabled, "music can be muted")
 	game.change_option("music", "on")
 	await create_timer(0.8).timeout
-	_check(root.get_node("AudioDirector").music_enabled, "music can resume")
+	_check(root.get_node("AudioDirector").user_music_enabled, "music can resume")
+	game.audio_controls.pressed.emit()
+	await create_timer(0.1).timeout
+	var audio_elapsed: int = game.rules.elapsed_ms
+	game.audio_controls.rows.sfx.segmented.pick("off")
+	await create_timer(0.4).timeout
+	_check(game.rules.elapsed_ms > audio_elapsed and not session.paused, "audio controls keep the ride running")
+	_check(not root.get_node("AudioDirector").user_sfx_enabled, "ride effects switch mutes effects")
+	_check(not root.get_node("AudioDirector").is_music_playing() or root.get_node("AudioDirector").user_music_enabled, "effects switch leaves music independent")
+	await _shot("ride-audio")
+	game.audio_controls.rows.sfx.segmented.pick("on")
+	game.audio_controls.panel.hide()
 	await _shot("riding")
 	_check(not director.hud.pause_button.visible, "Pause is absent")
 	_check(director.hud.end_button.text == "End Ride", "End Ride stays available")

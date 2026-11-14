@@ -127,7 +127,7 @@ static func valid_record(record: Dictionary) -> bool:
 	if result.status == "completed" and elapsed != duration:
 		return false
 	var version: Variant = result.get("scoringVersion", 1)
-	if not NeonCourse._integer(version) or int(version) not in range(1, 6): return false
+	if not NeonCourse._integer(version) or int(version) not in range(1, 7): return false
 	var gross := score
 	if int(version) >= 4:
 		for field in ["earnedScoreUnits", "penaltyUnits"]:

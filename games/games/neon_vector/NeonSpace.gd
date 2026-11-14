@@ -1,5 +1,6 @@
 class_name NeonSpace
 extends Node3D
+signal target_hit(kind: String)
 ## Bounded 3D presentation. Every road object is anchored to an absolute course distance.
 ## The camera moves through that space; scoring never depends on camera/mesh positions.
 
@@ -395,6 +396,7 @@ func _events(rules: NeonRules, visual_lane: float) -> void:
 				if not rules.barrage.active and not _collected.has(key) and _previous_distance >= 0 and now - _previous_ms <= 250 and _previous_distance + 0.38 <= anchor + front_extent and distance >= contact and absf(visual_lane - lane) < 0.38:
 					_collected[key] = at
 					_explode(pose(anchor, lateral, 0.65).origin, color)
+					target_hit.emit(bucket)
 				if _collected.has(key):
 					tick += 1
 					continue

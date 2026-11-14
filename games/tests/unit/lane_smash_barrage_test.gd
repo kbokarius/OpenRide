@@ -29,7 +29,7 @@ func test_gradual_acceleration_and_deceleration_with_reaction_time_evade() -> vo
 		var shot: Dictionary = r.barrage.shots[0]
 		assert_bool(shot.resolved).is_true()
 		assert_bool(shot.hit).is_false()
-		assert_int(shot.points).is_equal(100)
+		assert_int(shot.points).is_equal(1800 if baseline == 80 else 0)
 		assert_float(absf(shot.impactRiderMeters - shot.targetMeters)).is_greater(21.5)
 		assert_int(r.penalty_units).is_zero()
 
@@ -37,8 +37,8 @@ func test_small_changes_or_steering_cannot_evade() -> void:
 	for change in [-15.0, 0.0, 15.0]:
 		var r := _run(80, change, 0, 1)
 		assert_bool(r.barrage.shots[0].hit).is_true()
-		assert_int(r.barrage.shots[0].points).is_equal(-100)
-		assert_int(r.penalty_units).is_equal(100 * NeonRules.UNIT)
+		assert_int(r.barrage.shots[0].points).is_equal(-1800)
+		assert_int(r.penalty_units).is_equal(1800 * NeonRules.UNIT)
 	for lane in 6:
 		var r := _run(80, 0, 0, 1, 60, lane)
 		assert_bool(r.barrage.shots[0].hit).is_true()
@@ -131,7 +131,7 @@ func test_flight_endpoint_matches_locked_target_and_impact_feedback_is_once() ->
 	assert_float(view.curve(0).distance_to(source)).is_less(0.001)
 	assert_float(view.curve(1).distance_to(target)).is_less(0.001)
 	assert_int(view.effects_count).is_equal(1)
-	assert_int(view.take_feedback().points).is_equal(100)
+	assert_int(view.take_feedback().points).is_equal(1800)
 	assert_dict(view.take_feedback()).is_empty()
 	space.free()
 
@@ -143,3 +143,22 @@ func test_malformed_attack_configuration_is_rejected_without_type_errors() -> vo
 			var data: Array = _course().barrages.duplicate(true)
 			data[0][key] = value
 			assert_bool(LaneSmashBarrage.valid(data, 600000)).is_false()
+
+func test_legacy_incoming_fire_keeps_points_for_slowing_down() -> void:
+	var course := _course()
+	course.courseVersion = 6
+	var r := NeonRules.new()
+	r.configure(course, "challenging", 150)
+	for t in range(0, 78000, 50):
+		var rpm := lerpf(95, 55, clampf((t - 68000) / 4000.0, 0, 1))
+		r.push_sample({"t": t, "seq": t + 1, "cadence": rpm, "power": 150, "resistance": 33})
+		r.advance(t + 50)
+	assert_int(r.scoring_version).is_equal(5)
+	assert_int(r.barrage.shots[0].points).is_equal(100)
+
+func test_slow_evade_awards_no_score_but_keeps_avoidance_star_credit() -> void:
+	var r := _run(95, -40, 2000, 4000)
+	assert_int(r.barrage.shots[0].points).is_zero()
+	assert_str(r.barrage.shots[0].outcome).is_equal("held_back")
+	assert_int(r.base_units).is_greater(r.score_units)
+	assert_int(r.penalty_units).is_zero()

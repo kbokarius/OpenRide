@@ -28,6 +28,9 @@ var _replay_id := ""
 var _replay_course: Dictionary = {}
 
 func build() -> void:
+	var info := GameRegistry.info("neon_vector")
+	for key in ["music", "sfx"]: GameOptions.get_value(info, key, rider_id)
+	GameOptions.apply_audio()
 	var background := LaneSmashMenuTheme.gradient(Color("102431"), Color("080f1a"))
 	background.size = size
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -258,10 +261,13 @@ func _modal(title: String) -> VBoxContainer:
 func _open_extras() -> void:
 	var box := _modal("SETTINGS & RIDE HISTORY")
 	var info := GameRegistry.info("neon_vector")
-	for key in ["ghost", "motion", "music"]:
+	for key in ["music", "sfx", "ghost", "motion"]:
 		var row := OptionRow.new(info.option_spec(key), GameOptions.get_value(info, key, rider_id), 1700, look)
 		row.changed.connect(func(k: String, v: String):
-			GameOptions.set_value(info, k, v, rider_id)
+			if not GameOptions.set_value(info, k, v, rider_id):
+				notice.emit("Could not save this setting. Please try again.")
+				_open_extras.call_deferred()
+				return
 			if k == "motion":
 				for card in track_buttons: card.reduced_motion = v == "reduced")
 		box.add_child(row)

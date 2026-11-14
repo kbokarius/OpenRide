@@ -1,6 +1,19 @@
 extends GdUnitTestSuite
 ## The Effort autoload: awards count only while live, not paused and with sensors ok.
 
+func test_authoritative_lane_smash_total_can_fall_after_a_bomb() -> void:
+	Effort.begin_segment(false)
+	Effort.set_live(true)
+	Effort.set_unmultiplied_total(150000.0)
+	Effort.set_unmultiplied_total(148200.0)
+	assert_float(Effort.score).is_equal(148200.0)
+	Effort.set_unmultiplied_total(-1.0)
+	Effort.set_unmultiplied_total(NAN)
+	assert_float(Effort.score).is_equal(148200.0)
+	Effort.set_live(false)
+	Effort.set_unmultiplied_total(146400.0)
+	assert_float(Effort.score).is_equal(148200.0)
+
 
 func before_test() -> void:
 	Effort.begin_segment(true)

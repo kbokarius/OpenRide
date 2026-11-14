@@ -7,7 +7,8 @@ static var look := GameTheme.new(Color("79b8d5"), Color("0b1019"), 0.0, false, t
 var rules := NeonRules.new()
 var track: NeonTrack
 var status: NeonStatus
-var _host_music_on := true
+var audio_controls: LaneSmashAudioControls
+var sounds: LaneSmashSound
 var _sequence := -1
 var _epoch := -1
 var _started_clock := false
@@ -29,7 +30,7 @@ func info() -> GameInfo:
 	var i := GameInfo.new()
 	i.id = "neon_vector"
 	i.title = "Lane Smash"
-	i.how_to = "Turn resistance to change lanes. Collect points, match cadence targets and build power in the marked lane. Avoid red bombs. During Incoming Fire, change pace to dodge the marked blast. Hits cost up to 100 points; evades earn 100."
+	i.how_to = "Turn resistance to change lanes. Collect points, match cadence targets and build power in the marked lane. Avoid red bombs. During Incoming Fire, change pace to dodge the marked blast. Hits cost points. Pass the blast to earn a bonus; hanging back avoids damage without earning points."
 	i.supports = ["minutes"]
 	i.min_sec = 300
 	i.max_sec = 1800
@@ -39,6 +40,7 @@ func info() -> GameInfo:
 	i.options = [
 		{"key": "ghost", "label": "Best-ride ghost", "choices": ["on", "off"], "labels": ["On", "Off"], "default": "on", "kind": "segmented"},
 		{"key": "music", "label": "Music", "choices": ["on", "off"], "labels": ["On", "Off"], "default": "on", "kind": "segmented"},
+		{"key": "sfx", "label": "Sound effects", "choices": ["on", "off"], "labels": ["On", "Off"], "default": "on", "kind": "segmented"},
 		{"key": "motion", "label": "Background motion", "choices": ["full", "reduced"], "labels": ["Full", "Reduced"], "default": "full", "kind": "segmented"},
 	]
 	i.summary_stats = [
@@ -91,13 +93,22 @@ func _on_prepare(_seg: Dictionary) -> void:
 	var skin := look.hud_skin()
 	skin["manual_pause"] = false
 	skin["text_interval"] = 1.0
+	skin["score_rollup"] = true
 	hud.set_skin(skin)
 	status = NeonStatus.new()
 	status.rules = rules
 	hud.add_widget(status)
 	track.update_view(0)
 	status.refresh()
-	_host_music_on = AudioDirector.music_enabled
+	audio_controls = LaneSmashAudioControls.new()
+	audio_controls.info = declared()
+	audio_controls.rider_id = _rider
+	var buttons := hud.end_button.get_parent()
+	buttons.add_child(audio_controls)
+	buttons.move_child(audio_controls, hud.end_button.get_index())
+	sounds = LaneSmashSound.new()
+	sounds.track = track
+	add_child(sounds)
 	_apply_music()
 
 
@@ -170,6 +181,8 @@ func _complete(state: String) -> void:
 	if _finalizing:
 		return
 	_finalizing = true
+	if is_instance_valid(sounds): sounds.suspend()
+	if is_instance_valid(audio_controls): audio_controls.panel.hide()
 	Session.neon_control("pause", rules.elapsed_ms)
 	while _save_busy:
 		await get_tree().process_frame
@@ -208,11 +221,10 @@ func _update_ghost() -> void:
 
 
 func _on_frame(delta: float) -> void:
+	if is_instance_valid(sounds): sounds.active = false
 	played_sec = rules.elapsed_ms / 1000.0
 	if not _started_clock or _finalizing:
-		status.heading.text = "SAVING YOUR RIDE" if _finalizing else "PREPARING YOUR RIDE"
-		status.target.text = "Keeping your progress safe"
-		status.detail.text = "Course time and points are frozen"
+		status.show_notice("SAVING YOUR RIDE" if _finalizing else "PREPARING YOUR RIDE", "Keeping your progress safe", "Course time and points are frozen")
 		return
 	if not _errors.is_empty():
 		return
@@ -221,9 +233,7 @@ func _on_frame(delta: float) -> void:
 			_pause("sensor")
 			return
 		_resume_left = maxf(0, _resume_left - delta)
-		status.heading.text = "READY TO RESUME"
-		status.target.text = str(ceili(_resume_left)) if _resume_left > 0 else "GO"
-		status.detail.text = "The course is holding your place"
+		status.show_notice("READY TO RESUME", str(ceili(_resume_left)) if _resume_left > 0 else "GO", "The course is holding your place")
 		if _resume_left > 0:
 			return
 		rules.resume()
@@ -252,7 +262,9 @@ func _on_frame(delta: float) -> void:
 	played_sec = rules.elapsed_ms / 1000.0
 	Effort.set_unmultiplied_total(float(rules.score_units) / NeonRules.UNIT)
 	_update_ghost()
+	sounds.active = rules.pause_reason.is_empty()
 	track.update_view(delta)
+	sounds.update_audio()
 	status.refresh()
 	if not rules.pause_reason.is_empty():
 		_pause(rules.pause_reason)
@@ -270,6 +282,8 @@ func _pause(reason: String) -> void:
 
 
 func _on_pause() -> void:
+	if is_instance_valid(sounds): sounds.suspend()
+	if is_instance_valid(audio_controls): audio_controls.panel.hide()
 	if _started_clock:
 		if rules.pause_reason.is_empty():
 			rules.pause("manual")
@@ -322,13 +336,13 @@ func pause_message() -> String:
 
 
 func _apply_music() -> void:
-	AudioDirector.set_volumes(_host_music_on and option("music") == "on", AudioDirector.music_volume, AudioDirector.sfx_volume)
+	GameOptions.apply_audio()
 	AudioDirector.play_music({"name": "neon_vector_drive", "stem_files": {"drive": "res://games/neon_vector/audio/vector_drive.ogg"}, "loop_from": 0.0}, 128.0)
 
 
 func _on_option_changed(key: String, value: String) -> void:
-	if key == "music":
-		_apply_music()
+	if key in ["music", "sfx"]:
+		GameOptions.apply_audio()
 	elif key == "motion":
 		track.reduced_motion = value == "reduced"
 	elif key == "ghost":
@@ -365,3 +379,7 @@ func finish() -> Dictionary:
 	result.stats["max_score"] = rules.max_units / NeonRules.UNIT
 	result.stats["played_sec"] = rules.elapsed_ms / 1000
 	return result
+
+
+func _exit_tree() -> void:
+	if is_instance_valid(audio_controls): audio_controls.queue_free()

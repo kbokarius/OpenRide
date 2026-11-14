@@ -71,7 +71,7 @@ static func generate(minutes: int, seed_value: int, index: int, id: String, rand
 				else:
 					events.append(event)
 			previous_lane = lane
-	return {"schemaVersion": 1, "courseVersion": 6, "generatorVersion": 4, "courseId": id,
+	return {"schemaVersion": 1, "courseVersion": 7, "generatorVersion": 4, "courseId": id,
 		"title": "Random / %06d" % (seed_value % 1000000) if random_track else NAMES[index],
 		"family": "random" if random_track else "catalog", "durationMs": minutes * 60000,
 		"theme": THEMES[(seed_value / 97) % 8] if random_track else THEMES[index % 8],
