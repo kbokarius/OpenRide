@@ -36,6 +36,7 @@ func _run() -> void:
 	replay.track = track
 	replay._ghost = []
 	root.add_child(track)
+	track.apply_quality("balanced")
 	var hud: Node = load("res://framework/hud/Hud.gd").new()
 	root.add_child(hud)
 	var info: RefCounted = load("res://framework/GameInfo.gd").new()
@@ -63,7 +64,8 @@ func _run() -> void:
 	var saw_popup := false
 	var last_second := -1
 	var moments := {}
-	for frame in (271 if slots_only else 1200):
+	# Review every slot three seconds into flight, after the old shooter fade had hidden it.
+	for frame in (391 if slots_only else 1200):
 		var target := begin + floori((frame + 1) * 1000.0 / 30 / 10) * 10
 		while next_sample < target:
 			_sample(rules, next_sample, mode)
@@ -84,9 +86,10 @@ func _run() -> void:
 		if track._completion_kind in ["bomb", "evade"]: saw_popup = true
 		await RenderingServer.frame_post_draw
 		if not slots_only: root.get_texture().get_image().save_jpg(out.path_join("frame-%04d.jpg" % frame), 0.93)
-		if slots_only and frame == 270:
+		if slots_only and frame == 390:
 			for slot in 6:
 				rules.barrage.current_shot().slot = slot
+				track.space.barrage_view._shot_id = ""  # reconstruct this slot's frozen launch source
 				track.update_view(0)
 				await RenderingServer.frame_post_draw
 				root.get_texture().get_image().save_png(out.path_join("slot-%d.png" % slot))

@@ -4,6 +4,11 @@ extends Node3D
 const ENERGY := LaneSmashLook.PLASMA  ## hostile energy: never the mint of a cadence target
 const DEPTH := 110.0
 const ACTOR_SCALE := 7.0
+## The actor is a foreground rig, with the same projection as its world-space launch rig.
+## This keeps road loops/gantries from hiding him without turning off his own depth testing.
+const FOREGROUND_DEPTH := 8.0
+const PROJECTILE_DEPTH := 4.0  # the bomb and its tail must draw in front of the foreground shooter
+const DISPLAY_SLOTS := [Vector2(0.23, 0.42), Vector2(0.80, 0.42), Vector2(0.30, 0.40), Vector2(0.70, 0.40), Vector2(0.18, 0.44), Vector2(0.82, 0.44)]
 var space: Node3D
 var attacker: LaneSmashAttacker
 var _dots: MultiMeshInstance3D
@@ -72,29 +77,26 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 		_feedback = {}
 	var charge := clampf(float(now - int(shot.lockMs)) / LaneSmashBarrage.CHARGE_MS, 0, 1)
 	var since_fire := (now - int(shot.fireMs)) / 1000.0
-	# The raider fades in over the first 1.4 s of the two-second charge, stays for the shot,
-	# and fades out over the 1.6 s after it. It never moves into or out of place.
+	# Keep the shooter solid for the entire nine-second flight and the impact. Previously
+	# he faded after firing, leaving most of the bomb's flight with no visible source.
 	var since_lock := (now - int(shot.lockMs)) / 1000.0
-	var fade := smoothstep(0.0, 1.4, since_lock) * (1.0 - smoothstep(0.4, 2.0, since_fire))
+	var fade := smoothstep(0.0, 1.4, since_lock) * (1.0 - smoothstep(0.3, 1.2, since_impact))
 	# Before the shot, the translocator holds its soldier above the road in screen space.
 	# After launch, projectile coordinates are frozen independently of that visual rig.
 	var actor_at := _actor_transform(float(rules.road_distance()), int(shot.slot))
-	attacker.transform = actor_at
+	attacker.transform = _foreground_transform(actor_at, space.distance)
 	attacker.animate(fade, now / 1000.0, since_fire, charge if since_fire < 0 else 0.0)
 	if since_fire < 0:
-		_source = attacker.muzzle.global_position
+		_source = _world_muzzle(actor_at)
 		_control = _source.lerp(_target, 0.5) + _camera_at(space.distance).basis.y * 17.0
 	elif not _frozen:
 		# Reconstruct from the authoritative fire-distance snapshot, including captures/seeks.
-		var saved_transform := attacker.transform
-		attacker.transform = _actor_transform(float(shot.fireRiderMeters), int(shot.slot))
 		attacker.animate(fade, int(shot.fireMs) / 1000.0, -1)
-		_source = attacker.muzzle.global_position
+		_source = _world_muzzle(_actor_transform(float(shot.fireRiderMeters), int(shot.slot)))
 		_control = _source.lerp(_target, 0.5) + _camera_at(float(shot.fireRiderMeters)).basis.y * 17.0
-		attacker.transform = saved_transform
 		attacker.animate(fade, now / 1000.0, since_fire)
 		_frozen = true
-	var flight := clampf(float(now - int(shot.fireMs)) / (LaneSmashBarrage.WARNING_MS - LaneSmashBarrage.CHARGE_MS), 0, 1)
+	var flight := flight_progress(float(now - int(shot.fireMs)) / (LaneSmashBarrage.WARNING_MS - LaneSmashBarrage.CHARGE_MS))
 	_zone.visible = true
 	_zone_material.set_shader_parameter("progress", clampf(float(now - int(shot.lockMs)) / LaneSmashBarrage.WARNING_MS, 0, 1))
 	_zone_material.set_shader_parameter("visibility", smoothstep(0.0, 0.5, (now - int(shot.lockMs)) / 1000.0) * (1.0 - smoothstep(0.25, 1.0, since_impact)))
@@ -108,19 +110,19 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 		_dots.multimesh.set_instance_color(i, Color(ENERGY, dot_alpha * (0.6 + 0.4 * sin(t * 38.0 - now * 0.003))))
 	_dots.multimesh.visible_instance_count = 40 if since_impact < 0.15 else 0
 	if since_fire < 0:
-		_orb.multimesh.set_instance_transform(0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * (0.3 + charge * 1.7)), _source))
+		_orb.multimesh.set_instance_transform(0, _projectile_transform(_source, 0.3 + charge * 1.7))
 		_orb.multimesh.set_instance_color(0, Color(1, 1, 1, fade))
 		_orb.multimesh.visible_instance_count = 1
 		_trail.multimesh.visible_instance_count = 0
 	elif since_impact < 0:
-		_orb.multimesh.set_instance_transform(0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 1.6), curve(flight)))
+		_orb.multimesh.set_instance_transform(0, _projectile_transform(curve(flight), 1.6))
 		_orb.multimesh.set_instance_color(0, Color.WHITE)
 		_orb.multimesh.visible_instance_count = 1
 		# A short actual flight-history tail makes motion legible without GPU trail support.
 		for i in 32:
 			var t := maxf(0, flight - i * 0.0024)
 			var size := 0.80 * pow(1.0 - i / 32.0, 1.5)
-			_trail.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * size), curve(t)))
+			_trail.multimesh.set_instance_transform(i, _projectile_transform(curve(t), size))
 			_trail.multimesh.set_instance_color(i, Color(ENERGY.lerp(Color.WHITE, 0.5), 0.8 * (1.0 - i / 32.0)))
 		_trail.multimesh.visible_instance_count = 32
 	else:
@@ -142,6 +144,14 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 
 func curve(t: float) -> Vector3:
 	return (1.0 - t) * (1.0 - t) * _source + 2.0 * t * (1.0 - t) * _control + t * t * _target
+
+
+static func flight_progress(phase: float) -> float:
+	# Launch decisively out of the muzzle instead of hovering beside the pacing shooter.
+	# This only changes travel along the fixed arc, not the nine-second impact time. Its
+	# derivative stays positive (at least 0.6), so it cannot backtrack or stall near landing.
+	var t := clampf(phase, 0.0, 1.0)
+	return t + 1.2 * t * (1.0 - t) * (1.0 - t)
 
 func _warmup() -> void:
 	# Draw tiny, nearly transparent samples beneath the intro overlay. Shader compilation
@@ -167,12 +177,40 @@ func _camera_at(distance: float) -> Transform3D:
 
 func _actor_transform(distance: float, slot: int) -> Transform3D:
 	var cam := _camera_at(distance)
-	var uv: Vector2 = LaneSmashBarrage.SCREEN_SLOTS[slot]
+	# Display positions live outside the saved rules: keep every model below the HUD and
+	# either side of its central steering prompt, including older course snapshots.
+	var uv: Vector2 = DISPLAY_SLOTS[slot]
 	var height := tan(deg_to_rad(NeonSpace.CAMERA_FOV * 0.5)) * DEPTH
-	var center := cam * Vector3((uv.x * 2.0 - 1.0) * height * 16.0 / 9.0, (1.0 - uv.y * 2.0) * height, -DEPTH)
+	var viewport_size := space.get_viewport().get_visible_rect().size
+	var aspect := viewport_size.x / maxf(1.0, viewport_size.y)
+	var center := cam * Vector3((uv.x * 2.0 - 1.0) * height * aspect, (1.0 - uv.y * 2.0) * height, -DEPTH)
 	var origin := center - cam.basis.y * 1.9 * ACTOR_SCALE
-	var aim := origin.lerp(_target, 0.5) + cam.basis.y * 12.0
-	return Transform3D(Basis.looking_at(aim - origin, cam.basis.y, true).scaled(Vector3.ONE * ACTOR_SCALE), origin)
+	# Face the rider in a readable three-quarter pose. Aiming the entire body at the curved
+	# landing zone could turn it edge-on, upside down or partly outside the screen.
+	var facing := cam.basis * Vector3((0.5 - uv.x) * 1.6, -0.08, 1.0).normalized()
+	return Transform3D(Basis.looking_at(facing, cam.basis.y, true).scaled(Vector3.ONE * ACTOR_SCALE), origin)
+
+
+func _foreground_transform(world_pose: Transform3D, distance: float) -> Transform3D:
+	var camera_origin := _camera_at(distance).origin
+	var ratio := FOREGROUND_DEPTH / DEPTH
+	return Transform3D(world_pose.basis.scaled(Vector3.ONE * ratio), camera_origin + (world_pose.origin - camera_origin) * ratio)
+
+
+func _world_muzzle(world_pose: Transform3D) -> Vector3:
+	# Muzzle animation is local to the same model in both rigs. Only the visible model is
+	# brought forward: the ball's flight retains a world-space source and fixed target.
+	return world_pose * (attacker.upper.transform * attacker.muzzle.position)
+
+
+func _projectile_transform(point: Vector3, radius: float) -> Transform3D:
+	# Preserve the fixed arc's screen position and apparent size, but draw it ahead of the
+	# foreground actor. Otherwise the newly fired ball passes behind his near-depth torso.
+	# Use the live camera (including shake) so this never nudges the ball sideways.
+	var cam: Transform3D = space.camera.global_transform
+	var depth := -(cam.affine_inverse() * point).z
+	var ratio := minf(1.0, PROJECTILE_DEPTH / depth) if depth > 0.0 else 1.0
+	return Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius * ratio), cam.origin + (point - cam.origin) * ratio)
 
 func _landing_mesh(center: float) -> ArrayMesh:
 	var surface := SurfaceTool.new()
@@ -184,5 +222,5 @@ func _landing_mesh(center: float) -> ArrayMesh:
 			var at := center - LaneSmashBarrage.HALF_LENGTH + v * LaneSmashBarrage.HALF_LENGTH * 2
 			surface.set_uv(Vector2(corner.x, v))
 			surface.set_normal(space.road_basis(at).y)
-			surface.add_vertex(space.pose(at, (corner.x - 0.5) * 18.0, 0.08).origin)
+			surface.add_vertex(space.pose(at, (corner.x - 0.5) * 6.0 * NeonSpace.LANE_WIDTH, 0.08).origin)
 	return surface.commit()

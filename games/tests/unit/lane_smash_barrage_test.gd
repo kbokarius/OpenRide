@@ -162,3 +162,105 @@ func test_slow_evade_awards_no_score_but_keeps_avoidance_star_credit() -> void:
 	assert_str(r.barrage.shots[0].outcome).is_equal("held_back")
 	assert_int(r.base_units).is_greater(r.score_units)
 	assert_int(r.penalty_units).is_zero()
+
+
+func test_shooter_stays_solid_through_both_bombs_and_only_fades_after_impact() -> void:
+	var rules := _run(80, 0, 0, 1, 60, 0, 67400)
+	var space: NeonSpace = auto_free(NeonSpace.new())
+	add_child(space)
+	space._warming = false
+	for at: int in [67400, 68000, 71000, 76990, 77000, 77250, 77900, 78300, 82400, 83000, 86000, 91990, 92000, 92250, 92900, 93300]:
+		while rules.elapsed_ms < at:
+			var t := rules.elapsed_ms
+			rules.push_sample({"t": t, "seq": t + 1, "cadence": 80, "power": 150, "resistance": 33})
+			rules.advance(mini(t + 50, at))
+		space.update_view(rules, 0.05, 0, -1, false, "")
+		var shot := rules.barrage.current_shot()
+		var after := at - int(shot.impactMs)
+		if after <= 250:
+			assert_bool(space.barrage_view.attacker.visible).override_failure_message("Shooter vanished at %d ms" % at).is_true()
+			for material in space.barrage_view.attacker._materials:
+				assert_float(float(material.get_shader_parameter("visibility"))).is_equal_approx(1.0, 0.001)
+		elif after == 900:
+			assert_bool(space.barrage_view.attacker.visible).is_true()
+			assert_float(float(space.barrage_view.attacker._materials[0].get_shader_parameter("visibility"))).is_between(0.05, 0.9)
+		else:
+			assert_bool(space.barrage_view.attacker.visible).is_false()
+
+
+func test_all_shooter_slots_keep_the_whole_model_clear_of_the_hud_and_in_front_of_scenery() -> void:
+	var rules := _run(80, 0, 0, 1, 60, 0, 71000)
+	var viewport: SubViewport = auto_free(SubViewport.new())
+	viewport.size = Vector2i(1920, 1080)
+	add_child(viewport)
+	var space := NeonSpace.new()
+	viewport.add_child(space)
+	space._warming = false
+	space.update_view(rules, 0, 0, -1, false, "")
+	var barrage := space.barrage_view
+	var meshes := barrage.attacker.find_children("*", "MeshInstance3D", true, false)
+	for dimensions: Vector2i in [Vector2i(1920, 1080), Vector2i(1920, 1200), Vector2i(1440, 1080)]:
+		viewport.size = dimensions
+		await get_tree().process_frame
+		for distance: float in [0.0, 150.0, 500.0, 1000.0, 1800.0, 2500.0]:
+			space.camera.transform = space.camera_pose(distance)
+			barrage._target = space.pose(distance + 70.0, 0.0, 0.12).origin
+			for slot in 6:
+				var world_pose := barrage._actor_transform(distance, slot)
+				barrage.attacker.transform = barrage._foreground_transform(world_pose, distance)
+				barrage.attacker.animate(1.0, 75.0, -1)
+				var before := space.camera.unproject_position(barrage._world_muzzle(world_pose))
+				var after := space.camera.unproject_position(barrage.attacker.muzzle.global_position)
+				assert_float(before.distance_to(after)).is_less(0.2)  # launch still comes from the visible muzzle
+				for mesh: MeshInstance3D in meshes:
+					for corner in 8:
+						var point := mesh.global_transform * mesh.get_aabb().get_endpoint(corner)
+						var uv := space.camera.unproject_position(point) / Vector2(dimensions)
+						var context := "%s distance=%s slot=%s" % [dimensions, distance, slot]
+						assert_float(uv.x).override_failure_message(context + " x=" + str(uv.x)).is_between(0.03, 0.97)
+						assert_float(uv.y).override_failure_message(context + " y=" + str(uv.y)).is_between(0.245, 0.62)
+						# Leave the central direction prompt clear as well.
+						assert_bool(uv.y > 0.32 or uv.x < 0.40 or uv.x > 0.61).is_true()
+						assert_float(-space.camera.to_local(point).z).is_between(0.3, 12.0)
+
+
+func test_bomb_and_tail_draw_ahead_of_shooter_without_changing_the_locked_arc() -> void:
+	var rules := _run(80, 0, 0, 1, 60, 0, 68000)
+	var space: NeonSpace = auto_free(NeonSpace.new())
+	add_child(space)
+	space._warming = false
+	space.update_view(rules, 0, 0, -1, false, "")
+	var barrage := space.barrage_view
+	var launch := barrage.curve(0.0)
+	var landing := barrage.curve(1.0)
+	for elapsed in range(0, 8901, 100):
+		# Exercise launch, the old fade interval, and both slower/faster camera travel.
+		for rpm: float in [45.0, 80.0, 140.0]:
+			var distance := rules.road_distance() + rpm / 140.0 * NeonRules.MAX_SPEED_MPS * elapsed / 1000.0
+			space.camera.transform = space.camera_pose(distance)
+			var world_point := barrage.curve(LaneSmashBarrageSpace.flight_progress(elapsed / 9000.0))
+			var world_depth := -space.camera.to_local(world_point).z
+			if world_depth <= 1.0: continue  # the rider has already passed the projectile
+			for radius in [1.6, 0.8]:  # ball and tail
+				var visible := barrage._projectile_transform(world_point, radius)
+				var near_depth := -space.camera.to_local(visible.origin).z
+				assert_float(near_depth).is_less_equal(LaneSmashBarrageSpace.PROJECTILE_DEPTH + 0.001)
+				assert_float(near_depth + visible.basis.x.length()).is_less(6.0)
+				var expected := space.camera.unproject_position(world_point)
+				var actual := space.camera.unproject_position(visible.origin)
+				assert_float(expected.distance_to(actual)).is_less(0.4)
+				assert_float(visible.basis.x.length() / near_depth).is_equal_approx(radius / world_depth, 0.0001)
+	assert_vector(barrage.curve(0.0)).is_equal(launch)
+	assert_vector(barrage.curve(1.0)).is_equal(landing)
+
+
+func test_bomb_launches_forward_without_reversing_or_changing_impact_time() -> void:
+	assert_float(LaneSmashBarrageSpace.flight_progress(0.0)).is_zero()
+	assert_float(LaneSmashBarrageSpace.flight_progress(0.1)).is_greater(0.19)
+	assert_float(LaneSmashBarrageSpace.flight_progress(1.0)).is_equal(1.0)
+	var previous := 0.0
+	for i in range(1, 901):
+		var progress := LaneSmashBarrageSpace.flight_progress(i / 900.0)
+		assert_float(progress).is_greater(previous)
+		assert_float(progress).is_less_equal(1.0)
+		previous = progress
