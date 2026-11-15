@@ -73,7 +73,7 @@ static func hud_skin() -> Dictionary:
 func target_text(_seg: Dictionary) -> String:
 	if not _errors.is_empty():
 		return "Course unavailable: %s" % _errors[0]
-	return "%s · %s · %d–%d resistance" % [rules.course.get("title", ""), rules.tier.capitalize(), NeonRules.TIERS[rules.tier], NeonRules.TIERS[rules.tier] + 41]
+	return "%s · %s · %d–%d resistance" % [rules.course.get("title", ""), rules.tier.capitalize(), NeonRules.band(0, rules.tier).x, NeonRules.band(5, rules.tier).y]
 
 
 func _ready() -> void:

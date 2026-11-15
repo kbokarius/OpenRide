@@ -44,7 +44,7 @@ func _run() -> void:
 	for t in range(0, int(seconds * 1000), 50):
 		var event := rules.current_event()
 		var lane := int(event.get("laneIndex", 1))
-		rules.push_sample({"t": t, "seq": t + 1, "cadence": 80, "power": 150, "resistance": NeonRules.band(lane, rules.tier).x + 3})
+		rules.push_sample({"t": t, "seq": t + 1, "cadence": 80, "power": 150, "resistance": NeonRules.band_center(lane, rules.tier)})
 		rules.advance(t + 50)
 	var track = load("res://games/neon_vector/NeonTrack.gd").new()
 	track.rules = rules

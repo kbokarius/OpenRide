@@ -28,9 +28,9 @@ func test_all_resistance_boundaries_and_outside_are_exact() -> void:
 	for tier in NeonRules.TIERS:
 		var lo: int = NeonRules.TIERS[tier]
 		assert_int(NeonRules.lane_for(lo - 1, tier)).is_equal(-1)
-		assert_int(NeonRules.lane_for(lo + 42, tier)).is_equal(-1)
+		assert_int(NeonRules.lane_for(NeonRules.band(5, tier).y + 1, tier)).is_equal(-1)
 		for lane in 6:
-			for r in range(lo + lane * 7, lo + lane * 7 + 7):
+			for r in range(NeonRules.band(lane, tier).x, NeonRules.band(lane, tier).y + 1):
 				assert_int(NeonRules.lane_for(r, tier)).is_equal(lane)
 
 

@@ -142,7 +142,7 @@ func update(rules: RefCounted) -> void:
 			if (entering or in_zone) and rules.selected_lane != target_lane():
 				shot.rapid = true
 				shot.rapidMs = now
-				shot.rapidLaneIndex = clampi(floori((float(rules.latest.resistance) - NeonRules.TIERS[rules.tier]) / 7.0), 0, 5)
+				shot.rapidLaneIndex = NeonRules.clamped_lane_for(float(rules.latest.resistance), rules.tier)
 				shot.rapidProgress = flight_progress(float(now - int(shot.fireMs)) / (int(shot.impactMs) - int(shot.fireMs)))
 				shot.originalTargetMeters = shot.targetMeters
 				# Lock a short strike at the rider's predicted position. A later lane change

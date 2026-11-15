@@ -120,6 +120,6 @@ func _sample(rules: NeonRules, t: int, mode: String) -> void:
 			var blend := clampf((t - int(shot.lockMs) - 2000) / 4000.0, 0, 1)
 			rpm = lerpf(float(shot.baselineRpm), float(shot.targetRpm), blend) if mode == "success" else float(shot.baselineRpm)
 	elif event.get("type", "") == "hold": rpm = int(event.cadenceMin) + 10
-	var resistance := NeonRules.band(lane, rules.tier).x + 3
+	var resistance := NeonRules.band_center(lane, rules.tier)
 	var watts := roundi(rpm * (0.3 + resistance * 0.045))
 	rules.push_sample({"t": t, "seq": t + 1, "cadence": rpm, "power": watts, "resistance": resistance})

@@ -208,7 +208,7 @@ func _sample(rules: NeonRules, t: int, scenario: String, fixed_lane: int, fixed_
 				lane = int(hazard.laneIndex)
 	if fixed_lane >= 0: lane = fixed_lane
 	if fixed_rpm > 0: rpm = fixed_rpm
-	var resistance := NeonRules.band(lane, rules.tier).x + 3
+	var resistance := NeonRules.band_center(lane, rules.tier)
 	# A repeatable knob sweep around the requested lane: wrong lane, threshold, full band.
 	# Only this test harness simulates it; the production controller reads real sensors.
 	if scenario == "steering": resistance += roundi(8.0 * sin(t * 0.0012))

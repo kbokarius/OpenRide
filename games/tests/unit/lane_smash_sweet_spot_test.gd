@@ -25,7 +25,7 @@ func _ride(rules: NeonRules, until_ms: int, cadence: Callable, step := 50) -> vo
 	var next := rules.elapsed_ms + step
 	while t < until_ms:
 		var lane := int(rules.current_event().get("laneIndex", 0))
-		rules.push_sample({"t": t, "seq": t + 1, "cadence": float(cadence.call(rules)), "power": 150, "resistance": NeonRules.band(lane, rules.tier).x + 3})
+		rules.push_sample({"t": t, "seq": t + 1, "cadence": float(cadence.call(rules)), "power": 150, "resistance": NeonRules.band_center(lane, rules.tier)})
 		t += 50
 		while next <= mini(t, until_ms):
 			rules.advance(next)

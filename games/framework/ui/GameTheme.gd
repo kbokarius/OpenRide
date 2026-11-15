@@ -276,7 +276,10 @@ func button(text: String, action: Callable, kind := PRIMARY) -> Button:
 ## Restyles an existing button in this theme (its size and action are kept).
 func style_button(b: Button, kind := PRIMARY) -> void:
 	b.add_theme_font_override("font", font(true))
-	b.add_theme_font_size_override("font_size", maxi(b.get_theme_font_size("font_size"), HudTheme.BUTTON_FONT))
+	# Keep explicit compact sizes when restyling a selection. Temporarily enlarging the
+	# font can force a Button past its container's width even after the caller restores it.
+	if not b.has_theme_font_size_override("font_size"):
+		b.add_theme_font_size_override("font_size", maxi(b.get_theme_font_size("font_size"), HudTheme.BUTTON_FONT))
 	b.add_theme_color_override("font_outline_color", ink)
 	b.add_theme_constant_override("outline_size", 0 if clean else 6)
 	for state in ["normal", "hover", "disabled", "focus"]:

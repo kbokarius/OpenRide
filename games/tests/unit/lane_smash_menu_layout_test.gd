@@ -57,6 +57,10 @@ func _check_text(what: String, root: Node) -> void:
 
 func test_selector_targets_text_and_columns() -> void:
 	var screen := await _screen()
+	assert_int(screen.tier_buttons.size()).is_equal(6)
+	assert_str(screen.tier_buttons.kid.text).is_equal("Kid")
+	screen._pick_tier("kid")
+	assert_str(screen.range_label.text).is_equal("0–20 ACROSS SIX LANES")
 	for duration in ["10", "15", "20", "30"]:
 		screen.length_picker.pick(duration)
 		for tier in NeonRules.CURRENT_TIERS:

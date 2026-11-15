@@ -14,9 +14,9 @@ func _run() -> void:
 				var shot := r.barrage.current_shot()
 				if not shot.is_empty(): rpm = lerpf(float(shot.baselineRpm), float(shot.targetRpm), clampf((t - int(shot.lockMs) - 2000) / 4000.0, 0, 1))
 			else: rpm = (float(e.cadenceMin) + float(e.cadenceMax)) / 2 if e.get("type") == "hold" else (110.0 if e.get("type") == "burst" else 90.0)
-			var resistance := NeonRules.band(lane, r.tier).x + 3
+			var resistance := NeonRules.band_center(lane, r.tier)
 			# Modest lane-change reaction and occasional missed targets, not a perfect trace.
-			if not r.barrage.active and t % 45000 < 1800: resistance = NeonRules.band((lane + 1) % 6, r.tier).x + 3
+			if not r.barrage.active and t % 45000 < 1800: resistance = NeonRules.band_center((lane + 1) % 6, r.tier)
 			var watts := roundi(rpm * (0.3 + resistance * 0.045))
 			r.push_sample({"t": t, "seq": t + 1, "cadence": rpm, "power": watts, "resistance": resistance})
 			r.advance(t + 50)

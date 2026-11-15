@@ -43,7 +43,7 @@ func _attack(wrong: bool, frame_ms := 50, end_ms := 70000) -> NeonRules:
 		while next_sample < end:
 			# Input is independent of render cadence; lane 5 is reachable from warm-up lane 2.
 			var lane := 0 if wrong else (4 if next_sample >= 51000 else 1)
-			rules.push_sample({"t": next_sample, "seq": next_sample + 1, "cadence": 80, "power": 150, "resistance": NeonRules.band(lane, "challenging").x + 3})
+			rules.push_sample({"t": next_sample, "seq": next_sample + 1, "cadence": 80, "power": 150, "resistance": NeonRules.band_center(lane, "challenging")})
 			next_sample += 50
 		rules.advance(end)
 	return rules
@@ -127,7 +127,7 @@ func test_final_minute_is_cooldown_at_every_speed_without_mutating_saved_course(
 				assert_int(target).is_less_equal(2)
 				assert_int(absi(target - previous)).is_less_equal(3)
 			previous = target
-			rules.push_sample({"t": t, "seq": t + 1, "cadence": rpm, "power": 150, "resistance": NeonRules.band(target, "challenging").x + 3})
+			rules.push_sample({"t": t, "seq": t + 1, "cadence": rpm, "power": 150, "resistance": NeonRules.band_center(target, "challenging")})
 			rules.advance(t + 100)
 			assert_bool(rules.cooldown).is_equal(t + 100 >= 540000)
 		assert_str(NeonCourse.fingerprint(rules.course)).is_equal(fingerprint)

@@ -2,7 +2,7 @@ extends GdUnitTestSuite
 
 
 func test_resistance_moves_across_each_lane_without_crossing_its_edges() -> void:
-	for tier: String in ["light", "moderate", "hard", "challenging", "extreme"]:
+	for tier: String in NeonRules.CURRENT_TIERS:
 		for lane in 6:
 			var band := NeonRules.band(lane, tier)
 			var previous := float(lane) - 0.5
@@ -12,7 +12,7 @@ func test_resistance_moves_across_each_lane_without_crossing_its_edges() -> void
 				assert_float(absf(visual - lane)).is_less(0.38)  # every band position can hit markers
 				assert_int(NeonRules.lane_for(resistance, tier)).is_equal(lane)
 				previous = visual
-			assert_float(LaneSmashSteering.position_for(band.x + 3, tier)).is_equal(float(lane))
+			assert_float(LaneSmashSteering.position_for((band.x + band.y) * 0.5, tier)).is_equal(float(lane))
 			# Enough room for the main hull at both extremes, with visible clearance.
 			var clearance := NeonSpace.LANE_WIDTH * (0.5 - LaneSmashSteering.TRAVEL) - 0.62 * LaneSmashBike.SCALE
 			assert_float(clearance).is_greater(0.1)

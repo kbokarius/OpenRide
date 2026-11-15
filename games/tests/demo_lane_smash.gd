@@ -46,7 +46,7 @@ func _run() -> void:
 	if not out.is_empty():
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(out.path_join("setup.png"))
-	input_bus._sim_resistance = NeonRules.band(int(setup.course.events[0].laneIndex), setup.tier).x + 3
+	input_bus._sim_resistance = NeonRules.band_center(int(setup.course.events[0].laneIndex), setup.tier)
 	input_bus._sim_cadence = 80
 	setup.start_button.pressed.emit()
 	while session.director.game == null or session.director.phase_name() != "PLAYING":
@@ -70,7 +70,7 @@ func _run() -> void:
 		if kind == "hold": rpm = (float(event.cadenceMin) + float(event.cadenceMax)) / 2.0
 		if kind == "burst": rpm = 140.0
 		input_bus._sim_cadence = move_toward(input_bus._sim_cadence, rpm, 3.0)
-		input_bus._sim_resistance = NeonRules.band(int(event.get("laneIndex", game.rules.selected_lane)), game.rules.tier).x + 3
+		input_bus._sim_resistance = NeonRules.band_center(int(event.get("laneIndex", game.rules.selected_lane)), game.rules.tier)
 		if t > 2000 and not game._ghost.is_empty():
 			var gap: float = game.track.ghost_gap
 			var state := "near" if game.track.space.ghost.visible else ("behind" if gap < -5 else "far_ahead" if gap >= 85 else "alongside")
@@ -127,7 +127,7 @@ func _seed_best(setup: Node) -> void:
 	for t in range(0, int(setup.course.durationMs), 50):
 		var event := rules.current_event()
 		rules.push_sample({"t": t, "seq": t + 1, "cadence": (int(event.cadenceMin) + 10 if event.get("type") == "hold" else (125 if event.get("type") == "burst" else 100)), "power": 200,
-			"resistance": NeonRules.band(int(event.get("laneIndex", 0)), setup.tier).x + 3})
+			"resistance": NeonRules.band_center(int(event.get("laneIndex", 0)), setup.tier)})
 		rules.advance(t + 50)
 	record.result = rules.result()
 	record.ghost = rules.ghost_trace

@@ -14,7 +14,7 @@ func _bomb_rules(version := 11) -> NeonRules:
 func _until(rules: NeonRules, until: int, rpm: float, lane := 2) -> void:
 	while rules.elapsed_ms < until:
 		var time := rules.elapsed_ms
-		rules.push_sample({"t": time, "seq": time + 1, "cadence": rpm, "power": 150, "resistance": NeonRules.band(lane, "challenging").x + 3})
+		rules.push_sample({"t": time, "seq": time + 1, "cadence": rpm, "power": 150, "resistance": NeonRules.band_center(lane, "challenging")})
 		rules.advance(mini(until, time + 10))
 
 func test_pass_pays_on_full_clearance_before_impact_once() -> void:

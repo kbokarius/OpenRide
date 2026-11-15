@@ -11,7 +11,7 @@ class NeonSettingsTest {
             listOf("ls_r_15_1", "ls_r_30_2147483646") + listOf("tutorial", "daily_2026-11-13_g1", "daily_2026-11-13_g2") +
             listOf("steady_flow", "intervals", "rolling_climb").flatMap { f -> listOf(10, 20, 30).map { "${f}_$it" } }
         val identities = mutableSetOf<String>()
-        for (id in ids) for (tier in listOf("light", "moderate", "hard", "challenging", "extreme", "beginner", "intermediate", "advanced", "expert")) {
+        for (id in ids) for (tier in listOf("kid", "light", "moderate", "hard", "challenging", "extreme", "beginner", "intermediate", "advanced", "expert")) {
             val settings = NeonSettings(id, tier, 150)
             assertTrue(settings.valid())
             val request = SessionRequest.JustRide("neon_vector", JustRideMode.Timed(settings.minutes), Difficulty.HARD, settings)
@@ -24,7 +24,7 @@ class NeonSettingsTest {
             assertEquals(settings.params(), plan.segments.single().params)
             identities += plan.planId
         }
-        assertEquals(ids.size * 9, identities.size)
+        assertEquals(ids.size * 10, identities.size)
     }
 
     @Test fun `bad dates unknown tiers and invalid targets are rejected`() {
@@ -52,4 +52,17 @@ class NeonSettingsTest {
         assertTrue(request.copy(length = 10).toSessionRequest(false, GameCatalog.DEFAULT) is RequestMapping.Rejected)
         assertTrue(request.copy(neon = null).toSessionRequest(false, GameCatalog.DEFAULT) is RequestMapping.Rejected)
     }
+
+    @Test fun `kid selection crosses the native request bridge without changing duration or reference power`() {
+        val json = """{"kind":"just_ride","game_id":"neon_vector","mode":"minutes","length":15,"neon":{"course_id":"ls_15_01","lane_difficulty":"kid","reference_power":150}}"""
+        val request = requireNotNull(BridgeMessages.parsePlanRequest(json))
+        val mapped = request.toSessionRequest(false, GameCatalog.DEFAULT) as RequestMapping.Ok
+        val settings = (mapped.request as SessionRequest.JustRide).neon!!
+        assertEquals("kid", settings.laneDifficulty)
+        assertEquals(15, settings.minutes)
+        assertEquals(150, settings.referencePower)
+        assertEquals(settings, NeonSettings.parse(settings.params()))
+        assertNotEquals(settings.planId(), settings.copy(laneDifficulty = "light").planId())
+    }
+
 }

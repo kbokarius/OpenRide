@@ -170,3 +170,33 @@ func test_malformed_record_versions_are_rejected_without_type_errors() -> void:
 		var record := _record()
 		record.version = value
 		assert_bool(NeonRecords.valid_record(record)).is_false()
+
+
+func test_kid_history_and_ghost_stay_separate_from_adult_difficulties() -> void:
+	var course := NeonCourse.load_course("ls_10_01")
+	var kid := NeonRules.new()
+	var adult := NeonRules.new()
+	kid.configure(course, "kid", 150)
+	adult.configure(course, "light", 150)
+	var kid_key := kid.comparison_key("1")
+	var adult_key := adult.comparison_key("1")
+	assert_str(kid_key).is_not_equal(adult_key)
+	var first := _record()
+	first.course = course
+	first.result.courseId = course.courseId
+	first.comparisonKey = kid_key
+	first.result.difficulty = "kid"
+	_finish(first, 120)
+	var second := _record()
+	second.course = course
+	second.result.courseId = course.courseId
+	second.comparisonKey = adult_key
+	second.result.difficulty = "light"
+	_finish(second, 900)
+	var saved: Dictionary = NeonRecords.local_request({"action": "best", "key": kid_key}, "1").record
+	assert_str(saved.result.difficulty).is_equal("kid")
+	assert_int(int(saved.result.scoreUnits)).is_equal(120)
+	assert_int(int(saved.ghost[-1][2])).is_equal(120)
+	assert_bool(NeonCourse.validate(saved.course).is_empty()).is_true()
+
+# End of suite.

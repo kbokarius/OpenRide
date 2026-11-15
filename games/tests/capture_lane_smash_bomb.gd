@@ -27,7 +27,7 @@ func _run() -> void:
 	var begin := int(hazard.hitMs) - 4000
 	for t in range(0, begin, 50):
 		var lane := int(rules.current_event().get("laneIndex", 0))
-		rules.push_sample({"t": t, "seq": t + 1, "cadence": 140, "power": 250, "resistance": NeonRules.band(lane, rules.tier).x + 3})
+		rules.push_sample({"t": t, "seq": t + 1, "cadence": 140, "power": 250, "resistance": NeonRules.band_center(lane, rules.tier)})
 		rules.advance(t + 50)
 	var track: Node = load("res://games/neon_vector/NeonTrack.gd").new()
 	track.rules = rules
@@ -52,7 +52,7 @@ func _run() -> void:
 	status.rules = rules
 	hud.add_widget(status)
 	root.get_node("InputBus")._sim_cadence = 140
-	root.get_node("InputBus")._sim_resistance = NeonRules.band(hazard.laneIndex, rules.tier).x + 3
+	root.get_node("InputBus")._sim_resistance = NeonRules.band_center(hazard.laneIndex, rules.tier)
 	for i in 60:
 		track.update_view(0)
 		await process_frame
@@ -68,7 +68,7 @@ func _run() -> void:
 		var target := begin + floori((frame + 1) * 1000.0 / 30 / 10) * 10
 		while next_sample < target:
 			var lane := int(hazard.laneIndex) if next_sample <= int(hazard.hitMs) + 1000 else int(rules.current_event().get("laneIndex", 0))
-			rules.push_sample({"t": next_sample, "seq": next_sample + 1, "cadence": 140, "power": 250, "resistance": NeonRules.band(lane, rules.tier).x + 3})
+			rules.push_sample({"t": next_sample, "seq": next_sample + 1, "cadence": 140, "power": 250, "resistance": NeonRules.band_center(lane, rules.tier)})
 			next_sample += 50
 		rules.advance(target)
 		track.update_view(1.0 / 30)

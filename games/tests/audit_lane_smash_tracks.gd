@@ -28,7 +28,7 @@ func _run() -> void:
 					for resistance in range(band.x, band.y + 1):
 						_check(NeonRules.lane_for(resistance, tier) == lane, id + " lane mapping")
 						limits[resistance] = true
-				_check(limits.size() == 42, id + " missing resistance bands")
+				_check(limits.size() == (21 if tier == "kid" else 42), id + " missing resistance bands")
 			var rules := NeonRules.new()
 			rules.configure(course, tiers[cases % tiers.size()], 150)
 			var seen := {}
@@ -76,7 +76,7 @@ func _run() -> void:
 				if rules.road_time_ms() >= LaneSmashCatalog.WARMUP_ROAD_MS and time < int(course.durationMs) - 60000:
 					work_ms += 50
 					if lane >= 2: high_lane_ms += 50
-				rules.push_sample({"t": time, "seq": time + 1, "cadence": rpm, "power": 250, "resistance": NeonRules.band(lane, rules.tier).x + 3})
+				rules.push_sample({"t": time, "seq": time + 1, "cadence": rpm, "power": 250, "resistance": NeonRules.band_center(lane, rules.tier)})
 				rules.advance(time + 50)
 				seen[kind] = true
 				lanes[lane] = true
@@ -107,5 +107,5 @@ func _run() -> void:
 		_check(absf(rules.road_distance() - minf(rpm, 140) / 140.0 * 30000.0) < 0.01, "30-minute speed/distance drift")
 		_check(rules._samples.size() <= 130 and rules._power.size() <= 100 and rules.ghost_trace.size() == 18000, "unbounded input/ghost buffer")
 		await process_frame
-	print("TRACK AUDIT ", "PASS" if failures.is_empty() else "FAIL", " full_tracks=", cases, " simulated_hours=", simulated_ms / 3600000.0, " speed_traces=4 five_difficulties=verified failures=", failures)
+	print("TRACK AUDIT ", "PASS" if failures.is_empty() else "FAIL", " full_tracks=", cases, " simulated_hours=", simulated_ms / 3600000.0, " speed_traces=4 difficulties=", tiers.size(), " failures=", failures)
 	quit(0 if failures.is_empty() else 1)

@@ -1,5 +1,7 @@
 # Rules, courses and scoring
 
+For exact constants, source locations and the distinction between active time and road time, see [Parameters](PARAMETERS.md).
+
 ## Course selection
 
 Each 10/15/20/30-minute duration has the same 25 names with duration-specific seeded courses. Random generation chooses its layout, theme, environment and fixed 3D route from a stored seed. Saved replays load the snapshot, not a newly generated replacement.
@@ -35,13 +37,16 @@ Named and random tracks use the same rules. Authored time, lane-exposure and cad
 
 | Difficulty | Lowest–highest resistance |
 | --- | --- |
+| Kid | 0–20 |
 | Light | 15–56 |
 | Moderate | 20–61 |
 | Hard | 25–66 |
 | Challenging, default | 30–71 |
 | Extreme | 35–76 |
 
-Each range has six equal seven-value lanes. Lane `n` (1–6) starts at `difficulty minimum + 7 × (n−1)` and ends six values later. The five ranges are Lanebreak's published Bike levels, and the seven-value lanes agree with every individual Lanebreak lane found (six, five of them read from the game's own display in review footage) (see [the range research](../research/lanebreak/06-difficulty-ranges.md)); `lane_smash_catalog_test.gd` pins the whole table. The displayed endpoints are inclusive. Out-of-range, fractional or invalid resistance does not select a scoring lane. A new lane must settle for 150 ms. Difficulty does not alter the course, visual grade or physical knob automatically.
+The five adult ranges have six equal seven-value lanes. Lane `n` (1–6) starts at `difficulty minimum + 7 × (n−1)` and ends six values later. The five adult ranges are Lanebreak's published Bike levels, and the seven-value lanes agree with every individual Lanebreak lane found (six, five of them read from the game's own display in review footage) (see [the range research](../research/lanebreak/06-difficulty-ranges.md)); `lane_smash_catalog_test.gd` pins the whole table. The displayed endpoints are inclusive. Out-of-range, fractional or invalid resistance does not select a scoring lane. A new lane must settle for 150 ms. Difficulty does not alter the course, visual grade or physical knob automatically.
+
+**Kid** is a custom low-resistance difficulty starting at sensor value 0, with a **3.5-point lane step**, half the ordinary 7. Because readings are integers, lanes alternate four and three values: **0–3, 4–6, 7–10, 11–13, 14–17, 18–20**. The upper bound is exclusive at 21; out-of-range and fractional values do not score. The same mapping drives the lane dock, smooth steering, target prompts, mine contacts, rapid-bomb placement and scenery response. Existing adult/historical ranges stay exact. Kid keeps the same course, cadence, power, scoring and cooldown rules, and gets separate last/best/ghost comparisons through its `kid` difficulty key. Challenging remains the default. See [Kid specification](../specs/lane-smash-kid-mode.md).
 
 Rules speed = `clamp(cadence / 140, 0, 1) × 60 km/h`. Position advances from that speed; faster riders encounter more sections during the same active duration. Roads are `minutes × 1,000 + 300` rules-metres long, exceeding the maximum reachable distance. Higher cadence cannot overrun the road.
 

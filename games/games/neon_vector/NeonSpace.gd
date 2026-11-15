@@ -267,7 +267,8 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 	_unit_speed = rules.road_speed_scale()
 	prepare_terrain(rules.course)
 	distance = rules.road_distance()
-	var resistance_fraction: float = (float(rules.latest.get("resistance", NeonRules.TIERS[rules.tier])) - NeonRules.TIERS[rules.tier]) / 41.0
+	var low := NeonRules.band(0, rules.tier).x
+	var resistance_fraction: float = (float(rules.latest.get("resistance", low)) - low) / float(NeonRules.band(5, rules.tier).y - low)
 	# The sky streams past at the speed the road does on screen.
 	_structures.update_environment(str(rules.course.get("background", "orbital")), palette_accent, distance * STRETCH, resistance_fraction, delta, reduced_motion)
 	# Follow the full orientation, including upside-down loops and rolls; the rider

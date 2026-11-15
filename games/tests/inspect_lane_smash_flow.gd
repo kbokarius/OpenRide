@@ -19,7 +19,7 @@ func _initialize() -> void:
 		if current != key:
 			print("FLOW ", time, " ", current, " lane=", lane + 1, " road=", rules.road_time_ms(), " event=", event)
 			key = current
-		rules.push_sample({"t": time, "seq": time + 1, "cadence": rpm, "power": 200, "resistance": NeonRules.band(lane, "challenging").x + 3})
+		rules.push_sample({"t": time, "seq": time + 1, "cadence": rpm, "power": 200, "resistance": NeonRules.band_center(lane, "challenging")})
 		rules.advance(time + 50)
 		for shot: Dictionary in rules.barrage.shots:
 			if bool(shot.resolved) and not shots.has(shot.shotId):

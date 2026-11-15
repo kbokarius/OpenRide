@@ -170,7 +170,7 @@ func test_front_wheel_shatters_all_marker_types_once_without_awarding_invalid_po
 			space.free()
 
 func test_current_ranges_and_uninterrupted_zero_cadence() -> void:
-	assert_dict(NeonRules.CURRENT_TIERS).is_equal({"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35})
+	assert_dict(NeonRules.CURRENT_TIERS).is_equal({"kid": 0, "light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35})
 	assert_vector(NeonRules.band(0, "challenging")).is_equal(Vector2i(30, 36))
 	assert_vector(NeonRules.band(5, "challenging")).is_equal(Vector2i(65, 71))
 	assert_vector(NeonRules.band(5, "extreme")).is_equal(Vector2i(70, 76))
@@ -393,7 +393,7 @@ func test_resistance_lanes_match_the_published_lanebreak_ranges() -> void:
 	# Peloton's five Bike levels, lowest to highest resistance (Pelo Buddy, 22 June 2023; see
 	# docs/research/lanebreak/06-difficulty-ranges.md).
 	var published := {"light": [15, 56], "moderate": [20, 61], "hard": [25, 66], "challenging": [30, 71], "extreme": [35, 76]}
-	assert_array(NeonRules.CURRENT_TIERS.keys()).contains_exactly_in_any_order(published.keys())
+	assert_array(NeonRules.CURRENT_TIERS.keys()).contains_exactly_in_any_order(["kid"] + published.keys())
 	for tier: String in published:
 		assert_int(NeonRules.band(0, tier).x).is_equal(published[tier][0])
 		assert_int(NeonRules.band(5, tier).y).is_equal(published[tier][1])

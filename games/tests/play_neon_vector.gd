@@ -74,7 +74,7 @@ func _run() -> void:
 	await _shot("style")
 	hub.screen._close_panel()
 	_seed_ghost(hub.screen)
-	root.get_node("InputBus")._sim_resistance = NeonRules.band(int(hub.screen.course.events[0].laneIndex), hub.screen.tier).x + 3
+	root.get_node("InputBus")._sim_resistance = NeonRules.band_center(int(hub.screen.course.events[0].laneIndex), hub.screen.tier)
 	hub.screen.start_button.pressed.emit()
 	await _until(func(): return director.phase_name() == "PLAYING", 15, "game starts")
 	if director.game == null:
@@ -186,7 +186,7 @@ func _seed_ghost(setup: Node) -> void:
 	_check(NeonRecords.local_request({"action": "save", "record": record}, rider).ok, "ghost attempt begins durably")
 	for time in range(0, int(rules.course.durationMs), 50):
 		var lane := int(rules.current_event().get("laneIndex", 0))
-		rules.push_sample({"t": time, "seq": time + 1, "cadence": 80, "power": setup.reference_power, "resistance": NeonRules.band(lane, setup.tier).x + 3})
+		rules.push_sample({"t": time, "seq": time + 1, "cadence": 80, "power": setup.reference_power, "resistance": NeonRules.band_center(lane, setup.tier)})
 		rules.advance(time + 50)
 	record.result = rules.result()
 	record.ghost = rules.ghost_trace

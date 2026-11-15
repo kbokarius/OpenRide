@@ -29,7 +29,7 @@ func _run() -> void:
 		setup.length_picker.pick(str(fixed_minutes if fixed_minutes > 0 else LaneSmashCatalog.LENGTHS[cycle % 4]))
 		setup._pick_track(cycle % 25)
 		setup._pick_tier(NeonRules.CURRENT_TIERS.keys()[cycle % 5])
-		root.get_node("InputBus")._sim_resistance = NeonRules.band(setup.course.events[0].laneIndex, setup.tier).x + 3
+		root.get_node("InputBus")._sim_resistance = NeonRules.band_center(setup.course.events[0].laneIndex, setup.tier)
 		setup.start_button.pressed.emit()
 		var deadline := Time.get_ticks_msec() + 15000
 		while director.phase_name() != "PLAYING" and Time.get_ticks_msec() < deadline: await process_frame

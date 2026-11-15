@@ -291,7 +291,7 @@ func _build_ride(course_id: String, ghost: bool) -> void:
 			var event := previous.current_event()
 			var lane := 0 if previous.barrage.active else int(event.get("laneIndex", 0))
 			var rpm := 88.0 if event.get("type", "") != "hold" else (float(event.cadenceMin) + float(event.cadenceMax)) * 0.5
-			previous.push_sample({"t": t, "seq": t + 1, "cadence": rpm, "power": 170, "resistance": NeonRules.band(lane, "challenging").x + 3})
+			previous.push_sample({"t": t, "seq": t + 1, "cadence": rpm, "power": 170, "resistance": NeonRules.band_center(lane, "challenging")})
 			previous.advance(t + 50)
 		replay._ghost = previous.ghost_trace
 	_resync()
@@ -509,7 +509,7 @@ func _policy(mode: String) -> Callable:
 func _push(policy: Callable) -> void:
 	var input: Dictionary = policy.call()
 	_rpm = move_toward(_rpm, float(input.rpm), float(input.get("step", 4.0)))
-	var resistance := NeonRules.band(int(input.lane), rules.tier).x + 3
+	var resistance := NeonRules.band_center(int(input.lane), rules.tier)
 	rules.push_sample({"t": _next_sample, "seq": _next_sample + 1, "cadence": roundf(_rpm), "power": roundi(_rpm * (0.3 + resistance * 0.045)), "resistance": resistance})
 	_next_sample += 50
 

@@ -28,7 +28,7 @@ func _step(ms: int) -> void:
 		var lane := 0 if rules.barrage.active else int(event.get("laneIndex", 0))
 		var rpm := 96.0
 		if event.get("type", "") == "hold": rpm = (float(event.cadenceMin) + float(event.cadenceMax)) * 0.5
-		rules.push_sample({"t": _next_sample, "seq": _next_sample + 1, "cadence": rpm, "power": 200, "resistance": NeonRules.band(lane, rules.tier).x + 3})
+		rules.push_sample({"t": _next_sample, "seq": _next_sample + 1, "cadence": rpm, "power": 200, "resistance": NeonRules.band_center(lane, rules.tier)})
 		_next_sample += 50
 	rules.advance(target)
 

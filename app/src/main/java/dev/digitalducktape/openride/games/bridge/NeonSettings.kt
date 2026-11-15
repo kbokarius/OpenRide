@@ -17,7 +17,7 @@ data class NeonSettings(val courseId: String, val laneDifficulty: String, val re
 
     fun valid(): Boolean {
         if (replayAttemptId.isNotEmpty() && !Regex("[a-f0-9]{32}").matches(replayAttemptId)) return false
-        if (laneDifficulty !in listOf("light", "moderate", "hard", "challenging", "extreme", "beginner", "intermediate", "advanced", "expert") || referencePower !in 1..2000) return false
+        if (laneDifficulty !in listOf("kid", "light", "moderate", "hard", "challenging", "extreme", "beginner", "intermediate", "advanced", "expert") || referencePower !in 1..2000) return false
         if (courseId.startsWith("ls_")) {
             if (referencePower != 150) return false
             if (Regex("ls_(10|15|20|30)_(0[1-9]|1[0-9]|2[0-5])").matches(courseId)) return true

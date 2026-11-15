@@ -228,7 +228,7 @@ func _build_setup() -> void:
 	var tiers := VBoxContainer.new()
 	tiers.add_theme_constant_override("separation", LaneSmashMenuTheme.S3)
 	box.add_child(tiers)
-	for row_ids in [["light", "moderate", "hard"], ["challenging", "extreme"]]:
+	for row_ids in [["kid", "light", "moderate"], ["hard", "challenging", "extreme"]]:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", LaneSmashMenuTheme.S3)
 		tiers.add_child(row)
@@ -354,8 +354,7 @@ func _refresh_course() -> void:
 		tier_buttons[key].add_theme_font_size_override("font_size", 34)
 	length_picker.visible = _replay_id.is_empty()
 	length_label.text = "DURATION" if _replay_id.is_empty() else "SAVED RIDE · %d MIN" % minutes
-	var lo: int = NeonRules.TIERS[tier]
-	range_label.text = "%d–%d ACROSS SIX LANES" % [lo, lo + 41]
+	range_label.text = "%d–%d ACROSS SIX LANES" % [NeonRules.band(0, tier).x, NeonRules.band(5, tier).y]
 	var palette := NeonWorlds.world(str(course.get("theme", "arctic")))
 	var sky_id := str(course.get("background", "orbital"))
 	course_label.text = str(course.get("title", ""))

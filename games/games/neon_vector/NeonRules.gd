@@ -4,10 +4,13 @@ extends RefCounted
 
 const UNIT := 100000
 const TICK := 10
-# Published Bike ranges. Historical keys remain immutable for saved ride comparison.
-const CURRENT_TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35}
-const TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35,
+# Kid is our low-resistance option; the five adult ranges match the published Bike levels.
+# Historical keys remain immutable for saved ride comparison.
+const CURRENT_TIERS := {"kid": 0, "light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35}
+const TIERS := {"kid": 0, "light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35,
 	"beginner": 20, "intermediate": 24, "advanced": 30, "expert": 34}
+const LANE_STEP := 7.0
+const KID_LANE_STEP := LANE_STEP * 0.5
 const SCORING_VERSION := 10
 const CURRENT_SCORE_SCALE := 18
 ## Machine-gun fire over cadence sections (scoring version 7). Attackers strafe the road ahead
@@ -76,15 +79,33 @@ var _configured := false
 static func lane_for(resistance: float, difficulty_id: String) -> int:
 	if not TIERS.has(difficulty_id) or not is_finite(resistance) or resistance != floorf(resistance):
 		return -1
-	var lo: int = TIERS[difficulty_id]
-	if resistance < lo or resistance > lo + 41:
+	if resistance < band(0, difficulty_id).x or resistance > band(5, difficulty_id).y:
 		return -1
-	return (int(resistance) - lo) / 7
+	return clamped_lane_for(resistance, difficulty_id)
+
+
+static func lane_step(difficulty_id: String) -> float:
+	return KID_LANE_STEP if difficulty_id == "kid" else LANE_STEP
+
+
+## Presentation / rapid-hit placement only: clamp an out-of-range reading to the road.
+## Scoring must use lane_for so invalid, fractional and out-of-range input cannot earn points.
+static func clamped_lane_for(resistance: float, difficulty_id: String) -> int:
+	if not is_finite(resistance): return 2
+	return clampi(floori((resistance - TIERS.get(difficulty_id, 24)) / lane_step(difficulty_id)), 0, 5)
 
 
 static func band(lane: int, difficulty_id: String) -> Vector2i:
-	var lo: int = TIERS.get(difficulty_id, 24) + clampi(lane, 0, 5) * 7
-	return Vector2i(lo, lo + 6)
+	var start: int = TIERS.get(difficulty_id, 24)
+	var index := clampi(lane, 0, 5)
+	var step := lane_step(difficulty_id)
+	# Whole-number sensors split the 3.5-wide Kid bands into alternating four/three values.
+	return Vector2i(start + ceili(index * step), start + ceili((index + 1) * step) - 1)
+
+
+static func band_center(lane: int, difficulty_id: String) -> int:
+	var limits := band(lane, difficulty_id)
+	return (limits.x + limits.y) / 2
 
 
 func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[String]:

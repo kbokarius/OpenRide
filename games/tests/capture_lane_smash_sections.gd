@@ -136,6 +136,6 @@ func _sample(rules: NeonRules, t: int, live: bool) -> void:
 		var bomb: Dictionary = rules.course.hazards[0]
 		if rules.road_time_ms() >= int(bomb.hitMs) - 2200 and rules.road_time_ms() <= int(bomb.hitMs) + 1000:
 			lane = int(bomb.laneIndex)
-	var resistance := NeonRules.band(lane, rules.tier).x + 3
+	var resistance := NeonRules.band_center(lane, rules.tier)
 	var watts := roundi(rpm * (0.3 + resistance * 0.045))
 	rules.push_sample({"t": t, "seq": t + 1, "cadence": rpm, "power": watts, "resistance": resistance})

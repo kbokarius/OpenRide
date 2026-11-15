@@ -25,7 +25,7 @@ func _run() -> void:
 				var target := roundi(frame * 1000.0 / fps)
 				while index < source.trace.size() and int(source.trace[index].t) < target:
 					var sample: Dictionary = source.trace[index].duplicate()
-					sample.resistance = sample.resistance - NeonRules.TIERS.challenging + NeonRules.TIERS[tier]
+					sample.resistance = NeonRules.band_center(NeonRules.lane_for(sample.resistance, "challenging"), tier)
 					rules.push_sample(sample)
 					index += 1
 				rules.advance(target)
@@ -46,7 +46,7 @@ func _ride(course: Dictionary, forced_rpm: int) -> Dictionary:
 		var event := rules.current_event()
 		var rpm := int((int(event.get("cadenceMin", 80)) + int(event.get("cadenceMax", 100))) / 2) if event.get("type") == "hold" else 110
 		if forced_rpm > 0: rpm = forced_rpm
-		var sample := {"t": t, "seq": t + 1, "cadence": rpm, "power": 200 if event.get("type") == "burst" else 150, "resistance": NeonRules.band(int(event.get("laneIndex", 0)), "challenging").x + 3}
+		var sample := {"t": t, "seq": t + 1, "cadence": rpm, "power": 200 if event.get("type") == "burst" else 150, "resistance": NeonRules.band_center(int(event.get("laneIndex", 0)), "challenging")}
 		trace.append(sample)
 		rules.push_sample(sample)
 		rules.advance(t + 50)

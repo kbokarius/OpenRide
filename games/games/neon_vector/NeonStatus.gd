@@ -125,7 +125,7 @@ func refresh() -> void:
 	var res := float(rules.latest.get("resistance", NeonRules.TIERS[rules.tier]))
 	if rules.selected_lane < 0 and not rules.latest.is_empty():
 		heading.text = "OUTSIDE THE COURSE RANGE"
-		target.text = "Increase resistance to %d" % NeonRules.TIERS[rules.tier] if res < NeonRules.TIERS[rules.tier] else "Lower resistance to %d" % (NeonRules.TIERS[rules.tier] + 41)
+		target.text = "Increase resistance to %d" % NeonRules.band(0, rules.tier).x if res < NeonRules.TIERS[rules.tier] else "Lower resistance to %d" % NeonRules.band(5, rules.tier).y
 		detail.text = "Points resume inside a lane"
 		return
 	if event.is_empty():

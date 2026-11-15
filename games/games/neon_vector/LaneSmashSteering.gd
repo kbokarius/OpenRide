@@ -23,11 +23,10 @@ var _style: StyleBoxFlat
 
 
 static func position_for(resistance: float, tier: String) -> float:
-	var low := float(NeonRules.TIERS.get(tier, 30))
 	if not is_finite(resistance): return 2.0
-	var value := clampf(resistance - low, 0.0, 41.0)
-	var band := mini(5, floori(value / 7.0))
-	return band + lerpf(-TRAVEL, TRAVEL, clampf((value - band * 7.0) / 6.0, 0.0, 1.0))
+	var lane := NeonRules.clamped_lane_for(resistance, tier)
+	var band := NeonRules.band(lane, tier)
+	return lane + lerpf(-TRAVEL, TRAVEL, clampf((resistance - band.x) / float(band.y - band.x), 0.0, 1.0))
 
 
 static func target_for(rules: NeonRules) -> int:
@@ -41,7 +40,7 @@ func update(delta: float, resistance: float, tier: String, wanted_lane: int) -> 
 	target = wanted_lane if wanted_lane >= 0 and wanted_lane < 6 else -1
 	var valid := is_finite(resistance)
 	if valid:
-		var next_band := clampi(floori((resistance - float(NeonRules.TIERS.get(tier, 30))) / 7.0), 0, 5)
+		var next_band := NeonRules.clamped_lane_for(resistance, tier)
 		var wanted := position_for(resistance, tier)
 		if not _initialized or delta <= 0.0:
 			lane = wanted

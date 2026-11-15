@@ -38,3 +38,9 @@ Course/scoring versions preserve older replay behavior and comparison keys. Gene
 ## Scope of validation
 
 Headless rules simulation and native desktop captures do not establish sustained performance on the Peloton. PNG capture frame rates include readback and image encoding. This revision is prepared for installation; physical installation and pedalling are not part of this update request. Existing device data is untouched.
+
+## Subsequent visual follow-up: superbike rear tyre
+
+Implemented in `7b56a12` after APK 27 was built. The rear rubber is 0.64 design units wide instead of 0.16, with a fuller rounded profile, 0.485-radius / 0.40-wide rim, 0.76-wide axle and wider swingarm mounts. The 1.3 model scale makes the tyre 0.832 world units wide. Front-wheel contact geometry, rolling radius, scoring and course identity are unchanged. Rider and ghost share the separately cached rear mesh. See [the full geometry parameters](../lane-smash/PARAMETERS.md#superbike-rear-tyre).
+
+Native Godot riding-camera and rear three-quarter close-up renders were inspected without script errors. This visual follow-up is committed source; it is **not included in the APK/checksum verified above**, and no subsequent device installation has occurred as part of this work.
