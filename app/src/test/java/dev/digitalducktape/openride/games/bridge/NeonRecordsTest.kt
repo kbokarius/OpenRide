@@ -208,7 +208,8 @@ class NeonRecordsTest {
         // Scoring 9 adds lane-checked bombs and a timer-driven cooldown.
         assertEquals(140L, NeonRecords.decode(versioned(9), rider, 0).scoreUnits)
         var rejected = false
-        try { NeonRecords.decode(versioned(10), rider, 0) } catch (_: IllegalArgumentException) { rejected = true }
+        assertEquals(140L, NeonRecords.decode(versioned(10), rider, 0).scoreUnits)
+        try { NeonRecords.decode(versioned(11), rider, 0) } catch (_: IllegalArgumentException) { rejected = true }
         assertTrue(rejected)
     }
 

@@ -155,7 +155,7 @@ static func validate(course: Dictionary) -> Array[String]:
 				errors.append("Unsupported charge ratios")
 	if not errors.is_empty():
 		return errors
-	if course.has("hazards") and (int(course.courseVersion) < 5 or not bool(course.get("distanceBased", false)) or not LaneSmashHazards.valid(course.hazards, course.events, int(course.durationMs))):
+	if course.has("hazards") and (int(course.courseVersion) < 5 or not bool(course.get("distanceBased", false)) or not (LaneSmashHazards.valid_dense(course.hazards, course.events) if int(course.courseVersion) >= 11 else LaneSmashHazards.valid(course.hazards, course.events, int(course.durationMs)))):
 		errors.append("Invalid bomb hazards")
 	if int(course.courseVersion) >= 5 and not course.has("hazards"):
 		errors.append("Missing bomb hazards")
@@ -182,7 +182,7 @@ static func validate(course: Dictionary) -> Array[String]:
 					if distance > 0 and gap < maxi(3000, 1500 * distance):
 						errors.append("Unreachable lane transition before %s" % event.eventId)
 		if event.type in ["charge", "burst"]:
-			var minimum := 6000 if int(course.courseVersion) >= 4 and event.type == "burst" else 8000
+			var minimum := 5000 if int(course.courseVersion) >= 11 else 6000 if int(course.courseVersion) >= 4 and event.type == "burst" else 8000
 			if int(event.startMs) - charge_end < 30000 or int(event.endMs) - int(event.startMs) not in range(minimum, 15001):
 				errors.append("Power section needs %d–15 s and 30 s recovery" % (minimum / 1000))
 			charge_end = int(event.endMs)

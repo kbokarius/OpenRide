@@ -127,10 +127,25 @@ func test_road_bombs_and_incoming_fire_have_their_own_explosions() -> void:
 	assert_array(played).contains_exactly(["lane_smash_impact"])
 	played.clear()
 	track.blast_resolved.emit(false, 1800)
-	assert_array(played).contains_exactly(["lane_smash_impact", "lane_smash_pass"])
+	assert_array(played).contains_exactly(["lane_smash_pass"])
 	played.clear()
 	track.blast_resolved.emit(false, 0)
-	assert_array(played).contains_exactly(["lane_smash_impact", "lane_smash_avoid"])
+	assert_array(played).contains_exactly(["lane_smash_avoid"])
+	# The physical blast has its own timestamp, independent of the earlier reward cue.
+	played.clear()
+	track.rules.barrage.section = {"barrageId": "audio"}
+	track.rules.barrage.shots = [{"shotId": "audio-0", "sectionId": "audio", "lockMs": 0, "fireMs": 2000, "impactMs": 11000, "hit": false}]
+	track.rules.elapsed_ms = 9000
+	rig[1].update_audio()
+	played.clear()
+	track.rules.elapsed_ms = 11000
+	rig[1].update_audio()
+	rig[1].update_audio()
+	assert_array(played).contains_exactly(["lane_smash_impact"])
+	played.clear()
+	track.rules.scoring_version = 9
+	track.blast_resolved.emit(false, 1800)
+	assert_array(played).contains_exactly(["lane_smash_impact", "lane_smash_pass"])
 	AudioDirector.sound_played.disconnect(listener)
 	rig[1].free()
 	track.free()

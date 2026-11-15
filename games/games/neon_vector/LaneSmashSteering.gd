@@ -31,11 +31,10 @@ static func position_for(resistance: float, tier: String) -> float:
 
 
 static func target_for(rules: NeonRules) -> int:
-	if not rules.pause_reason.is_empty(): return -1
 	if rules.barrage.active: return rules.barrage.target_lane()
 	var event := rules.current_event()
-	if event.is_empty() or int(event.startMs) - rules.road_time_ms() > (LaneSmashCatalog.GAP_MAX_MS if rules.scoring_version >= 9 else 4000): return -1
-	return int(event.laneIndex)
+	# Guidance persists through every approach, interruption and the final roll-out.
+	return int(event.laneIndex) if not event.is_empty() else clampi(rules.last_target_lane, 0, 5)
 
 
 func update(delta: float, resistance: float, tier: String, wanted_lane: int) -> void:

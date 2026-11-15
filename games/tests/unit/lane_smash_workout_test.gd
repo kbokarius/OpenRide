@@ -11,7 +11,7 @@ func test_named_and_random_tracks_keep_work_high_and_every_lane_change_reachable
 			var previous := {}
 			for event: Dictionary in course.events:
 				var lane := int(event.laneIndex)
-				if int(event.startMs) < 48000: assert_int(lane).is_between(0, 1)
+				if int(event.startMs) < LaneSmashCatalog.WARMUP_ROAD_MS: assert_int(lane).is_between(0, 1)
 				else: assert_int(lane).is_between(2, 5)
 				if not previous.is_empty():
 					var jump := absi(lane - int(previous.laneIndex))
@@ -32,7 +32,7 @@ func test_named_and_random_tracks_keep_work_high_and_every_lane_change_reachable
 
 
 func _attack(wrong: bool, frame_ms := 50, end_ms := 70000) -> NeonRules:
-	var course := NeonCourse.load_course("ls_10_01")
+	var course: Dictionary = preload("res://tests/fixtures/catalog_v7.gd").load_track("ls_10_01")
 	course.hazards = []
 	course.barrages = [{"barrageId": "gated", "prepareMs": 51000, "startMs": 60000, "endMs": 95000, "slots": [0, 1], "laneIndex": 4}]
 	var rules := NeonRules.new()

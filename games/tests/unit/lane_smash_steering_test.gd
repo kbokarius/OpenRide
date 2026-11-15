@@ -67,14 +67,14 @@ func test_highlights_crossfade_and_arrows_stop_inside_the_whole_target_band() ->
 	for weight in steering.weights: assert_float(weight).is_zero()
 
 
-func test_guidance_waits_for_the_section_and_does_not_change_the_rules() -> void:
+func test_guidance_persists_through_gaps_and_does_not_change_the_rules() -> void:
 	var rules := NeonRules.new()
 	rules.configure(NeonCourse.load_course("ls_15_01"), "challenging", 150)
 	assert_int(LaneSmashSteering.target_for(rules)).is_equal(0)
 	var score := rules.score_units
 	rules.pause_reason = "connection"
-	assert_int(LaneSmashSteering.target_for(rules)).is_equal(-1)
+	assert_int(LaneSmashSteering.target_for(rules)).is_equal(int(rules.current_event().laneIndex))
 	rules.pause_reason = ""
-	rules._event_cursor = 2  # still at the start: this section is too far away to prompt yet
-	assert_int(LaneSmashSteering.target_for(rules)).is_equal(-1)
+	rules._event_cursor = 2  # even a distant upcoming section stays highlighted
+	assert_int(LaneSmashSteering.target_for(rules)).is_equal(int(rules.current_event().laneIndex))
 	assert_int(rules.score_units).is_equal(score)

@@ -318,7 +318,7 @@ func _dock(accent: Color) -> void:
 	var total := CELL.x * 6.0 + CELL_GAP * 5.0
 	var left := (HudTheme.W - total) * 0.5
 	var event := rules.current_event()
-	var target_lane := -1
+	var target_lane := LaneSmashSteering.target_for(rules)
 	var target_color := GOLD
 	if rules.barrage.active:
 		target_lane = rules.barrage.target_lane()
@@ -362,7 +362,7 @@ func _update_completions(delta: float) -> void:
 		var event: Dictionary = rules.events[_completion_cursor]
 		var points := int(rules.event_states[_completion_cursor].scoreUnits) / NeonRules.UNIT
 		_completion_cursor += 1
-		if points <= 0 or rules.barrage.active: continue
+		if points <= 0 or rules.barrage.active or rules.event_states[_completion_cursor - 1].get("skipped", false): continue
 		_completion_kind = str(event.type)
 		_completion_text = "+%s" % HudTheme.grouped(points)
 		_completion_age = 0.0

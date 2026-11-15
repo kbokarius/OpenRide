@@ -1,6 +1,6 @@
 # Lane Smash — living technical reference
 
-Current: revision 18, APK code 26, course version 10, generator version 7, scoring version 9. Updated November 14, 2026.
+Current: revision 19, APK code 27, course version 11, generator version 8, scoring version 10. Updated November 15, 2026.
 
 This directory describes the current game. Versioned files under `docs/specs/` preserve past decisions and validation; they are historical when they disagree with this reference.
 
@@ -10,6 +10,7 @@ This directory describes the current game. Versioned files under `docs/specs/` p
 | [Rules and courses](RULES.md) | Steering, speed, course generation, points, bombs and stars |
 | [Presentation and audio](PRESENTATION.md) | Visual contacts, score animation, sound mapping and shared settings |
 | [Player and installation guide](../LANE_SMASH.md) | Visible controls and installation |
+| [Revision 19](../specs/lane-smash-v19.md) | Immediate pass rewards, smooth counters, sustained sections, continuous lane guidance and dense off-lane mines |
 | [Revision 18](../specs/lane-smash-v18.md) | Auto graphics restored by default and on the Peloton |
 | [Revision 17](../specs/lane-smash-v17.md) | High graphics by default; signed build and physical installation |
 | [Revision 16 and validation](../specs/lane-smash-v16.md) | Slimmer motorcycle, visible jets, lane-checked bombs, work-lane progression and timed cooldown |

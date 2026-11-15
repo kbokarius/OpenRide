@@ -1,7 +1,7 @@
 extends GdUnitTestSuite
 
 func _course() -> Dictionary:
-	var course := NeonCourse.load_course("ls_10_01")
+	var course := preload("res://tests/fixtures/catalog_v7.gd").load_track("ls_10_01")
 	course.courseVersion = 9  # immutable legacy attack rules
 	course.events = [{"eventId": "road", "type": "cruise", "startMs": 0, "endMs": 600000, "laneIndex": 0}]
 	course.hazards = []

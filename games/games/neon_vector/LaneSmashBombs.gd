@@ -3,7 +3,7 @@ extends Node3D
 ## Pooled road mines: a dark spiked core with red warning lamps, a ring of light on the deck
 ## under each and a slow menacing turn. The rules own contact and penalties, not render frames.
 const COLOR := LaneSmashLook.DANGER
-const CAPACITY := 12
+const CAPACITY := 40  # five wrong lanes, up to six visible rows plus contact clearance
 var space: Node3D
 var _mines: MultiMeshInstance3D
 var _rings: MultiMeshInstance3D
@@ -23,12 +23,12 @@ func _ready() -> void:
 
 func update_view(rules: NeonRules) -> void:
 	if rules._hazard_cursor < feedback_cursor: feedback_cursor = 0
-	var hazards: Array = rules.course.get("hazards", [])
+	var hazards: Array = rules.hazards
 	var n := 0
 	var now := rules.road_time_ms()
 	var blink := 0.5 + 0.5 * sin(rules.elapsed_ms * 0.009)
 	_material.set_shader_parameter("blink", blink)
-	for i in range(maxi(0, rules._hazard_cursor - 1), hazards.size()):
+	for i in range(maxi(0, rules._hazard_cursor - 10), hazards.size()):
 		var hazard: Dictionary = hazards[i]
 		if rules.cooldown or int(hazard.hitMs) > now + 16000: break
 		if int(hazard.hitMs) < now - 1500 or bool(rules.hazard_states[i].hit): continue
@@ -65,7 +65,7 @@ func take_feedback(rules: NeonRules) -> Dictionary:
 		var index := feedback_cursor
 		feedback_cursor += 1
 		if not bool(rules.hazard_states[index].hit): continue
-		var hazard: Dictionary = rules.course.hazards[index]
+		var hazard: Dictionary = rules.hazards[index]
 		var anchor := int(hazard.hitMs) / 1000.0 * rules.road_speed_scale() + (LaneSmashBike.FRONT_REACH + 0.72) / NeonSpace.STRETCH
 		var point: Vector3 = space.pose(anchor, (int(hazard.laneIndex) - 2.5) * NeonSpace.LANE_WIDTH, 0.8).origin
 		space._explode(point, COLOR, 60, 2.5)

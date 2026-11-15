@@ -181,7 +181,7 @@ func _timeline(rules: NeonRules) -> void:
 		rows.append("%7d-%7d %-6s lane %d" % [event.startMs, event.endMs, event.type, int(event.laneIndex) + 1])
 	print("LOOK events (first four minutes):\n  ", "\n  ".join(rows))
 	rows.clear()
-	for hazard: Dictionary in rules.course.get("hazards", []): rows.append("%d lane %d" % [hazard.hitMs, int(hazard.laneIndex) + 1])
+	for hazard: Dictionary in rules.hazards: rows.append("%d lane %d" % [hazard.hitMs, int(hazard.laneIndex) + 1])
 	print("LOOK bombs: ", ", ".join(rows))
 	rows.clear()
 	for barrage: Dictionary in rules.course.get("barrages", []): rows.append("%d-%d slots %s" % [barrage.startMs, barrage.endMs, barrage.slots])
@@ -203,7 +203,7 @@ func _sample(rules: NeonRules, t: int, scenario: String, fixed_lane: int, fixed_
 			var blend := clampf((t - int(shot.lockMs) - 2000) / 4000.0, 0, 1)
 			rpm = float(shot.baselineRpm) if scenario == "hit" else lerpf(float(shot.baselineRpm), float(shot.targetRpm), blend)
 	elif scenario == "bomb":
-		for hazard: Dictionary in rules.course.get("hazards", []):
+		for hazard: Dictionary in rules.hazards:
 			if rules.road_time_ms() >= int(hazard.hitMs) - 2600 and rules.road_time_ms() <= int(hazard.hitMs) + 400:
 				lane = int(hazard.laneIndex)
 	if fixed_lane >= 0: lane = fixed_lane

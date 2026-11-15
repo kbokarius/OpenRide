@@ -193,7 +193,11 @@ func refresh() -> void:
 
 func _process(delta: float) -> void:
 	meter.value = lerpf(meter.value, _meter_target, 1.0 - exp(-delta * 9))
-	if _show_power_points: _update_power_text(_power_points.advance(delta))
+	if _show_power_points:
+		var event := rules.current_event()
+		if event.get("eventId", "") == _power_event_id and not rules.barrage.active and rules.pause_reason.is_empty():
+			_power_points.aim(int(rules.event_states[rules._event_cursor].scoreUnits) / NeonRules.UNIT)
+		_update_power_text(_power_points.advance(delta))
 
 func _update_power_text(points: int) -> void:
 	var text := str(points)

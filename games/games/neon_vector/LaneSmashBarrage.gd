@@ -63,7 +63,7 @@ static func valid(data: Variant, duration: int) -> bool:
 	return true
 
 func configure(course: Dictionary) -> void:
-	schedule = course.get("barrages", [])
+	schedule = course.get("barrages", []).duplicate(true)
 	shots.clear()
 	cursor = 0
 	active = false
@@ -83,6 +83,27 @@ func update(rules: RefCounted) -> void:
 	_cadence.append(rpm)
 	_cadence_sum += rpm
 	if _cadence.size() > 200: _cadence_sum -= _cadence.pop_front()
+	if rules.scoring_version >= 10 and active and _next_shot == 2:
+		var last := current_shot()
+		if not last.is_empty() and bool(last.resolved) and now >= int(last.impactMs) + 1200:
+			# Return when the final explosion fades, rather than eight empty seconds later.
+			schedule[cursor].endMs = now
+	if rules.scoring_version >= 10 and not active and cursor < schedule.size():
+		var row: Dictionary = schedule[cursor]
+		var event: Dictionary = rules.current_event()
+		var position: int = rules.road_time_ms()
+		if now >= int(row.prepareMs) - 700 and not event.is_empty() and position >= int(event.startMs) and position < int(event.endMs):
+			# Finish the last marker before switching to incoming fire. No tiny section
+			# fragments when a fixed attack time happens to land just after its start.
+			row.waitingForSection = true
+			for key in ["prepareMs", "startMs", "endMs"]: row[key] = int(row[key]) + NeonRules.TICK
+			if int(row.endMs) > int(rules.course.durationMs) - 60000:
+				row.cancelled = true
+				cursor += 1  # leave the final minute for the cooldown
+		elif row.get("waitingForSection", false):
+			# Give the final marker its contact/recap, then fade the road naturally before
+			# preparation. Continually postponing a fade must not dim the entire section.
+			row.waitingForSection = false
 	while cursor < schedule.size() and now >= int(schedule[cursor].endMs):
 		cursor += 1
 		_next_shot = 0
@@ -111,6 +132,9 @@ func update(rules: RefCounted) -> void:
 	for i in range(maxi(0, shots.size() - 2), shots.size()):
 		var shot: Dictionary = shots[i]
 		if float(shot.fireRiderMeters) < 0 and now >= int(shot.fireMs): shot.fireRiderMeters = rules.road_distance()
+		if rules.scoring_version >= 10 and now >= int(shot.impactMs) and not shot.get("impactRecorded", false):
+			shot.impactRiderMeters = rules.road_distance()
+			shot.impactRecorded = true
 		if bool(shot.resolved): continue
 		if rules.scoring_version >= 9 and section.has("laneIndex") and now >= int(shot.fireMs) and now < int(shot.impactMs) and not shot.get("rapid", false):
 			var entering := now == int(shot.fireMs)
@@ -126,10 +150,14 @@ func update(rules: RefCounted) -> void:
 				var remaining := mini(RAPID_DROP_MS, int(shot.impactMs) - now)
 				shot.targetMeters = rules.road_distance() + rules.speed_kph / 3.6 * remaining / 1000.0
 				shot.impactMs = now + remaining
-		if now < int(shot.impactMs): continue
+		var cleared: bool = rules.scoring_version >= 10 and now >= int(shot.fireMs) and not shot.get("rapid", false) and rules.road_distance() > float(shot.targetMeters) + HALF_LENGTH + RIDER_RADIUS
+		if now < int(shot.impactMs) and not cleared: continue
 		shot.resolved = true
-		shot.impactRiderMeters = rules.road_distance()
-		shot.hit = bool(shot.get("rapid", false)) or absf(float(shot.impactRiderMeters) - float(shot.targetMeters)) <= HALF_LENGTH + RIDER_RADIUS
+		if rules.scoring_version >= 10:
+			shot.resolvedMs = now
+			shot.resolvedRiderMeters = rules.road_distance()
+		else: shot.impactRiderMeters = rules.road_distance()
+		shot.hit = not cleared and (bool(shot.get("rapid", false)) or absf(rules.road_distance() - float(shot.targetMeters)) <= HALF_LENGTH + RIDER_RADIUS)
 		var points: int = POINTS * rules.score_scale
 		rules.max_base_units += points * NeonRules.UNIT
 		rules.max_units += points * NeonRules.UNIT
@@ -137,7 +165,7 @@ func update(rules: RefCounted) -> void:
 			shot.points = -rules.lose_points(points)
 			shot.outcome = "hit"
 		else:
-			var passed := float(shot.impactRiderMeters) > float(shot.targetMeters)
+			var passed: bool = rules.road_distance() > float(shot.targetMeters)
 			shot.outcome = "passed" if passed else "held_back"
 			shot.points = points if passed or rules.scoring_version < 6 else 0
 			rules.score_units += int(shot.points) * NeonRules.UNIT
@@ -150,10 +178,11 @@ func current_shot() -> Dictionary:
 	return shot if shot.sectionId == section.barrageId else {}
 
 func normal_alpha(now: int) -> float:
-	if cursor > 0 and now < int(schedule[cursor - 1].endMs) + 300:
+	if cursor > 0 and not schedule[cursor - 1].get("cancelled", false) and now < int(schedule[cursor - 1].endMs) + 300:
 		return smoothstep(float(schedule[cursor - 1].endMs) - 400.0, float(schedule[cursor - 1].endMs) + 300.0, now)
 	if cursor >= schedule.size(): return 1.0
 	var row: Dictionary = schedule[cursor]
+	if row.get("waitingForSection", false): return 1.0
 	var start := int(row.get("prepareMs", row.startMs))
 	return 1.0 - smoothstep(float(start) - 700.0, float(start) + 300.0, now) * (1.0 - smoothstep(float(row.endMs) - 400.0, float(row.endMs) + 300.0, now))
 

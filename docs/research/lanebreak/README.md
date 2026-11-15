@@ -51,3 +51,5 @@ The first implementation milestone should prove resistance-based lane control an
 - Reviewed baseline: [`bb8a764012972611761c3fc5839436dd1cf4acfc`](https://github.com/digitalducktape/OpenRide/tree/bb8a764012972611761c3fc5839436dd1cf4acfc), `main`, version 1.2.0 / versionCode 9.
 - Changes in this research pass: these Markdown notes only. No app code, schema, APK, release, device settings or subscription changes.
 - Source links are included in each note. Upstream issue states and release counts are a dated snapshot, not a continuing monitor.
+
+- [Cadence bands and section flow](09-cadence-and-section-flow.md): November 15 footage review and generator-8 decisions.

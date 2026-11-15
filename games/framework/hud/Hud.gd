@@ -445,7 +445,7 @@ func _process(delta: float) -> void:
 		if _message_left <= 0.0:
 			hide_message()
 	_score_refresh_left -= delta
-	if _score_refresh_left <= 0:
+	if _roll_score or _score_refresh_left <= 0:
 		_score_refresh_left = text_interval
 		var points := Effort.whole_points(Effort.score)
 		if _roll_score: _score_rollup.aim(points)

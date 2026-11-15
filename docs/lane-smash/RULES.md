@@ -6,26 +6,28 @@ Each 10/15/20/30-minute duration has the same 25 names with duration-specific se
 
 Names: Nightfall, Vector Run, Cold Circuit, Apex Protocol, Iron Horizon, Deep Current, Solar Array, Black Meridian, Velocity, Carbon Ridge, Arc Reactor, Zero Gravity, Afterburn, Steel Pulse, Blue Shift, Outer Ring, Ion Storm, Altitude, Dark Matter, Redline, Titan, Slipstream, Overdrive, Summit Relay, Event Horizon.
 
-Only one lane has scoring targets at a time. Generator 7 uses two opening 24-road-second blocks in lanes 1 and 2, then spends its work blocks in lanes 3–6. Each complete four-block work wave visits all four work lanes once; seeded ordering changes the climbs and easier lane-3 intervals without changing that exposure budget. No required lane change exceeds three lanes, including entry into an attack, return to ordinary sections and cooldown.
+Only one lane has scoring targets at a time. Generator 8 opens with ten road-seconds of Collect in lane 1, then ten road-seconds of Pedal speed in lane 2. The first approach is three road-seconds; the lane-2 approach is six. Work then stays in lanes 3–6, visiting each work lane once per complete four-block wave in seeded order. No required jump exceeds three lanes, including attacks, returns and cooldown.
 
-Each full 24-road-second block has two sections: a seven-second cadence section plus either six seconds of gold bars or a six-second Power Burst. Bursts occur in alternate work blocks, never in warm-up. Cadence and gold sections vary their order. There are eleven seconds of empty road per block:
+Collect and Pedal speed sections each span **ten road-seconds minimum**, measured at the 140-rpm speed cap; a slower rider takes longer. Power Bursts rotate through **five, six and seven road-seconds**. Ordinary work blocks pair a cadence section with Collect or a burst, with a nine-road-second lane-change approach and a two-road-second gap within the same lane, keeping the same block budget regardless of lane order. Shorter bursts shorten the block rather than leaving extra empty road. Partial final blocks never author a shortened section.
 
-| Lane change | Empty approach at maximum speed | Gap between the two same-lane sections |
+| Lane change | Empty approach at maximum speed | Gap within the same-lane block |
 | --- | --- | --- |
-| One lane | 6 s | 5 s |
-| Two lanes | 7.5 s | 3.5 s |
+| One lane | 9 s authored / 6 s after an attack | 2 s |
+| Two lanes | 9 s authored / 7.5 s after an attack | 2 s |
 | Three lanes | 9 s | 2 s |
 
-These are minimum actual times at 140 rpm; slower riders have longer. Guidance begins within nine road-seconds of the next section. The first target in a block is a new start, and the last asset still marks its end. After a timed attack, interrupted sections are skipped or shortened to a clearly bounded remainder with a full approach gap; play never resumes instantly in the middle of a scoring zone.
+Guidance always highlights the current or next target, including approaches and interruptions. Incoming Fire waits for an active section's final marker before starting preparation. After the final explosion fades (1.2 seconds), ordinary play returns without the old eight-second idle tail. The next full, unplayed section starts after its resistance-change approach; its successors and off-lane mines are rebased together in runtime copies. A short fragment is never presented as a new section. The fixed route geometry itself is unchanged.
 
-Cadence targets remain unchanged:
+Work cadence steps down every two lanes:
 
-| Section | Lane 1 | Lane 2 | Lane 3 | Lane 4 | Lane 5 | Lane 6 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Work | 95–115 | 90–110 | 85–105 | 80–100 | 70–90 | 65–85 |
-| Warm-up | 75–95 | 75–95 | — | — | — | — |
+| Section | Lanes 1–2 | Lanes 3–4 | Lanes 5–6 |
+| --- | --- | --- | --- |
+| Work | 85–105 rpm | 70–90 rpm | 55–75 rpm |
+| Warm-up | 75–95 rpm | — | — |
 
-**Cooldown follows active time.** At exactly one minute remaining, the current section closes and a runtime-only gold-bar tail replaces future work. Its first target moves at most three lanes left, then steps down one lane at a time into lane 1, with the same minimum lane-change gaps. No bursts, gunfire or road mines occur in this tail. It starts regardless of cadence or distance; the route still continues moving at the rider's speed. The immutable course snapshot is retained for repeatable replay and comparison.
+These are Lane Smash's chosen bands, informed by Lanebreak footage rather than a claimed universal Peloton table. See [cadence research](../research/lanebreak/09-cadence-and-section-flow.md). Difficulty resistance ranges are unchanged.
+
+**Cooldown follows active time.** At exactly one minute remaining, the current section closes and a runtime-only tail of ten-road-second gold-bar sections replaces future work. Its first target moves at most three lanes left, then steps down one lane at a time into lane 1, with the same minimum lane-change gaps. No bursts, gunfire or road mines occur in this tail. It starts regardless of cadence or distance; the route still continues moving at the rider's speed. The immutable course snapshot is retained for repeatable replay and comparison.
 
 Named and random tracks use the same rules. Authored time, lane-exposure and cadence budgets stay within 4% across each duration's tested layouts; actual joules and points depend on inputs, attack timing and distance covered. Older snapshots retain their authored four-minute waves and old cooldown behavior.
 
@@ -47,7 +49,7 @@ The picture draws every rules-metre as **three** world metres (`NeonSpace.STRETC
 
 ## Current point scale
 
-Scoring version 9 (course version 10) preserves the scoring-8 cadence sweet spot, **18×** point scale and machine-gun fire. It adds lane-checked rapid bomb drops and the timed cooldown. Version 7 added machine-gun fire to cadence sections; version 6 multiplied the previous base scoring by 18. The calibration target is a typical **20-minute ride** around 150,000 points, not a fixed score for every duration or rider. The measured 25-track Challenging trace on generator 6 is in the [validation notes](../specs/lane-smash-v13-validation.md); generator 5 measured 173,216.08 and generator 4 147,760.88 with the same simulated rider. The scale has not changed between them: what changes is how much road carries sections, and from scoring 8 the sweet-spot bonus the simulated rider earns by holding the middle of every band. It uses 90 rpm cruise, cadence-band midpoint, 110 rpm bursts, resistance-dependent simulated watts, modest misses and gradual attack responses. Real sensor power and performance determine actual scores. Longer/shorter rides scale naturally.
+Scoring version 10 (course version 11) adds immediate pass rewards, full-section handoffs and dense off-lane mines. It preserves the scoring-8 cadence sweet spot, **18×** point scale and machine-gun fire. Scoring 9 added lane-checked rapid bomb drops and the timed cooldown. Version 7 added machine-gun fire to cadence sections; version 6 multiplied the previous base scoring by 18. The calibration target is a typical **20-minute ride** around 150,000 points, not a fixed score for every duration or rider. The measured 25-track Challenging trace on generator 6 is in the [validation notes](../specs/lane-smash-v13-validation.md); generator 5 measured 173,216.08 and generator 4 147,760.88 with the same simulated rider. The scale has not changed between them: what changes is how much road carries sections, and from scoring 8 the sweet-spot bonus the simulated rider earns by holding the middle of every band. It uses 90 rpm cruise, cadence-band midpoint, 110 rpm bursts, resistance-dependent simulated watts, modest misses and gradual attack responses. Real sensor power and performance determine actual scores. Longer/shorter rides scale naturally.
 
 | Section | Conditions | Points |
 | --- | --- | --- |
@@ -57,7 +59,7 @@ Scoring version 9 (course version 10) preserves the scoring-8 cadence sweet spot
 | Machine-gun fire | During a cadence section, cadence outside the section's inclusive rpm band, in any lane | Lose up to **60** per round that lands; at most 15 rounds a section; zero floor; holding the band has no extra bonus |
 | Red road bomb | Front-wheel position crosses bomb in its lane, outside Incoming Fire | Lose up to **1,800**; zero floor; avoiding a static road bomb has no bonus |
 | Incoming blast: hit | At impact the rider overlaps its fixed full-width blast footprint | Lose up to **1,800**; zero floor |
-| Incoming blast: passed | At impact the rider is safely beyond the blast | **+1,800** |
+| Incoming blast: passed | As soon as the whole rider clears the far edge of the marked blast after launch | **+1,800** |
 | Incoming blast: held back | At impact the rider is safely behind the blast | **0**; no penalty |
 
 The final target shows the section's earned total where that section ends. This popup is a recap, not a second bonus. Fractional points are retained internally (`100,000` subpoints per point), while display/results use whole points. Visual shattering itself does not bypass eligibility.
@@ -92,15 +94,21 @@ Lane does not matter: the fire covers the whole road, so only cadence keeps the 
 
 A rider who holds every band is never hit, so the representative calibration trace (band midpoint) is unchanged.
 
+## Off-lane mines
+
+Each Collect, Pedal speed and Power Burst section has rows of five mines: one in every lane except its authored target. The first row sits 1.8 road-seconds after the start; rows repeat every three road-seconds, with at least 1.8 road-seconds clear before the end. All six lanes are free of mines during approaches and lane changes. The target lane stays clear even if the rider is in the wrong lane; mines do not chase the bike. Incoming Fire and cooldown suppress road mines.
+
+Each crossed mine uses the existing up-to-1,800-point penalty, zero floor, negative popup, explosion and sound. Avoidance earns no extra points. Simultaneous mines in different lanes never multiply a single contact penalty. Authoring is bounded to 4,096 hazards; only forty pooled mines can be rendered at once. Mine schedules and section reflow are deterministic and saved-course fingerprints remain immutable.
+
 ## Incoming Fire
 
-Attacks begin around 75 seconds and recur about every three minutes, leaving the final minute clear. A nine-second preparation window precedes each 35-second section. The highlighted target varies through lanes 3–6; repeated consecutive authored attack lanes are avoided. A slow warm-up's first attack is clamped to a reachable work lane. Ordinary targets and road mines are suppressed during preparation and attack.
+Attacks begin around 75 seconds and recur about every three minutes, leaving the final minute clear. A nine-second preparation window precedes each attack. Its authored window is up to 35 seconds; current play returns after the second impact fades. A section already underway is completed before preparation begins; an attack that would intrude on the final-minute cooldown is omitted. The highlighted target varies through lanes 3–6; repeated consecutive authored attack lanes are avoided. A slow warm-up's first attack is clamped to a reachable work lane. Ordinary targets and road mines are suppressed during preparation and attack.
 
 The first shot charges during the final two preparation seconds and fires at zone entry; the second charges at +16 seconds and fires at +18. Correct-lane shots retain nine seconds of flight, the fixed cadence-projected target, and the Pedal Faster/Pedal Slower escape challenge. Normal targets use the previous two seconds of cadence. Recommendations retain their existing 45–120 rpm bounds and substantial cadence change. Changing lanes alone does not evade a normal full-width blast.
 
 **Wrong lane:** at either firing boundary, or when crossing into a pending blast's marked footprint, being outside the highlighted lane triggers a drop within 450 ms, without postponing an earlier scheduled impact. It locks one short strike at the rider's projected position and lane, smoothly redirects the existing projectile, and incurs one ordinary bomb penalty (up to 1,800 points). Steering afterward does not cancel that already-triggered strike. The highlight and left/right cues remain visible for the next shot. The close-range effect uses a compact lane-sized blast rather than three overlapping full-road explosions.
 
-A normal safe pass still earns 1,800 points; holding behind earns zero points; either earns avoidance star credit. Rapid strikes count as hits. Sensor interruptions freeze the preparation, flight and drop timers. Per-shot records include the rapid trigger and original target where applicable. Old course snapshots retain the lane-1, two-second-charge/nine-second-flight behavior, and old dodge scoring remains versioned.
+A normal safe pass earns 1,800 points immediately on crossing `targetMeters + 20 m blast half-length + 1.5 m rider margin`, without waiting for impact. Its popup and pass sound happen then; the projectile and distant explosion keep their scheduled impact time. Resolution is locked, so neither the later explosion nor a slowdown can award again. Course 10 and earlier retain impact-time settlement. Holding behind earns zero points; either earns avoidance star credit. Rapid strikes count as hits. Sensor interruptions freeze the preparation, flight and drop timers. Per-shot records include the rapid trigger and original target where applicable. Old course snapshots retain the lane-1, two-second-charge/nine-second-flight behavior, and old dodge scoring remains versioned.
 
 ## Stars
 

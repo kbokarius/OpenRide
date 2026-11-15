@@ -207,7 +207,7 @@ func test_background_travel_matches_rules_at_different_speeds_and_stops() -> voi
 	assert_float(sky.resistance_mix).is_equal(1.0)
 	sky.free()
 
-func test_all_tracks_change_lanes_frequently_with_short_holds_and_equal_effort_budgets() -> void:
+func test_all_tracks_change_lanes_frequently_with_sustained_holds_and_equal_effort_budgets() -> void:
 	for minutes in LaneSmashCatalog.LENGTHS:
 		var expected: Array = []
 		var ids: Array = LaneSmashCatalog.tracks(minutes).map(func(t): return t.id)
@@ -225,7 +225,7 @@ func test_all_tracks_change_lanes_frequently_with_short_holds_and_equal_effort_b
 				lanes[lane] = true
 				if int(event.endMs) < 120000: first_types[event.type] = true
 				if lane != last_lane:
-					assert_int(int(event.startMs) - lane_since).override_failure_message(id).is_less_equal(27500)
+					assert_int(int(event.startMs) - lane_since).override_failure_message(id).is_less_equal(34000)
 					if last_lane >= 0: assert_int(absi(lane - last_lane)).is_less_equal(3)
 					lane_since = int(event.startMs)
 					last_lane = lane
@@ -235,7 +235,7 @@ func test_all_tracks_change_lanes_frequently_with_short_holds_and_equal_effort_b
 					assert_int(span).is_equal(LaneSmashCatalog.HOLD_MS)
 					# Twenty-wide bands; light lanes spin faster than heavy ones.
 					assert_int(int(event.cadenceMax) - int(event.cadenceMin)).is_equal(20)
-					assert_int(int(event.cadenceMin)).is_between(65, 95)
+					assert_int(int(event.cadenceMin)).is_between(55, 95)
 					budgets[2] += span * (int(event.cadenceMin) + 10)
 				if event.type == "burst": budgets[3] += span
 			assert_int(lanes.size()).is_equal(6)
@@ -264,7 +264,7 @@ func test_power_zone_builds_from_output_and_finishes_at_its_gate() -> void:
 	assert_bool(zone.hit).is_false()
 	var vertices: PackedVector3Array = zone.root.get_child(0).mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
 	var anchor := vertices[0]
-	rules.distance_units = roundi(int(event.endMs) * NeonRules.MAX_SPEED_MPS * 1000)
+	rules.distance_units = roundi(int(event.endMs) * NeonRules.MAX_SPEED_MPS * 1000) + 1
 	space.update_view(rules, 0.05, int(event.laneIndex), -1, false, "")
 	assert_bool(zone.hit).is_true()
 	assert_bool(zone.gate.visible).is_false()
@@ -320,11 +320,11 @@ func test_adjacent_targets_are_separated_and_rest_on_the_road() -> void:
 	for i in range(1, course.events.size()):
 		var earlier: Dictionary = course.events[i - 1]
 		var later: Dictionary = course.events[i]
-		if int(earlier.startMs) / LaneSmashCatalog.BLOCK_MS != int(later.startMs) / LaneSmashCatalog.BLOCK_MS: continue
+		if int(earlier.laneIndex) != int(later.laneIndex): continue
 		var length := int(later.endMs) - int(later.startMs)
 		later.startMs = int(earlier.endMs)
 		later.endMs = int(later.startMs) + length
-	course.hazards = LaneSmashHazards.generate(course.events, int(course.seed))
+	course.hazards = LaneSmashHazards.generate_dense(course.events)
 	var rules := NeonRules.new()
 	assert_array(rules.configure(course, "challenging", 150)).is_empty()
 	var pairs := {}
@@ -367,7 +367,7 @@ func test_all_tracks_have_reproducible_bombs_outside_the_scoring_lane() -> void:
 		for id: String in ids:
 			var course := NeonCourse.load_course(id)
 			assert_array(course.hazards).is_not_empty()
-			assert_bool(LaneSmashHazards.valid(course.hazards, course.events, course.durationMs)).is_true()
+			assert_bool(LaneSmashHazards.valid_dense(course.hazards, course.events)).is_true()
 			assert_array(course.hazards).is_equal(NeonCourse.load_course(id).hazards)
 			var bad := course.duplicate(true)
 			for event: Dictionary in bad.events:
@@ -432,7 +432,7 @@ func test_cadence_targets_follow_the_effort_and_bursts_are_spaced() -> void:
 		for event: Dictionary in course.events:
 			var minute := int(event.startMs) / 60000
 			var recovering := false
-			var easy := int(event.startMs) < LaneSmashCatalog.BLOCK_MS * 2
+			var easy := int(event.startMs) < LaneSmashCatalog.WARMUP_ROAD_MS
 			var lane := int(event.laneIndex)
 			if event.type == "hold":
 				var expected: int = LaneSmashCatalog.EASY_CADENCE if easy else LaneSmashCatalog.WORK_CADENCE[lane]
@@ -446,11 +446,9 @@ func test_cadence_targets_follow_the_effort_and_bursts_are_spaced() -> void:
 				bursts += 1
 			# The recovery minute really is light: the two lowest lanes only.
 			if recovering: assert_int(lane).override_failure_message("%s %s" % [id, event.eventId]).is_less_equal(1)
-		# One burst a minute, two in the hardest minute of each four, none in the recovery minute.
-		var expected_bursts := 0
-		for block in int(course.durationMs) / LaneSmashCatalog.BLOCK_MS:
-			if block >= 2 and block % 2 == 0: expected_bursts += 1
-		assert_int(bursts).override_failure_message(id).is_equal(expected_bursts)
+		# Regularly recurring bursts, with enough recovery and no rigid equal-length blocks.
+		assert_int(bursts).override_failure_message(id).is_between(int(course.durationMs) / 65000, int(course.durationMs) / 45000)
+
 
 
 func test_sections_have_clear_starts_and_ends_with_varied_gaps() -> void:
@@ -458,25 +456,17 @@ func test_sections_have_clear_starts_and_ends_with_varied_gaps() -> void:
 		var course := LaneSmashCatalog.load_track(id)
 		var gaps := {}
 		var previous := {}
-		var per_block := {}
 		for event: Dictionary in course.events:
-			var block := int(event.startMs) / LaneSmashCatalog.BLOCK_MS
-			per_block[block] = int(per_block.get(block, 0)) + 1
-			# A section never spills into the next lane block.
-			assert_int(int(event.endMs)).is_less_equal((block + 1) * LaneSmashCatalog.BLOCK_MS)
+			var phase: Dictionary = course.phases.filter(func(row): return int(event.startMs) >= int(row.startMs) and int(event.startMs) < int(row.endMs))[0]
+			assert_int(int(event.endMs)).is_less_equal(int(phase.endMs))
 			var gap := int(event.startMs) - int(previous.get("endMs", 0))
 			gaps[gap] = true
-			assert_int(gap).override_failure_message("%s %s" % [id, event.eventId]).is_between(LaneSmashCatalog.GAP_MIN_MS, LaneSmashCatalog.GAP_MAX_MS)
-			# The gap in which the lane changes is long enough to turn the knob.
+			assert_int(gap).is_between(LaneSmashCatalog.GAP_MIN_MS, LaneSmashCatalog.GAP_MAX_MS)
 			if not previous.is_empty() and int(previous.laneIndex) != int(event.laneIndex):
-				assert_int(gap).is_greater_equal(LaneSmashCatalog.LANE_GAP_MIN_MS)
-			# No two sections of the same kind back to back in a block.
-			if not previous.is_empty() and int(previous.startMs) / LaneSmashCatalog.BLOCK_MS == block:
+				assert_int(gap).is_greater_equal(LaneSmashCatalog.transition_gap(absi(int(previous.laneIndex) - int(event.laneIndex))))
+			if not previous.is_empty() and int(previous.startMs) >= int(phase.startMs):
 				assert_str(str(event.type)).is_not_equal(str(previous.type))
 			previous = event
-		# Two sections in every lane block, and the gaps are not all the same length.
-		for block in per_block:
-			assert_int(int(per_block[block])).is_equal(2 if (block + 1) * LaneSmashCatalog.BLOCK_MS <= int(course.durationMs) else 1)
-		assert_int(per_block.size()).is_between(int(course.durationMs) / LaneSmashCatalog.BLOCK_MS, ceili(float(course.durationMs) / LaneSmashCatalog.BLOCK_MS))
-		assert_int(gaps.size()).override_failure_message(id).is_greater_equal(5)
+		assert_int(gaps.size()).is_greater_equal(4)
 
+# End of catalog regressions.

@@ -66,6 +66,7 @@ var _gun_pitch := 1.0
 var _gun_pitch_target := 1.0
 var _shot_id := ""
 var _fired := false
+var _impacted := false
 var _charge_gain := 0.0
 var _charge_target := 0.0
 var _engine_gain := 0.0
@@ -149,7 +150,7 @@ func _blast(hit: bool, points: int) -> void:
 	elif hit:
 		_play("impact")
 	else:
-		_play("impact", DISTANT_BLAST_DB, 0.9)
+		if track.rules.scoring_version < 10: _play("impact", DISTANT_BLAST_DB, 0.9)
 		_play("pass" if points > 0 else "avoid")
 
 
@@ -166,6 +167,7 @@ func update_audio() -> void:
 		if _shot_id != str(shot.shotId):
 			_shot_id = str(shot.shotId)
 			_fired = false
+			_impacted = false
 			_play("warning")
 			# Join the charge where it should be by now (a ride resumed or sought mid-charge).
 			var into := (rules.elapsed_ms - int(shot.lockMs)) / 1000.0
@@ -175,6 +177,9 @@ func update_audio() -> void:
 			_fired = true
 			_weapon.stop()
 			_play("launch")
+		if rules.scoring_version >= 10 and not _impacted and rules.elapsed_ms >= int(shot.impactMs):
+			_impacted = true
+			if not bool(shot.hit): _play("impact", DISTANT_BLAST_DB, 0.9)
 	elif _weapon.playing:
 		_weapon.stop()
 	var fire: Dictionary = rules.call(&"gunfire") if rules.has_method(&"gunfire") else {}

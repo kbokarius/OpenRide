@@ -40,3 +40,44 @@ static func valid(hazards: Variant, events: Array, duration: int) -> bool:
 		if not clear: return false
 		previous = hit
 	return true
+
+
+const DENSE_LIMIT := 4096
+const FIRST_MINE_MS := 1800
+const MINE_SPACING_MS := 3000
+const EXIT_CLEAR_MS := 1800
+
+static func generate_dense(events: Array) -> Array:
+	var hazards: Array = []
+	for event: Dictionary in events:
+		if event.type not in ["cruise", "hold", "burst"]: continue
+		for at in range(int(event.startMs) + FIRST_MINE_MS, int(event.endMs) - EXIT_CLEAR_MS + 1, MINE_SPACING_MS):
+			for lane in 6:
+				if lane == int(event.laneIndex): continue
+				hazards.append({"hazardId": "%s-mine-%d-%d" % [event.eventId, at - int(event.startMs), lane], "hitMs": at, "laneIndex": lane, "penaltyPoints": PENALTY_POINTS})
+	return hazards
+
+static func valid_dense(hazards: Variant, events: Array) -> bool:
+	if not hazards is Array or hazards.size() > DENSE_LIMIT: return false
+	var ids := {}
+	var last_time := -1
+	var last_lane := -1
+	var event_index := 0
+	for hazard: Variant in hazards:
+		if not hazard is Dictionary or not hazard.get("hazardId") is String or str(hazard.hazardId).is_empty(): return false
+		if ids.has(hazard.hazardId): return false
+		ids[hazard.hazardId] = true
+		for key in ["hitMs", "laneIndex", "penaltyPoints"]:
+			if not NeonCourse._integer(hazard.get(key)): return false
+		var at := int(hazard.hitMs)
+		var lane := int(hazard.laneIndex)
+		if at % 10 != 0 or at < last_time or lane not in range(6) or int(hazard.penaltyPoints) != PENALTY_POINTS: return false
+		if at == last_time and lane <= last_lane: return false
+		while event_index < events.size() and int(events[event_index].endMs) <= at: event_index += 1
+		if event_index >= events.size(): return false
+		var event: Dictionary = events[event_index]
+		if at < int(event.startMs) + FIRST_MINE_MS or at > int(event.endMs) - EXIT_CLEAR_MS or lane == int(event.laneIndex): return false
+		if event.type not in ["cruise", "hold", "burst"]: return false
+		last_time = at
+		last_lane = lane
+	return true

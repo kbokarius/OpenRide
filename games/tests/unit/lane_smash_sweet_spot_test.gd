@@ -6,7 +6,7 @@ const TRACK := "ls_10_01"
 
 
 func _rules(course_version := 9) -> NeonRules:
-	var course := NeonCourse.load_course(TRACK)
+	var course: Dictionary = preload("res://tests/fixtures/catalog_v7.gd").load_track(TRACK)
 	course.courseVersion = course_version
 	var rules := NeonRules.new()
 	assert_array(rules.configure(course, "challenging", 150)).is_empty()

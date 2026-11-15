@@ -39,8 +39,15 @@ func _run() -> void:
 			var previous_target := -1
 			var high_lane_ms := 0
 			var work_ms := 0
+			var quiet_ms := 0
+			var longest_quiet := 0
 			for time in range(0, int(course.durationMs), 50):
 				var event := rules.current_event()
+				_check(LaneSmashSteering.target_for(rules) >= 0, id + " missing lane guidance at " + str(time))
+				if not rules.barrage.active and not rules.cooldown and not event.is_empty() and rules.road_time_ms() < int(event.startMs):
+					quiet_ms += 50
+					longest_quiet = maxi(longest_quiet, quiet_ms)
+				else: quiet_ms = 0
 				var lane := int(event.get("laneIndex", 0))
 				var kind := str(event.get("type", "cruise"))
 				var rpm := (float(event.cadenceMin) + float(event.cadenceMax)) / 2 if kind == "hold" else (140.0 if kind == "burst" else 95.0)
@@ -66,18 +73,20 @@ func _run() -> void:
 					var gap := int(rules.barrage.section.startMs) - time if rules.barrage.active else int(event.get("startMs", rules.road_time_ms())) - rules.road_time_ms()
 					_check(gap >= LaneSmashCatalog.transition_gap(jump) - 60, id + " insufficient transition gap at " + str(time))
 				previous_target = lane
-				if rules.road_time_ms() >= 48000 and time < int(course.durationMs) - 60000:
+				if rules.road_time_ms() >= LaneSmashCatalog.WARMUP_ROAD_MS and time < int(course.durationMs) - 60000:
 					work_ms += 50
 					if lane >= 2: high_lane_ms += 50
 				rules.push_sample({"t": time, "seq": time + 1, "cadence": rpm, "power": 250, "resistance": NeonRules.band(lane, rules.tier).x + 3})
 				rules.advance(time + 50)
 				seen[kind] = true
 				lanes[lane] = true
+			_check(longest_quiet < 22000, id + " empty road over 22 seconds: " + str(longest_quiet))
+			if id.ends_with("_01"): print("NIGHTFALL ", minutes, "m longest_empty_ms=", longest_quiet)
 			_check(high_lane_ms == work_ms, id + " work outside lanes 3–6")
 			_check(rules.cooldown, id + " missing final-minute cooldown")
 			var result := rules.result()
 			_check(result.status == "completed" and rules.pause_reason.is_empty(), id + " incomplete/stalled")
-			_check(result.barrage.hits == 0 and result.barrage.dodges == course.barrages.size() * 2, id + " incoming fire response")
+			_check(result.barrage.hits == 0 and result.barrage.dodges == rules.barrage.schedule.filter(func(row): return not row.get("cancelled", false)).size() * 2, id + " incoming fire response")
 			_check(result.stars == 3 and result.scoreUnits > 0, id + " target-following score/stars")
 			_check(seen.size() == 3 and lanes.size() == 6, id + " missing section type or lane")
 			_check(rules.ghost_trace.size() == int(course.durationMs) / 100, id + " ghost coverage")

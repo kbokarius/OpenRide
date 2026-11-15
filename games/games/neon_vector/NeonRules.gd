@@ -8,7 +8,7 @@ const TICK := 10
 const CURRENT_TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35}
 const TIERS := {"light": 15, "moderate": 20, "hard": 25, "challenging": 30, "extreme": 35,
 	"beginner": 20, "intermediate": 24, "advanced": 30, "expert": 34}
-const SCORING_VERSION := 9
+const SCORING_VERSION := 10
 const CURRENT_SCORE_SCALE := 18
 ## Machine-gun fire over cadence sections (scoring version 7). Attackers strafe the road ahead
 ## of and behind the rider; holding the section's cadence band keeps the rider in the gap.
@@ -49,6 +49,7 @@ var gun_penalty_units := 0   ## their share of penalty_units
 var sweet_bonus_units := 0   ## points earned in cadence sweet spots this ride (part of score_units)
 var _gun_event := -1         ## the cadence section under fire on this tick, or -1
 var hazard_states: Array[Dictionary] = []
+var hazards: Array = []
 var _hazard_cursor := 0
 var base_units := 0
 var max_units := 0
@@ -115,16 +116,18 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 	_gun_event = -1
 	_hazard_cursor = 0
 	hazard_states.clear()
-	for hazard: Dictionary in course.get("hazards", []):
+	hazards = course.get("hazards", []).duplicate(true)
+	for hazard: Dictionary in hazards:
 		hazard_states.append({"hit": false, "resolved": false, "penaltyUnits": 0})
 	base_units = 0
 	score_scale = CURRENT_SCORE_SCALE if int(course.courseVersion) >= 7 else 1
-	# Course version selects the rules: 10 adds lane-checked bombs/cooldown (scoring 9),
+	# Course version selects the rules: 11 adds immediate passes/full-section flow (10),
+	# 10 adds lane-checked bombs/cooldown (9),
 	# 9 adds the cadence sweet spot (8), 8 machine-gun
 	# fire (7), 7 the 18x scale (6); older snapshots keep the rules they were ridden under.
 	var version := int(course.courseVersion)
 	if distance_based:
-		scoring_version = SCORING_VERSION if version >= 10 else (8 if version == 9 else (7 if version == 8 else (6 if version == 7 else (5 if version >= 6 else (4 if version >= 5 else 3)))))
+		scoring_version = SCORING_VERSION if version >= 11 else (9 if version == 10 else (8 if version == 9 else (7 if version == 8 else (6 if version == 7 else (5 if version >= 6 else (4 if version >= 5 else 3))))))
 	else:
 		scoring_version = 1 if version == 1 else 2
 	max_units = NeonCourse.maximum(course, false, reference_power)
@@ -266,7 +269,9 @@ func _tick() -> void:
 		_begin_cooldown()
 	var was_attacking := barrage.active
 	barrage.update(self)
-	if scoring_version >= 9 and was_attacking and not barrage.active:
+	if scoring_version >= 10 and was_attacking and not barrage.active:
+		_restart_after_barrage()
+	elif scoring_version >= 9 and was_attacking and not barrage.active:
 		# A time-based attack can end in the middle of a spatial section. Skip to a full
 		# section with enough empty road to turn the knob; never resume halfway through it.
 		while _event_cursor < events.size():
@@ -472,7 +477,6 @@ func _section_credit(state: Dictionary, event: Dictionary, maximum: int, travel_
 	return mini(maximum, _distance_credit(maximum, int(state.validTravelUnits), length_units))
 
 func _apply_hazards() -> void:
-	var hazards: Array = course.get("hazards", [])
 	while _hazard_cursor < hazards.size() and road_time_ms() >= int(hazards[_hazard_cursor].hitMs):
 		var hazard: Dictionary = hazards[_hazard_cursor]
 		var state: Dictionary = hazard_states[_hazard_cursor]
@@ -518,9 +522,35 @@ func _begin_cooldown() -> void:
 	for i in 10:
 		var gap := LaneSmashCatalog.transition_gap(absi(lane - previous)) if lane != previous else 2000
 		at += gap
-		var event := {"eventId": "cooldown-%02d" % i, "type": "cruise", "startMs": at, "endMs": at + 4000, "laneIndex": lane}
+		var event := {"eventId": "cooldown-%02d" % i, "type": "cruise", "startMs": at, "endMs": at + (10000 if scoring_version >= 10 else 4000), "laneIndex": lane}
 		events.append(event)
 		event_states.append({"eventId": event.eventId, "choice": -1, "scoreUnits": 0, "baseUnits": 0, "validMs": 0, "chargeIntegral": 0, "energyMilliJoules": 0, "validTravelUnits": 0, "possibleTravelUnits": 0, "possibleMs": 0, "possibleBaseUnits": 0, "hit": false})
 		at = int(event.endMs)
 		previous = lane
 		lane = maxi(0, lane - 1)
+
+
+func _restart_after_barrage() -> void:
+	# Never resume a three-second fragment or skip an entire block's worth of road.
+	# Keep a full, unplayed section and reflow its successors while the attack fades away.
+	var at := road_time_ms()
+	while _event_cursor < events.size():
+		var event: Dictionary = events[_event_cursor]
+		if int(event.endMs) > at and int(event_states[_event_cursor].possibleMs) == 0: break
+		event_states[_event_cursor]["skipped"] = true
+		_event_cursor += 1
+	if _event_cursor >= events.size(): return
+	var next: Dictionary = events[_event_cursor]
+	var gap := LaneSmashCatalog.transition_gap(absi(int(next.laneIndex) - last_target_lane))
+	var shift := ceili((at + gap) / 10.0) * 10 - int(next.startMs)
+	for i in range(_event_cursor, events.size()):
+		events[i].startMs = int(events[i].startMs) + shift
+		events[i].endMs = int(events[i].endMs) + shift
+	# Keep resolved contact slots for pending visual feedback; rebuild future mines,
+	# keeping the target lane and every transition clear after the reflow too.
+	hazards.resize(_hazard_cursor)
+	hazard_states.resize(_hazard_cursor)
+	for hazard: Dictionary in LaneSmashHazards.generate_dense(events.slice(_event_cursor)):
+		hazard.hazardId = str(hazard.hazardId) + "-return%d" % barrage.cursor
+		hazards.append(hazard)
+		hazard_states.append({"hit": false, "resolved": false, "penaltyUnits": 0})

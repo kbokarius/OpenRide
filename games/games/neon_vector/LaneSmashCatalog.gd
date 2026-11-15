@@ -1,33 +1,24 @@
 class_name LaneSmashCatalog
 extends RefCounted
-## Generator v7: low warm-up, sustained lanes 3–6, and generous resistance-change gaps.
-## Course v10 selects scoring 9: lane-checked bombs and a clock-driven final-minute cooldown.
-## A separate runtime event list preserves the immutable snapshot and old replay semantics.
+## Generator v8: full-length sections, paired cadence bands and dense off-lane mines.
+## Course v11 selects scoring 10, preserving every older ride snapshot and comparison key.
 const LENGTHS := [10, 15, 20, 30]
 const NAMES := ["Nightfall", "Vector Run", "Cold Circuit", "Apex Protocol", "Iron Horizon", "Deep Current", "Solar Array", "Black Meridian", "Velocity", "Carbon Ridge", "Arc Reactor", "Zero Gravity", "Afterburn", "Steel Pulse", "Blue Shift", "Outer Ring", "Ion Storm", "Altitude", "Dark Matter", "Redline", "Titan", "Slipstream", "Overdrive", "Summit Relay", "Event Horizon"]
 const PATTERNS := ["Rolling", "Cadence", "Power", "Climbing", "Mixed"]
 const BACKGROUNDS := ["orbital", "citadel", "asteroid", "reactor"]
 const THEMES := ["arctic", "cobalt", "copper", "titanium", "petrol", "amber", "ember", "glacier"]
-## Cadence a work section asks for, by lane, lightest first. Each band is 20 rpm wide. Light
-## lanes are fast spins and heavy lanes are climbs, so effort rises with the lane without
-## asking for a sprint cadence against the heaviest resistance.
-const WORK_CADENCE := [95, 90, 85, 80, 70, 65]
-## Warm-up and recovery sections: an easy spin whatever the lane.
+## Work targets step down every two lanes; warm-up uses an easier spin.
+const WORK_CADENCE := [85, 85, 70, 70, 55, 55]
 const EASY_CADENCE := 75
-## Road-milliseconds each kind of section lasts. A cadence section is 9-13 real seconds
-## across the bands above; gold bars about 9 at 95 rpm; a burst about 7 at a sprint. Both
-## kinds of block carry the same 13 road-seconds of sections, so every track has the same
-## effort budget whichever lane lands in which block.
-const HOLD_MS := 7000
-const COLLECT_MS := 6000
+## Road time is measured at the speed cap: these cannot be ridden in less than ten seconds.
+const HOLD_MS := 10000
+const COLLECT_MS := 10000
 const BURST_MS := 6000
-## Each 24-road-second block has 13 seconds of sections and 11 of clear road. Opening
-## gaps are 6/7.5/9 seconds for one/two/three lanes; the remaining 5/3.5/2 separate
-## the sections in the same lane. Slower cadence makes these gaps longer in real time.
 const GAP_MIN_MS := 2000
 const GAP_MAX_MS := 9000
 const LANE_GAP_MIN_MS := 6000
-const BLOCK_MS := 24000
+const BLOCK_MS := 31000
+const WARMUP_ROAD_MS := 29000
 
 static func tracks(minutes: int) -> Array[Dictionary]:
 	var list: Array[Dictionary] = []
@@ -60,52 +51,56 @@ static func generate(minutes: int, seed_value: int, index: int, id: String, rand
 	var phases: Array = []
 	var previous_lane := 0
 	var duration := minutes * 60000
-	var count := ceili(float(duration) / BLOCK_MS)
 	var work_lanes: Array = [2, 3, 4, 5]
-	for block in count:
+	var begin := 0
+	var block := 0
+	while begin < duration:
 		state = (state * 48271) % 2147483647
-		var begin := block * BLOCK_MS
-		var end := mini(duration, begin + BLOCK_MS)
 		if block >= 2 and (block - 2) % 4 == 0:
-			# Every complete work wave has the same exposure; only its ordering varies.
 			work_lanes = [2, 3, 4, 5]
-			if count - block >= 4:
-				for i in range(3, 0, -1):
-					state = (state * 48271) % 2147483647
-					var j := int(state % (i + 1))
-					var value: int = work_lanes[i]
-					work_lanes[i] = work_lanes[j]
-					work_lanes[j] = value
-			# Avoid a repeated lane at a wave boundary; rotate without changing its budget.
+			for i in range(3, 0, -1):
+				state = (state * 48271) % 2147483647
+				var j := int(state % (i + 1))
+				var value: int = work_lanes[i]
+				work_lanes[i] = work_lanes[j]
+				work_lanes[j] = value
 			while work_lanes[0] == previous_lane or absi(int(work_lanes[0]) - previous_lane) > 3:
 				work_lanes.append(work_lanes.pop_front())
 		var lane := block if block < 2 else int(work_lanes[(block - 2) % 4])
 		var warm := block < 2
-		var opening := transition_gap(absi(lane - previous_lane))
-		var role := "warmup" if warm else "work"
-		phases.append({"name": "Warm up" if warm else ("Ease back" if lane == 2 else "Work"), "role": role, "startMs": begin, "endMs": end})
+		# Equal work-block budgets across every lane ordering, with the full allowance
+		# for a three-lane adjustment and only two seconds between same-lane sections.
+		var opening := 3000 if block == 0 else (6000 if warm else 9000)
 		var burst_block := not warm and block % 2 == 0
-		var kinds := ["hold", "burst"] if burst_block else (["cruise", "hold"] if state % 2 == 0 else ["hold", "cruise"])
-		var spare := BLOCK_MS - HOLD_MS - COLLECT_MS
+		# A deterministic 5/6/7-second burst rotation, without a long gap replacing it.
+		var burst_length := 5000 + ((block / 2) % 3) * 1000
+		var kinds: Array = (["cruise"] if block == 0 else ["hold"]) if warm else (["hold", "burst"] if burst_block else (["cruise", "hold"] if state % 2 == 0 else ["hold", "cruise"]))
+		var length_total := 10000 if warm else HOLD_MS + (burst_length if burst_block else COLLECT_MS)
+		var block_length := opening + length_total + (0 if warm else 2000)
+		if not warm and begin + block_length > duration: kinds = ["hold", "burst" if burst_block else "cruise"]
+		var end := mini(duration, begin + block_length)
+		phases.append({"name": "Warm up" if warm else ("Ease back" if lane == 2 else "Work"), "role": "warmup" if warm else "work", "startMs": begin, "endMs": end})
 		var at := begin + opening
-		for part in 2:
+		for part in kinds.size():
 			var kind: String = kinds[part]
-			var length := HOLD_MS if kind == "hold" else COLLECT_MS
-			if at + length > end: break  # partial final road block, still beyond most riders
+			var length := burst_length if kind == "burst" else 10000
+			if at + length > end: break  # never author a tiny remainder at the end of the road
 			var event := {"eventId": "b%03d-%d" % [block, part], "type": kind, "startMs": at, "endMs": at + length, "laneIndex": lane}
 			if kind == "hold":
 				event.cadenceMin = EASY_CADENCE if warm else WORK_CADENCE[lane]
 				event.cadenceMax = int(event.cadenceMin) + 20
 			events.append(event)
-			at = int(event.endMs) + spare - opening
+			at = int(event.endMs) + 2000
 		previous_lane = lane
-	return {"schemaVersion": 1, "courseVersion": 10, "generatorVersion": 7, "courseId": id,
+		begin = end
+		block += 1
+	return {"schemaVersion": 1, "courseVersion": 11, "generatorVersion": 8, "courseId": id,
 		"title": "Random / %06d" % (seed_value % 1000000) if random_track else NAMES[index],
 		"family": "random" if random_track else "catalog", "durationMs": minutes * 60000,
 		"theme": THEMES[(seed_value / 97) % 8] if random_track else THEMES[index % 8],
 		"background": BACKGROUNDS[(seed_value / 193) % 4] if random_track else BACKGROUNDS[(index / 3) % 4],
 		"presentation": LaneSmashPath.generate(seed_value, minutes * 1000 + 300),
-		"hazards": LaneSmashHazards.generate(events, seed_value),
+		"hazards": LaneSmashHazards.generate_dense(events),
 		"barrages": LaneSmashBarrage.generate(minutes * 60000, seed_value, true),
 		"distanceBased": true, "maxSpeedKph": 60, "maxCadenceRpm": 140, "roadLengthMeters": minutes * 1000 + 300, "seed": seed_value, "description": PATTERNS[index % 5], "phases": phases, "events": events}
 

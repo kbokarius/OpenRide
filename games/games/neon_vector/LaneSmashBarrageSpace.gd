@@ -25,6 +25,7 @@ var _up := Vector3.UP
 var _frozen := false
 var _rapid_started := false
 var _impact_done := false
+var _feedback_done := false
 var _feedback: Dictionary = {}
 var effects_count := 0
 
@@ -76,6 +77,7 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 		_frozen = false
 		_rapid_started = false
 		_impact_done = false
+		_feedback_done = false
 		_feedback = {}
 	var charge := clampf(float(now - int(shot.lockMs)) / LaneSmashBarrage.CHARGE_MS, 0, 1)
 	var since_fire := (now - int(shot.fireMs)) / 1000.0
@@ -140,7 +142,7 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 	else:
 		_orb.multimesh.visible_instance_count = 0
 		_trail.multimesh.visible_instance_count = 0
-	if bool(shot.resolved) and not _impact_done:
+	if bool(shot.resolved) and now >= int(shot.impactMs) and not _impact_done:
 		_impact_done = true
 		effects_count += 1
 		var ground: Basis = space.road_basis(float(shot.targetMeters))
@@ -157,6 +159,8 @@ func update_view(rules: NeonRules, _delta: float) -> void:
 			space.fx.beam(space.pose(float(shot.targetMeters), 0, 0.1).origin, ground, ENERGY, 26.0, 0.9)
 		# The knock is felt hardest inside the blast and only faintly from a safe distance.
 		space.shake(0.9 if bool(shot.hit) else 0.3)
+	if bool(shot.resolved) and not _feedback_done:
+		_feedback_done = true
 		_feedback = {"hit": shot.hit, "points": shot.points,
 			"anchor": space.pose(space.distance + LaneSmashBike.FRONT_REACH / NeonSpace.STRETCH, (rules.selected_lane - 2.5) * NeonSpace.LANE_WIDTH, 2.5).origin,
 			"up": space.road_basis(space.distance).y}
