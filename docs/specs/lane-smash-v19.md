@@ -2,6 +2,8 @@
 
 November 15, 2026. Version `1.2.0-lane-smash.19`, APK code 27. Course 11 / generator 8 / scoring 10.
 
+**Later release:** these changes, the wider rear tyre and Kid difficulty shipped together in signed [revision 20 / APK 28](lane-smash-v20.md), installed over Wi-Fi on the Bike on November 15, 2026. The build-27 validation below remains a historical record.
+
 ## Requested behavior
 
 - Award a successful incoming-bomb pass at the end of the marked blast area, without waiting for impact.
