@@ -17,6 +17,8 @@ const SCALE := 1.3
 const DESIGN_RADIUS := 0.67
 const DESIGN_FRONT := 1.05
 const DESIGN_REAR := 1.50
+const REAR_TYRE_WIDTH := 0.64  # four times the original 0.16-wide tyre, at the same rolling radius
+const REAR_AXLE_HALF_WIDTH := 0.38
 const WHEEL_RADIUS := DESIGN_RADIUS * SCALE
 const FRONT_AXLE := DESIGN_FRONT * SCALE
 const AXLE_HEIGHT := WHEEL_RADIUS + 0.05
@@ -80,7 +82,7 @@ func _ready() -> void:
 		var wheel := Node3D.new()
 		wheel.position = Vector3(0, DESIGN_RADIUS, z)
 		pivot.add_child(wheel)
-		_part(_cache.wheel, wheel)
+		_part(_cache.rear_wheel if z > 0 else _cache.front_wheel, wheel)
 		wheels.append(wheel)
 	for side: float in [-1.0, 1.0]:
 		var rotor := Node3D.new()
@@ -184,7 +186,8 @@ func set_opacity(alpha: float) -> void:
 static func _build_meshes() -> void:
 	if not _cache.is_empty(): return
 	_cache["body"] = _body_mesh()
-	_cache["wheel"] = _wheel_mesh()
+	_cache["front_wheel"] = _wheel_mesh(false)
+	_cache["rear_wheel"] = _wheel_mesh(true)
 	_cache["rotor"] = _rotor_mesh()
 	_cache["flames"] = _flame_mesh()
 	_cache["underglow"] = _underglow_mesh()
@@ -254,7 +257,7 @@ static func _body_mesh() -> ArrayMesh:
 	# Fork blades, swingarms, drive housings, nozzles, pegs and bars.
 	for side: float in [-1.0, 1.0]:
 		kit.add(MeshKit3D.box(Vector3(0.07, 1.0, 0.13)), MeshKit3D.between(Vector3(side * 0.22, DESIGN_RADIUS, -DESIGN_FRONT), Vector3(side * 0.30, 1.44, -0.70)), PANEL.darkened(0.2))
-		kit.add(MeshKit3D.box(Vector3(0.07, 1.0, 0.15)), MeshKit3D.between(Vector3(side * 0.22, DESIGN_RADIUS, DESIGN_REAR), Vector3(side * 0.32, 0.82, 0.52)), PANEL.darkened(0.2))
+		kit.add(MeshKit3D.box(Vector3(0.07, 1.0, 0.15)), MeshKit3D.between(Vector3(side * REAR_AXLE_HALF_WIDTH, DESIGN_RADIUS, DESIGN_REAR), Vector3(side * 0.40, 0.82, 0.52)), PANEL.darkened(0.2))
 		kit.add(MeshKit3D.cylinder(0.185, 0.185, 0.10, 16), MeshKit3D.xf(Vector3(side * (ROTOR_AT.x - 0.05), ROTOR_AT.y, ROTOR_AT.z), Vector3(0, 0, 90)), Color(0.03, 0.035, 0.05, 0.6))
 		kit.add(MeshKit3D.cylinder(0.075, 0.105, 0.34, 10), MeshKit3D.xf(Vector3(side * NOZZLE_AT.x, NOZZLE_AT.y, NOZZLE_AT.z - 0.12), Vector3(90, 0, 0)), PANEL)
 		kit.add(MeshKit3D.box(Vector3(0.20, 0.05, 0.12)), MeshKit3D.xf(Vector3(side * 0.58, 0.80, 0.90)), PANEL.darkened(0.2))
@@ -311,24 +314,31 @@ static func _pilot(kit: MeshKit3D) -> void:
 
 
 ## Tyre, a dished cover, two rim rings of light and a dashed light line round the tread, so the
-## wheel reads as spinning from behind as well as from the side.
-static func _wheel_mesh() -> ArrayMesh:
+## wheel reads as spinning from behind as well as from the side. The rear has a broad,
+## rounded superbike slick and its own rim/axle; both wheels retain the same rolling radius.
+static func _wheel_mesh(rear: bool) -> ArrayMesh:
 	var kit := _kit()
 	var sideways := Vector3(0, 0, 90)
-	kit.add(MeshKit3D.torus(0.51, DESIGN_RADIUS, 28, 8), MeshKit3D.xf(Vector3.ZERO, sideways), TYRE)
-	kit.add(MeshKit3D.cylinder(0.52, 0.52, 0.11, 22), MeshKit3D.xf(Vector3.ZERO, sideways), Color(0.085, 0.10, 0.145, 0.85))
-	kit.add(MeshKit3D.cylinder(0.10, 0.10, 0.30, 10), MeshKit3D.xf(Vector3.ZERO, sideways), PANEL)
+	var tyre_inner := 0.43 if rear else 0.51
+	var tyre_pose := MeshKit3D.xf(Vector3.ZERO, sideways)
+	if rear: tyre_pose = tyre_pose.scaled(Vector3(REAR_TYRE_WIDTH / (DESIGN_RADIUS - tyre_inner), 1, 1))
+	kit.add(MeshKit3D.torus(tyre_inner, DESIGN_RADIUS, 32 if rear else 28, 12 if rear else 8), tyre_pose, TYRE)
+	var rim_radius := 0.485 if rear else 0.52
+	var rim_depth := 0.40 if rear else 0.11
+	var rim_face := rim_depth * 0.5 + 0.005
+	kit.add(MeshKit3D.cylinder(rim_radius, rim_radius, rim_depth, 22), MeshKit3D.xf(Vector3.ZERO, sideways), Color(0.085, 0.10, 0.145, 0.85))
+	kit.add(MeshKit3D.cylinder(0.10, 0.10, REAR_AXLE_HALF_WIDTH * 2 if rear else 0.30, 10), MeshKit3D.xf(Vector3.ZERO, sideways), PANEL)
 	kit.outline = 1.0
 	kit.glow = 1.0
 	for face: float in [-1.0, 1.0]:
-		kit.add(MeshKit3D.torus(0.465, 0.51, 28, 5), MeshKit3D.xf(Vector3(face * 0.06, 0, 0), sideways), Color.WHITE)
+		kit.add(MeshKit3D.torus(rim_radius - 0.055, rim_radius - 0.01, 28, 5), MeshKit3D.xf(Vector3(face * rim_face, 0, 0), sideways), Color.WHITE)
 		for spoke in 3:
 			var angle := spoke * TAU / 3.0
 			var radial := Vector3(0, cos(angle), sin(angle))
 			var tangent := Vector3(0, -sin(angle), cos(angle))
 			var along := (radial + tangent * 0.6).normalized()
 			var basis := Basis(Vector3.RIGHT * 0.02, along * 0.34, Vector3.RIGHT.cross(along).normalized() * 0.07)
-			kit.add(MeshKit3D.box(Vector3.ONE), Transform3D(basis, Vector3(face * 0.062, 0, 0) + radial * 0.26), Color.WHITE)
+			kit.add(MeshKit3D.box(Vector3.ONE), Transform3D(basis, Vector3(face * (rim_face + 0.002), 0, 0) + radial * 0.26), Color.WHITE)
 	for dash in 14:
 		var angle := dash * TAU / 14.0
 		var radial := Vector3(0, cos(angle), sin(angle))
