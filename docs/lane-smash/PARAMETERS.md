@@ -1,6 +1,6 @@
 # Current gameplay and presentation parameters
 
-Verified against revision-21 source November 16, 2026. These changes have not been installed on the Bike; build 28 remains the latest signed/installed version. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
+Verified against revision-21 source November 16, 2026. Build 29 / revision 21 is signed and installed on the Bike. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
 
 ## Units and release state
 
@@ -9,7 +9,7 @@ Verified against revision-21 source November 16, 2026. These changes have not be
 - **Road seconds** are distance divided by the maximum rules speed, 60 km/h. One road-second is 16⅔ rules-metres, drawn as 50 world metres. At a constant cadence below 140 rpm, actual seconds = road seconds × 140 / rpm. At zero cadence the road does not advance. Section lengths and mine spacing use road time; attack timers and the final-minute cooldown use active time.
 - The model uses design units, multiplied by `LaneSmashBike.SCALE = 1.3`. These dimensions describe game geometry, not a real motorcycle specification.
 - Current source rules: course **12**, generator **9**, scoring **11**, envelope **1**. Timing and burst-reward changes create new comparison keys. Course 11 retains scoring 10; older saved snapshots and histories remain readable. Kid and all adult resistance bands are unchanged.
-- Latest signed APK and verified device installation: **28 / 1.2.0-lane-smash.20**, packaging gameplay source through `a13bcde` with a release-version bump. It includes revision-19 ride changes, the rear-tyre mesh and Kid difficulty. Installed in place over Wi-Fi on November 15, 2026; selector, sensor connectivity and initial ride rendering verified. See the [build and installation record](../specs/lane-smash-v20.md). Sustained physical ride performance is not established by this check.
+- Latest signed APK and verified device installation: **29 / 1.2.0-lane-smash.21**, packaging gameplay source `6a5572c` with a release-version bump. Installed in place over Wi-Fi on November 16, 2026; selector and sensor-ready state verified. See the [build and installation record](../specs/lane-smash-v21-installation.md). Sustained physical ride performance is not established by this check.
 
 ## Course generation and pacing
 

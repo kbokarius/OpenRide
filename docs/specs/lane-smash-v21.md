@@ -1,6 +1,6 @@
 # Lane Smash revision 21 — clear lane commitments and beside-bike feedback
 
-November 16, 2026. **Source changes and local tests only. No APK was built for release, no installation was performed, and the Peloton remains on build 28 / revision 20.** A later release must increment the Android build/version before signing. Current source creates course 12 / generator 9 / scoring 11; envelope 1 and all resistance bands remain unchanged.
+November 16, 2026. The initial implementation and validation below were source-only, leaving the Bike on build 28. **The owner subsequently requested installation: signed build 29 / revision 21 is now installed.** See the separate [release and installation record](lane-smash-v21-installation.md). Current source creates course 12 / generator 9 / scoring 11; envelope 1 and all resistance bands remain unchanged.
 
 ## Requests and decisions
 
@@ -80,7 +80,7 @@ The updated representative 25-track, 20-minute Challenging calibration is **156,
 
 Course 12 / generator 9 / scoring 11 isolates the new timing and reward rules. Course 11 explicitly maps to scoring 10; its original attack, exact-minute cooldown and unweighted energy outcomes remain unchanged. Older history remains readable, while new-layout last/best/ghost comparisons are separate. Both Kotlin and Godot record validators accept scoring versions 1–11 and reject future unknown versions. No database schema or migration changes are involved.
 
-All six difficulty mappings, saved settings, package/signing identity and Auto graphics default are unchanged. The device and signed APK remain build 28. Local test tools use simulated input and isolated preferences/history; no device commands were used for this work.
+All six difficulty mappings, saved settings, package/signing identity and Auto graphics default are unchanged. During the initial source-only work the device and signed APK remained build 28. Local test tools used simulated input and isolated preferences/history; no device commands were used during that implementation phase. The subsequent build-29 installation is recorded separately.
 
 ## Validation
 
@@ -88,7 +88,7 @@ All six difficulty mappings, saved settings, package/signing identity and Auto g
 - Full-course audit: **116 courses / 36.25 simulated hours**, all 100 named duration/name combinations plus 16 random seeds; all six resistance mappings; four additional 30-minute speed traces. **2,880 lane changes** and **804,662 active cadence checks** passed without empty lane visits, missing meter/fire state, truncated played sections, invalid transition gaps, jumps over three lanes or mutated snapshots. Nightfall's maximum measured ordinary approach remains 19.4 active seconds on the target-following trace.
 - Separate Nightfall handoff audit: **28 full rides / 8.75 hours**, all durations at 20/45/60/80/100/140 rpm plus a target-following profile. **637 lane changes**, no empty/brief visits before another lane request.
 - Focused Godot regression suites cover new/legacy handoffs, cooldown boundaries, bomb projections/outcomes, gauge bounds/fades, six-lane gunner visibility and immediate fire, prompt boundary timing, all difficulty edge warnings, burst speed/power ratios, batching determinism, authored/random content, records and the existing HUD.
-- Android record tests passed: **13 tests**, including versions 10/11 acceptance and version 12 rejection. No signed installer was generated.
+- Android record tests passed: **13 tests**, including versions 10/11 acceptance and version 12 rejection. No signed installer was generated during this initial source-only validation.
 - Native Compatibility-renderer captures checked the bomb meter in flight and after a pass, Nightfall lane-6 cadence preview/start/fire, and the muted internal edge warning. No script/shader errors occurred in those captures. This is desktop validation, not a claim about physical tablet performance.
 
 **Final regression run: 118 Godot cases across 13 suites; zero errors, failures or reported test orphans.** Together the two full-ride audits cover 144 rides / 45 simulated hours, plus the four speed traces. Test-loop hitch messages reflect accelerated headless simulation, not measured tablet frame times.

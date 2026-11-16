@@ -68,10 +68,10 @@ Use the focused gdUnit4 suites, `play_neon_vector.gd`, `audit_lane_smash_tracks.
 Revision 19 separates the pass-resolution timestamp from the physical impact timestamp. The rules tick awards once at clearance, while the view and sound observe resolution/impact separately. Generator 8 changes section lengths, paired cadence bands and mine coverage; therefore last/best/ghost comparisons are intentionally separate from older layouts. History remains readable, and the test-only generator-7 fixture exercises old snapshot rules without regenerating them with new content. No Room or Drizzle schema change is involved.
 
 
-## Revision 21: local-only changes
+## Revision 21: lane commitments and local feedback
 
 Committed-lane handoffs and speed-weighted burst scoring are versioned as course 12 / generator 9 / scoring 11. Course 11 maps explicitly to scoring 10 and preserves the prior attack/cooldown and energy rules. Kotlin record validation accepts the new version; the database schema is unchanged. Raw burst joules remain separate from integer weighted microjoules; rendered charge and counters read the weighted reward, never set it.
 
 `completing_section` retains the finished event cursor for the 700 ms final-marker fade before a deferred attack. No scoring runs during that fade, but the view can show its completion effect. Cooldown finishes an active section or honors an announced approach before descending. Every renderer/prompt sees the runtime event list; the stored course hash is unchanged during a ride.
 
-The edge-warning shader uses five scalar weights and a bounded near-bike distance window on the existing deck. Gauges reuse their anchor/style objects and render a fixed number of primitives. Revision 21 has only local tests/renders; no new signed installer or physical update was requested.
+The edge-warning shader uses five scalar weights and a bounded near-bike distance window on the existing deck. Gauges reuse their anchor/style objects and render a fixed number of primitives. Revision 21 was subsequently packaged as signed build 29 and installed in place over Wi-Fi at the owner's request. The selector displayed Bike connected · ready; no ride was started for this installation. See the [build and device record](../specs/lane-smash-v21-installation.md).
