@@ -8,7 +8,7 @@ Each 10/15/20/30-minute duration has the same 25 names with duration-specific se
 
 Names: Nightfall, Vector Run, Cold Circuit, Apex Protocol, Iron Horizon, Deep Current, Solar Array, Black Meridian, Velocity, Carbon Ridge, Arc Reactor, Zero Gravity, Afterburn, Steel Pulse, Blue Shift, Outer Ring, Ion Storm, Altitude, Dark Matter, Redline, Titan, Slipstream, Overdrive, Summit Relay, Event Horizon.
 
-Only one lane has scoring targets at a time. Generator 8 opens with ten road-seconds of Collect in lane 1, then ten road-seconds of Pedal speed in lane 2. The first approach is three road-seconds; the lane-2 approach is six. Work then stays in lanes 3–6, visiting each work lane once per complete four-block wave in seeded order. No required jump exceeds three lanes, including attacks, returns and cooldown.
+Only one lane has scoring targets at a time. Generator 9 opens with ten road-seconds of Collect in lane 1, then ten road-seconds of Pedal speed in lane 2. The first approach is three road-seconds; the lane-2 approach is six. Work then stays in lanes 3–6, visiting each work lane once per complete four-block wave in seeded order. No required jump exceeds three lanes, including attacks, returns and cooldown.
 
 Collect and Pedal speed sections each span **ten road-seconds minimum**, measured at the 140-rpm speed cap; a slower rider takes longer. Power Bursts rotate through **five, six and seven road-seconds**. Ordinary work blocks pair a cadence section with Collect or a burst, with a nine-road-second lane-change approach and a two-road-second gap within the same lane, keeping the same block budget regardless of lane order. Shorter bursts shorten the block rather than leaving extra empty road. Partial final blocks never author a shortened section.
 
@@ -18,7 +18,7 @@ Collect and Pedal speed sections each span **ten road-seconds minimum**, measure
 | Two lanes | 9 s authored / 7.5 s after an attack | 2 s |
 | Three lanes | 9 s | 2 s |
 
-Guidance always highlights the current or next target, including approaches and interruptions. Incoming Fire waits for an active section's final marker before starting preparation. After the final explosion fades (1.2 seconds), ordinary play returns without the old eight-second idle tail. The next full, unplayed section starts after its resistance-change approach; its successors and off-lane mines are rebased together in runtime copies. A short fragment is never presented as a new section. The fixed route geometry itself is unchanged.
+Guidance always highlights the current or next target, including approaches and interruptions. Incoming Fire honors the next section as soon as its lane is announced, including the approach, and waits for its final marker before starting preparation. The finished lane stays highlighted during the 700 ms recap/fade; a later ordinary lane is never flashed in between. After the final explosion fades (1.2 seconds), ordinary play returns without the old eight-second idle tail. The next full, unplayed section starts after its resistance-change approach; its successors and off-lane mines are rebased together in runtime copies. A short fragment is never presented as a new section. The fixed route geometry itself is unchanged.
 
 Work cadence steps down every two lanes:
 
@@ -29,7 +29,7 @@ Work cadence steps down every two lanes:
 
 These are Lane Smash's chosen bands, informed by Lanebreak footage rather than a claimed universal Peloton table. See [cadence research](../research/lanebreak/09-cadence-and-section-flow.md). Difficulty resistance ranges are unchanged.
 
-**Cooldown follows active time.** At exactly one minute remaining, the current section closes and a runtime-only tail of ten-road-second gold-bar sections replaces future work. Its first target moves at most three lanes left, then steps down one lane at a time into lane 1, with the same minimum lane-change gaps. No bursts, gunfire or road mines occur in this tail. It starts regardless of cadence or distance; the route still continues moving at the rider's speed. The immutable course snapshot is retained for repeatable replay and comparison.
+**Cooldown follows active time without cutting sections short.** At one minute remaining, finish any section already underway before entering the runtime-only Collect tail. If an approach has already asked for another lane, deliver a full ten-road-second Collect there before stepping left by at most three lanes, then down toward lane 1. The remaining approach is preserved. No bursts, gunfire or road mines occur in the tail. The ride still ends at its selected duration, so a slow/stopped rider can have less time to descend. Saved course-11 snapshots retain the exact-minute cutover; the original course snapshot is never rewritten.
 
 Named and random tracks use the same rules. Authored time, lane-exposure and cadence budgets stay within 4% across each duration's tested layouts; actual joules and points depend on inputs, attack timing and distance covered. Older snapshots retain their authored four-minute waves and old cooldown behavior.
 
@@ -54,18 +54,20 @@ The picture draws every rules-metre as **three** world metres (`NeonSpace.STRETC
 
 ## Current point scale
 
-Scoring version 10 (course version 11) adds immediate pass rewards, full-section handoffs and dense off-lane mines. It preserves the scoring-8 cadence sweet spot, **18×** point scale and machine-gun fire. Scoring 9 added lane-checked rapid bomb drops and the timed cooldown. Version 7 added machine-gun fire to cadence sections; version 6 multiplied the previous base scoring by 18. The calibration target is a typical **20-minute ride** around 150,000 points, not a fixed score for every duration or rider. The measured 25-track Challenging trace on generator 6 is in the [validation notes](../specs/lane-smash-v13-validation.md); generator 5 measured 173,216.08 and generator 4 147,760.88 with the same simulated rider. The scale has not changed between them: what changes is how much road carries sections, and from scoring 8 the sweet-spot bonus the simulated rider earns by holding the middle of every band. It uses 90 rpm cruise, cadence-band midpoint, 110 rpm bursts, resistance-dependent simulated watts, modest misses and gradual attack responses. Real sensor power and performance determine actual scores. Longer/shorter rides scale naturally.
+Scoring version 11 (course 12 / generator 9) adds committed lane handoffs and speed-weighted burst rewards. Scoring version 10 (course version 11) added immediate pass rewards, full-section handoffs and dense off-lane mines. It preserves the scoring-8 cadence sweet spot, **18×** point scale and machine-gun fire. Scoring 9 added lane-checked rapid bomb drops and the timed cooldown. Version 7 added machine-gun fire to cadence sections; version 6 multiplied the previous base scoring by 18. The calibration target is a typical **20-minute ride** around 150,000 points, not a fixed score for every duration or rider. The measured 25-track Challenging trace on generator 6 is in the [validation notes](../specs/lane-smash-v13-validation.md); generator 5 measured 173,216.08 and generator 4 147,760.88 with the same simulated rider. The scale has not changed between them: what changes is how much road carries sections, and from scoring 8 the sweet-spot bonus the simulated rider earns by holding the middle of every band. It uses 90 rpm cruise, cadence-band midpoint, 110 rpm bursts, resistance-dependent simulated watts, modest misses and gradual attack responses. Real sensor power and performance determine actual scores. Longer/shorter rides scale naturally.
 
 | Section | Conditions | Points |
 | --- | --- | --- |
 | Gold bars / Collect | Settled in the marked lane; cadence at least 20 rpm | 180 points per valid road-second, proportional to distance traversed (10.8 points/metre) |
 | Mint arrows / Pedal speed | Same lane/cadence floor, plus inclusive minimum–maximum rpm band | Same distance rate as Collect, only while inside the band |
-| Violet Power Burst | Same target lane; cadence at least 20 rpm; measured power | **18 points per five joules**, without a power-score ceiling; ten valid seconds at 150 W earns 5,400 |
+| Violet Power Burst | Same target lane; cadence at least 20 rpm; measured power and speed | **18 points per five speed-weighted joules**: integrate W × (rpm / 90)²; rpm capped at 140. At equal W, a full burst at twice the cadence earns twice the points despite taking half as long |
 | Machine-gun fire | During a cadence section, cadence outside the section's inclusive rpm band, in any lane | Lose up to **60** per round that lands; at most 15 rounds a section; zero floor; holding the band has no extra bonus |
 | Red road bomb | Front-wheel position crosses bomb in its lane, outside Incoming Fire | Lose up to **1,800**; zero floor; avoiding a static road bomb has no bonus |
 | Incoming blast: hit | At impact the rider overlaps its fixed full-width blast footprint | Lose up to **1,800**; zero floor |
 | Incoming blast: passed | As soon as the whole rider clears the far edge of the marked blast after launch | **+1,800** |
 | Incoming blast: held back | At impact the rider is safely behind the blast | **0**; no penalty |
+
+At 150 W over a six-road-second burst, ideal complete-pass totals are about 2,520 points at 45 rpm, 3,360 at 60 rpm, 5,040 at 90 rpm, 6,720 at 120 rpm and 7,840 at 140 rpm. Tick/contact boundaries can change the displayed total slightly. Zero power, wrong-lane riding and cadence below 20 earn no burst points. At 90 rpm the old energy reward is unchanged; older scoring retains its unweighted energy formula. The current 25-track 20-minute Challenging calibration averages 156,973.6 points.
 
 The final target shows the section's earned total where that section ends. This popup is a recap, not a second bonus. Fractional points are retained internally (`100,000` subpoints per point), while display/results use whole points. Visual shattering itself does not bypass eligibility.
 
@@ -119,7 +121,7 @@ A normal safe pass earns 1,800 points immediately on crossing `targetMeters + 20
 
 Finish the full selected duration to receive stars: **25% = one, 60% = two, 90% = three**. Ended/interrupted attempts receive zero stars.
 
-The percentage is earned base target credit divided by available target credit for the sections actually encountered. Gold and cadence credit reflect valid distance; a burst's star credit is capped at the internal 150 W reference over eligible time. Extra burst output raises points but cannot compensate for missed target credit elsewhere.
+The percentage is earned base target credit divided by available target credit for the sections actually encountered. Gold and cadence credit reflect valid distance; a burst's star credit is capped at the internal 150 W reference over eligible speed-weighted time. Available burst credit uses the same speed factor, so the speed reward does not change the power requirement for full star credit. Extra burst output raises points but cannot compensate for missed target credit elsewhere.
 
 Every incoming shot adds 1,800 available target-credit points. Either safe dodge earns that credit, including a zero-point held-back dodge; a hit earns none. Following Pedal Slower therefore does not damage the star rating. Static road-bomb penalties reduce net points without directly subtracting star credit. Scaling both sides by 18 does not change thresholds.
 

@@ -10,7 +10,7 @@ func _run() -> void:
 			var e := r.current_event()
 			var lane := int(e.get("laneIndex", 0))
 			if r.barrage.active:
-				lane = 0
+				lane = r.barrage.target_lane()
 				var shot := r.barrage.current_shot()
 				if not shot.is_empty(): rpm = lerpf(float(shot.baselineRpm), float(shot.targetRpm), clampf((t - int(shot.lockMs) - 2000) / 4000.0, 0, 1))
 			else: rpm = (float(e.cadenceMin) + float(e.cadenceMax)) / 2 if e.get("type") == "hold" else (110.0 if e.get("type") == "burst" else 90.0)

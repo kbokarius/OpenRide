@@ -16,6 +16,8 @@ var schedule: Array = []
 var shots: Array[Dictionary] = []
 var cursor := 0
 var active := false
+## Keep the completed lane during its final-marker fade; do not announce a skipped section.
+var completing_section := false
 var section: Dictionary = {}
 var _cadence: Array[float] = []
 var _cadence_sum := 0.0
@@ -67,6 +69,7 @@ func configure(course: Dictionary) -> void:
 	shots.clear()
 	cursor = 0
 	active = false
+	completing_section = false
 	section = {}
 	_cadence.clear()
 	_cadence_sum = 0
@@ -77,6 +80,7 @@ static func target_cadence(baseline: float, ordinal: int) -> int:
 	return clampi(roundi(baseline - 40), 45, 100)
 
 func update(rules: RefCounted) -> void:
+	completing_section = false
 	if schedule.is_empty(): return
 	var now: int = rules.elapsed_ms + NeonRules.TICK
 	var rpm := clampf(float(rules.latest.cadence), 0, NeonRules.MAX_CADENCE)
@@ -92,9 +96,11 @@ func update(rules: RefCounted) -> void:
 		var row: Dictionary = schedule[cursor]
 		var event: Dictionary = rules.current_event()
 		var position: int = rules.road_time_ms()
-		if now >= int(row.prepareMs) - 700 and not event.is_empty() and position >= int(event.startMs) and position < int(event.endMs):
+		if now >= int(row.prepareMs) - 700 and not event.is_empty() and position < int(event.endMs) and (rules.scoring_version >= 11 or position >= int(event.startMs)):
 			# Finish the last marker before switching to incoming fire. No tiny section
 			# fragments when a fixed attack time happens to land just after its start.
+			# From scoring 11 this includes the approach: the highlighted lane is already
+			# a commitment, even before its first point arrives.
 			row.waitingForSection = true
 			for key in ["prepareMs", "startMs", "endMs"]: row[key] = int(row[key]) + NeonRules.TICK
 			if int(row.endMs) > int(rules.course.durationMs) - 60000:
@@ -104,6 +110,9 @@ func update(rules: RefCounted) -> void:
 			# Give the final marker its contact/recap, then fade the road naturally before
 			# preparation. Continually postponing a fade must not dim the entire section.
 			row.waitingForSection = false
+			if rules.scoring_version >= 11: row.handoff = true
+		if rules.scoring_version >= 11 and row.get("handoff", false):
+			completing_section = now < int(row.prepareMs)
 	while cursor < schedule.size() and now >= int(schedule[cursor].endMs):
 		cursor += 1
 		_next_shot = 0

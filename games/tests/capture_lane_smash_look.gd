@@ -6,6 +6,7 @@ extends SceneTree
 ##       [--course=ls_15_01] [--begin=0] [--frames=300] [--every=15] [--size=1280x720] \
 ##       [--scenario=follow|bomb|hit|pass|steering] [--motion=reduced] [--tier=challenging] [--ghost] \
 ##       [--timeline] [--lane=N] [--rpm=N] [--quality=high|balanced|performance] [--music]
+##       [--resistance=N] [--resistance-from=MS]
 ##
 ## `--music` drives the jukebox's analysis values with a synthetic 128 BPM track (no audio
 ## plays), so the music-reactive scenery can be reviewed deterministically.
@@ -213,6 +214,6 @@ func _sample(rules: NeonRules, t: int, scenario: String, fixed_lane: int, fixed_
 	# Only this test harness simulates it; the production controller reads real sensors.
 	if scenario == "steering": resistance += roundi(8.0 * sin(t * 0.0012))
 	var fixed_resistance := int(_arg("resistance", "-1"))
-	if fixed_resistance >= 0: resistance = fixed_resistance
+	if fixed_resistance >= 0 and t >= int(_arg("resistance-from", "0")): resistance = fixed_resistance
 	var watts := roundi(rpm * (0.3 + resistance * 0.045))
 	rules.push_sample({"t": t, "seq": t + 1, "cadence": rpm, "power": watts, "resistance": resistance})

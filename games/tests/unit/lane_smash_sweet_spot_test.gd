@@ -111,12 +111,12 @@ func test_the_gauge_is_told_about_a_cadence_section_before_it_starts() -> void:
 	var hold := _first(rules, "hold")
 	var middle := (float(hold.cadenceMin) + float(hold.cadenceMax)) * 0.5
 	assert_dict(rules.cadence_target()).is_empty()
-	# Three road-seconds before the section it appears, not yet active.
-	while rules.road_time_ms() < int(hold.startMs) - 2500: _ride(rules, rules.elapsed_ms + 50, func(_r): return middle)
+	# A little under 1.2 active seconds before the section it appears, not yet active.
+	while rules.road_time_ms() < int(hold.startMs) - 500: _ride(rules, rules.elapsed_ms + 50, func(_r): return middle)
 	var ahead := rules.cadence_target()
 	assert_str(str(ahead.eventId)).is_equal(str(hold.eventId))
 	assert_bool(bool(ahead.active)).is_false()
-	assert_int(int(ahead.startsInMs)).is_between(1, 2500)
+	assert_int(int(ahead.startsInMs)).is_between(1, 500)
 	assert_int(int(ahead.cadenceMin)).is_equal(int(hold.cadenceMin))
 	assert_float(float(ahead.sweetMin)).is_equal(middle - NeonRules.SWEET_HALF_RPM)
 	# Inside it: active, and it reports where the rider is.

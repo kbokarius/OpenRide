@@ -80,6 +80,7 @@ var _completion_up := Vector3.UP
 var _completion_kind := "cruise"
 var _danger := 0.0
 var music_levels := Vector4.ZERO  ## eased bass, mids, treble and kick, as sent to the 3D view
+var bomb_gauge := LaneSmashBarrageGauge.new()
 var gauge := LaneSmashCadenceGauge.new()        ## the cadence gauge beside the bike
 var celebration := LaneSmashCelebration.new()   ## the burst of light when a power burst is finished
 ## Where the celebration appears: the middle of the play area, clear of every panel.
@@ -226,12 +227,14 @@ func update_view(delta: float) -> void:
 			space.music_beats = int(jukebox.beat_count)
 		space.set_world(world_id)
 		space.update_view(rules, delta, visual_lane, ghost_lane, ghost_visible, trail_id)
+		space.set_edge_warning(steering.edge_weights)
 		_update_completions(delta)
 		celebration.update(delta)
 		# The cadence gauge sits beside the motorcycle, inside the play area.
 		var bike := Stage.from_view(space.camera.unproject_position(space.rider.global_position + space.rider.global_basis.y * 0.9), Vector2(view.size))
-		gauge.update(delta, rules.cadence_target() if rules.pause_reason.is_empty() else {}, bike,
-			Rect2(MARGIN + 8.0, 316.0, HudTheme.W - 2.0 * MARGIN - 16.0, gauge_floor - 316.0))
+		var gauge_bounds := Rect2(MARGIN + 8.0, 340.0, HudTheme.W - 2.0 * MARGIN - 16.0, gauge_floor - 340.0)
+		gauge.update(delta, rules.cadence_target() if rules.pause_reason.is_empty() else {}, bike, gauge_bounds)
+		bomb_gauge.update(delta, LaneSmashBarrageGauge.read(rules), bike, gauge_bounds)
 		_danger = maxf(0.0, _danger - delta * 2.6)
 		_lens.set_shader_parameter("danger", 0.0 if reduced_motion else _danger)
 		_lens.set_shader_parameter("beat", beat * 0.5)
@@ -263,7 +266,9 @@ func _draw() -> void:
 	if rules.course.is_empty():
 		return
 	_dock(accent)
-	gauge.paint(self, _caps, _digits, _look)
+	# One local gauge at a time; let the outgoing panel finish its short fade.
+	if bomb_gauge.alpha > 0.001: bomb_gauge.paint(self, _caps, _digits, _look)
+	else: gauge.paint(self, _caps, _digits, _look)
 	steering.paint(self, _caps, _look, reduced_motion)
 	_popup()
 	celebration.paint(self, CELEBRATION_AT, _caps, _digits, reduced_motion)

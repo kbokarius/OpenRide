@@ -7,12 +7,15 @@ const FOLLOW := 11.0
 const SNAP_FOLLOW := 28.0
 const SNAP_SECONDS := 0.18
 const FADE_SECONDS := 0.32
+const EDGE_FRACTION := 0.25  ## outer quarter of the reported resistance band
+const EDGE_FADE_SECONDS := 0.3
 const COLOR := Color("c6ecff")
 const CUE_SIZE := Vector2(360, 94)
 
 var lane := 2.0
 var target := -1
 var weights := PackedFloat32Array([0, 0, 0, 0, 0, 0])
+var edge_weights := PackedFloat32Array([0, 0, 0, 0, 0])  ## five internal seams only
 var direction := 0
 var cue_alpha := 0.0
 var cue_age := 0.0
@@ -36,7 +39,24 @@ static func target_for(rules: NeonRules) -> int:
 	return int(event.laneIndex) if not event.is_empty() else clampi(rules.last_target_lane, 0, 5)
 
 
+## Nearby inner seam and warning strength. Does not modify sensor data, lane or scoring.
+static func edge_warning(resistance: float, tier: String) -> Vector2:
+	if not is_finite(resistance): return Vector2(-1, 0)
+	var current := NeonRules.lane_for(resistance, tier)
+	if current < 0: return Vector2(-1, 0)
+	var band := NeonRules.band(current, tier)
+	var fraction := clampf((resistance - band.x) / float(band.y - band.x), 0, 1)
+	if current > 0 and fraction < EDGE_FRACTION:
+		return Vector2(current - 1, 1.0 - smoothstep(0.0, EDGE_FRACTION, fraction))
+	if current < 5 and fraction > 1.0 - EDGE_FRACTION:
+		return Vector2(current, 1.0 - smoothstep(0.0, EDGE_FRACTION, 1.0 - fraction))
+	return Vector2(-1, 0)
+
+
 func update(delta: float, resistance: float, tier: String, wanted_lane: int) -> void:
+	var edge := edge_warning(resistance, tier)
+	var edge_fade := delta / EDGE_FADE_SECONDS if delta > 0 else 1.0
+	for i in 5: edge_weights[i] = move_toward(edge_weights[i], edge.y if i == int(edge.x) else 0.0, edge_fade)
 	target = wanted_lane if wanted_lane >= 0 and wanted_lane < 6 else -1
 	var valid := is_finite(resistance)
 	if valid:

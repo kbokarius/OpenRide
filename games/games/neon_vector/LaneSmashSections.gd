@@ -33,7 +33,7 @@ func update_view(rules: NeonRules, delta: float, rider_lane: float) -> void:
 		var watts := float(rules.latest.get("power", 0)) if eligible else 0.0
 		var intensity := clampf(watts / rules.reference_power, 0, 2.5)
 		var target_joules := rules.reference_power * (int(event.endMs) - int(event.startMs)) / 1000.0
-		var energy_ratio := float(state.energyMilliJoules) / maxf(1.0, target_joules * 1000.0)
+		var energy_ratio := rules.burst_reward_joules(state) / maxf(1.0, target_joules) if event.type == "burst" else 0.0
 		zone.charge = lerpf(float(zone.charge), clampf(energy_ratio, 0, 1), 1.0 - exp(-delta * 8.0))
 		zone.intensity = lerpf(float(zone.intensity), intensity, 1.0 - exp(-delta * 6.0))
 		zone.material.set_shader_parameter("charge", zone.charge)

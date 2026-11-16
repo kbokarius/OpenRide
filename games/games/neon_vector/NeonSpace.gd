@@ -546,6 +546,12 @@ func set_lane_guidance(weights: PackedFloat32Array) -> void:
 	if _road_material: _road_material.set_shader_parameter("target_weights", weights)
 
 
+func set_edge_warning(weights: PackedFloat32Array) -> void:
+	if _road_material:
+		_road_material.set_shader_parameter("edge_weights", weights)
+		_road_material.set_shader_parameter("rider_s", distance * STRETCH)
+
+
 func section_completed(kind: String, lane: int, at_ms: int) -> Vector3:
 	var color := GOLD if kind == "cruise" else (GREEN if kind == "hold" else VIOLET)
 	var finish := finish_distance(kind, at_ms)

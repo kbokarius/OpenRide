@@ -23,8 +23,7 @@ var target: Dictionary = {}  ## the last `NeonRules.cadence_target()`; kept whil
 var alpha := 0.0
 var shown_rpm := 0.0
 var centre := Vector2(-1, -1)  ## where the panel's centre is on the stage; set by `follow`
-var _side := 0.0
-var _inward := false
+var _anchor := LaneSmashBikeGaugeAnchor.new()
 var _style: StyleBoxFlat
 
 
@@ -37,21 +36,7 @@ func update(delta: float, live: Dictionary, bike: Vector2, bounds: Rect2) -> voi
 	alpha = move_toward(alpha, 1.0 if not live.is_empty() else 0.0, delta * FADE_PER_SEC if delta > 0.0 else 1.0)
 	if target.is_empty(): return
 	shown_rpm = lerpf(shown_rpm, float(target.rpm), 1.0 - exp(-delta * FOLLOW)) if delta > 0.0 else float(target.rpm)
-	# Beside the bike, on the side away from the middle of the road, so it never covers the
-	# lane ahead. It changes side only once the bike is clearly across the middle.
-	var middle := bounds.get_center().x
-	if _side == 0.0 or absf(bike.x - middle) > 90.0: _side = -1.0 if bike.x < middle else 1.0
-	# A wider road can put an outside-lane bike too near the viewport edge for an outward
-	# panel. Place it inward there, with hysteresis so it cannot chatter at the threshold.
-	var room := SIZE.x + BIKE_GAP
-	var edge_room := minf(bike.x - bounds.position.x, bounds.end.x - bike.x)
-	if edge_room < room: _inward = true
-	elif edge_room > room + 32.0: _inward = false
-	if _inward: _side = 1.0 if bike.x < middle else -1.0
-	var wanted := Vector2(bike.x + _side * (SIZE.x * 0.5 + BIKE_GAP), bike.y - 90.0)
-	wanted.x = clampf(wanted.x, bounds.position.x + SIZE.x * 0.5, bounds.end.x - SIZE.x * 0.5)
-	wanted.y = clampf(wanted.y, bounds.position.y + SIZE.y * 0.5, bounds.end.y - SIZE.y * 0.5)
-	centre = wanted if centre.x < 0.0 or delta <= 0.0 else centre.lerp(wanted, 1.0 - exp(-delta * 7.0))
+	centre = _anchor.follow(delta, bike, bounds, SIZE, BIKE_GAP)
 
 
 ## Where an rpm sits on the track: 0 at the section's minimum, 1 at its maximum, and a

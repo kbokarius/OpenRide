@@ -1,6 +1,6 @@
 # Current gameplay and presentation parameters
 
-Verified against source November 15, 2026, including the revision-19 ride changes (`9555d62`) and superbike rear tyre (`7b56a12`), followed by the Kid difficulty addition. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
+Verified against revision-21 source November 16, 2026. These changes have not been installed on the Bike; build 28 remains the latest signed/installed version. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
 
 ## Units and release state
 
@@ -8,7 +8,7 @@ Verified against source November 15, 2026, including the revision-19 ride change
 - **Active seconds** are the ride clock. Stopping pedalling consumes them; a sensor interruption freezes them.
 - **Road seconds** are distance divided by the maximum rules speed, 60 km/h. One road-second is 16⅔ rules-metres, drawn as 50 world metres. At a constant cadence below 140 rpm, actual seconds = road seconds × 140 / rpm. At zero cadence the road does not advance. Section lengths and mine spacing use road time; attack timers and the final-minute cooldown use active time.
 - The model uses design units, multiplied by `LaneSmashBike.SCALE = 1.3`. These dimensions describe game geometry, not a real motorcycle specification.
-- Current rules: course **11**, generator **8**, scoring **10**, envelope **1**. The rear-tyre change is visual only. Kid adds its own difficulty identity; the course, generator and scoring versions and all existing difficulty identities remain unchanged.
+- Current source rules: course **12**, generator **9**, scoring **11**, envelope **1**. Timing and burst-reward changes create new comparison keys. Course 11 retains scoring 10; older saved snapshots and histories remain readable. Kid and all adult resistance bands are unchanged.
 - Latest signed APK and verified device installation: **28 / 1.2.0-lane-smash.20**, packaging gameplay source through `a13bcde` with a release-version bump. It includes revision-19 ride changes, the rear-tyre mesh and Kid difficulty. Installed in place over Wi-Fi on November 15, 2026; selector, sensor connectivity and initial ride rendering verified. See the [build and installation record](../specs/lane-smash-v20.md). Sustained physical ride performance is not established by this check.
 
 ## Course generation and pacing
@@ -30,8 +30,8 @@ Source: [LaneSmashCatalog.gd](../../games/games/neon_vector/LaneSmashCatalog.gd)
 | Ordinary block budget | 31 road-seconds: 9 approach + 10 section + 2 gap + 10 section |
 | Burst block budget | 26 / 27 / 28 road-seconds, using a 5 / 6 / 7-second burst instead of Collect |
 | Partial final authored block | Never emits a shortened section; a section that cannot fit is omitted |
-| Cooldown | Begins with exactly 60 active seconds remaining; replaces future work with low-lane 10-road-second Collect sections; no mines, bursts or gunfire |
-| Boundary exception | The fixed cooldown boundary and ride finish can close the current section; ordinary attack handoffs preserve the full section |
+| Cooldown | Requested at 60 active seconds remaining; finish an active section before changing lanes. An already-announced approach gets a full 10-road-second Collect in that lane before stepping down by at most three lanes. Then descend toward lane 1; no mines, bursts or gunfire in the cooldown tail |
+| Boundary exception | The fixed ride finish can end a section; attack and cooldown handoffs no longer shorten an active section. Very slow/stopped riding can reduce the available cooldown time |
 | Road length | `minutes × 1,000 + 300` rules-metres; sufficient for the 140-rpm speed cap |
 | Latest full-course audit | 116 tracks, 36.25 simulated hours; four additional speed traces; all six difficulty mappings, including full Kid rides. Target-following ordinary gaps below 22 active seconds; Nightfall maximum 19.4 seconds for all durations. This is a measured trace, not a guarantee while stopped. |
 
@@ -63,6 +63,11 @@ Source: [NeonRules.gd](../../games/games/neon_vector/NeonRules.gd) (`lane_step`,
 | Target highlight fade | 0.32 s; color `#c6ecff` |
 | Target selection | Active attack lane, else current/next event lane, else last target; stays present through approaches and interruptions |
 | Direction prompts | MOVE LEFT / LESS RESISTANCE; MOVE RIGHT / MORE RESISTANCE |
+| Inner-edge warning | Outer 25% of a resistance band near an internal seam; smoothstep strength, 0.3 s fade. Five internal seams only; no exterior-edge warning or steering/scoring change |
+| Warning color / extent | Muted rose RGB (0.66, 0.25, 0.29), mixed at up to 92%; local road window −18 to +65 world metres, fully present −4 to +18; fades at ends |
+| Cadence preview | Shared 1,200 active-ms estimate at current speed; current approached section only, no look-ahead across another section; none while stopped ahead of it |
+| Cadence start | Active meter, section and gunfire agree on event ID; first active rendered frame fires, even after a skipped preview; ordinary two-second damage grace remains |
+| Prompt state | UP NEXT with distance during approach; NOW at section start, refreshed at the boundary without waiting for the one-second text timer |
 
 Cadence bands are Lane Smash tuning choices informed by [video research](../research/lanebreak/09-cadence-and-section-flow.md), not a claimed universal Peloton table. The five adult resistance ranges were not changed by either the cadence update or Kid addition. Kid is a custom Lane Smash option, not a published Lanebreak difficulty. Kid uses the same lane-index schedule and lower physical resistance. Current work targets use lanes 3–6; the lane-1/2 work band remains defined for consistency.
 
@@ -108,11 +113,25 @@ Source: [LaneSmashBarrage.gd](../../games/games/neon_vector/LaneSmashBarrage.gd)
 | Holding behind | Safe at impact: zero points and full avoidance star credit |
 | Hit | Up to −1,800 points, zero floor; no avoidance star credit |
 | Reward versus impact | Popup/pass cue at resolution; projectile/explosion at impact. Separate state prevents early explosions or duplicate rewards/cues. |
-| Active-section handoff | Delay preparation and its fade until the final marker; keep the current section fully visible, with 700 ms before preparation |
+| Committed-section handoff | Delay preparation through both the announced approach and the full section; keep its lane during the following 700 ms recap/fade, then switch directly to the attack lane |
 | Fade window | Normal road fades from prepare −700 ms to prepare +300 ms, returns from attack end −400 ms to end +300 ms |
 | Cooldown protection | Omit a deferred attack if its window would enter the last active minute |
 
 Older course snapshots keep their original impact-time reward and other versioned rules. Runtime event, hazard and attack schedules are copies; handoffs never rewrite the stored snapshot.
+
+## Beside-bike bomb gauge
+
+Source: [LaneSmashBarrageGauge.gd](../../games/games/neon_vector/LaneSmashBarrageGauge.gd), [LaneSmashBikeGaugeAnchor.gd](../../games/games/neon_vector/LaneSmashBikeGaugeAnchor.gd).
+
+| Parameter | Value |
+| --- | --- |
+| Panel | 244 × 400 stage pixels, same dimensions/anchor as cadence; at least 132 px horizontal clearance from projected bike anchor |
+| Placement | Chooses outward side with hysteresis, moves inward at screen edges, clamped between top cues and lane dock; no top bomb bar |
+| Fade / follow | 0.2 s fade; marker exponential follow 10/s; position follows at 7/s |
+| Vertical scale | Projected landing-time offset −60 to +60 rules-metres; ±21.5 m red blast interval |
+| Colors | Above: green `#70efb4`; middle: red `#ff5268`; below: dark slate `#293b50`; white position marker |
+| Meaning | Green: predicted safe pass; red: predicted overlap; slate: predicted safe hold-back. Only resolved outcomes claim PASSED / AVOIDED / BOMB HIT |
+| Preparation / outcome | No projected marker before a shot locks; countdown and pace prompt during flight; actual points/outcome afterward; sensor interruption fades the meter out |
 
 ## Score display and scoring constants
 
@@ -123,7 +142,10 @@ Source: [PointRollup.gd](../../games/framework/ui/PointRollup.gd), [Hud.gd](../.
 | Rules tick / subpoints | 10 ms / 100,000 subpoints per displayed point |
 | Point scale | 18×; average-ride design target around 150k for 20 minutes, not enforced normalization |
 | Collect / cadence | 180 points per valid road-second; cadence sweet spot adds 20% |
-| Power | 18 points per 5 joules, with no score ceiling; 150 W internal star reference |
+| Power Burst | Integrate power × (clamped rpm / 90)² over valid time, then award 18 points per 5 weighted joules; no score ceiling. At constant W over a complete spatial burst, points are proportional to rpm |
+| Burst precision / cap | Per 10-ms tick: round(10 × 1,000 × (rpm / 90)²) weighted milliseconds; rpm capped at 140; energy accumulated in integer microjoules |
+| Burst reference / stars | 90 rpm reproduces prior energy scoring. Available and earned star credit use the same speed weighting and 150 W reference; surplus output raises points only. Raw actual joules remain stored separately |
+| Representative 20-minute calibration | Mean 156,973.6; range 140,149–173,334 across 25 Challenging tracks with the documented simulated rider; no fixed score normalization |
 | Stars on completed rides | 25% / 60% / 90% base target completion → 1 / 2 / 3 stars; ended/interrupted attempts get zero |
 | Counter animation | Analytic critically damped follower; target retaken every render frame |
 | Gain / loss rates | 12/s / 18/s |

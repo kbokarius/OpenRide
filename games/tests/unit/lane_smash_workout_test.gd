@@ -113,9 +113,10 @@ func test_fast_drop_outcome_is_render_rate_independent_and_sensor_pause_freezes_
 	assert_bool(r.barrage.current_shot().resolved).is_false()
 
 
-func test_final_minute_is_cooldown_at_every_speed_without_mutating_saved_course() -> void:
+func test_saved_course_eleven_keeps_exact_final_minute_cooldown() -> void:
 	for rpm in [0, 60, 95, 140]:
 		var course := NeonCourse.load_course("ls_10_01")
+		course.courseVersion = 11
 		course.barrages = []
 		var fingerprint := NeonCourse.fingerprint(course)
 		var rules := NeonRules.new()
@@ -172,3 +173,31 @@ func test_invalid_saved_bomb_schedules_are_rejected_before_inspection() -> void:
 		var course := NeonCourse.load_course("ls_10_01")
 		course.barrages[0].erase(missing)
 		assert_array(NeonCourse.validate(course)).contains(["Invalid incoming-fire sections"])
+
+func test_current_cooldown_finishes_promised_content_then_steps_down_at_every_speed() -> void:
+	for rpm in [0, 60, 95, 140]:
+		var course := NeonCourse.load_course("ls_10_01")
+		course.barrages = []
+		var fingerprint := NeonCourse.fingerprint(course)
+		var rules := NeonRules.new()
+		assert_array(rules.configure(course,"challenging",150)).is_empty()
+		var began := -1
+		var previous := 0
+		var first_event := ""
+		for t in range(0,600000,100):
+			var target := LaneSmashSteering.target_for(rules)
+			if rules.cooldown:
+				assert_int(absi(target-previous)).is_less_equal(3)
+				assert_int(target).is_less_equal(previous)
+				if first_event != str(rules.current_event().get("eventId","")): assert_int(target).is_less_equal(2)
+			previous = target
+			rules.push_sample({"t":t,"seq":t+1,"cadence":rpm,"power":150,"resistance":NeonRules.band_center(target,rules.tier)})
+			rules.advance(t+100)
+			if rules.cooldown and began < 0:
+				began = t+100
+				first_event = str(rules.current_event().eventId)
+		assert_int(began).is_between(540000, 540100 + (ceili(10000.0*140/rpm) if rpm > 0 else 0))
+		assert_bool(rules.barrage.active).is_false()
+		assert_str(NeonCourse.fingerprint(rules.course)).is_equal(fingerprint)
+		assert_str(rules.result().status).is_equal("completed")
+		assert_int(rules.events.size()).is_equal(rules.event_states.size())

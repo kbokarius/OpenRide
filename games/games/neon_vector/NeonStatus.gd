@@ -9,8 +9,8 @@ var power_row: HBoxContainer
 var power_value: Label
 var detail: Label
 var meter: ProgressBar
-var barrage_gauge: LaneSmashBarrageGauge
 var _event_id := ""
+var _event_active := false
 var _last_refresh_second := -1
 var _meter_target := 0.0
 var _power_points := PointRollup.new()
@@ -68,9 +68,6 @@ func _init() -> void:
 	meter.add_theme_stylebox_override("fill", fill)
 	add_child(meter)
 	meter.visible = false
-	barrage_gauge = LaneSmashBarrageGauge.new()
-	add_child(barrage_gauge)
-	barrage_gauge.visible = false
 
 
 ## A glass backing exactly the size of the block, so its edges line up with the ride and clock
@@ -101,24 +98,33 @@ func refresh() -> void:
 		target.text = {"sensor": "Waiting for fresh bike data", "pedalling": "Pedalling stopped", "stall": "Waiting for the display to recover"}.get(rules.pause_reason, "Ready when you are")
 		detail.text = "Course time and points are frozen"
 		return
-	barrage_gauge.visible = rules.barrage.active and not rules.barrage.current_shot().is_empty() and not bool(rules.barrage.current_shot().get("resolved", false))
-	if barrage_gauge.visible:
-		barrage_gauge.offset = rules.barrage.projected_offset(rules)
-		barrage_gauge.queue_redraw()
 	if rules.barrage.active:
 		_show_power_points = false
 		target.show()
 		power_row.hide()
 		_refresh_barrage()
 		return
+	if rules.barrage.completing_section:
+		_show_power_points = false
+		target.show()
+		power_row.hide()
+		meter.hide()
+		heading.text = "SECTION COMPLETE"
+		target.text = "STAY IN THIS LANE"
+		detail.text = "Incoming fire next"
+		detail.show()
+		_last_refresh_second = -1
+		return
 	var event := rules.current_event()
 	var event_id := str(event.get("eventId", ""))
 	var second := rules.elapsed_ms / 1000
-	if second == _last_refresh_second and event_id == _event_id: return
+	var is_active := not event.is_empty() and rules.road_time_ms() >= int(event.startMs)
+	if second == _last_refresh_second and event_id == _event_id and is_active == _event_active: return
 	_show_power_points = false
 	target.show()
 	power_row.hide()
 	_event_id = event_id
+	_event_active = is_active
 	_last_refresh_second = second
 	meter.visible = false
 	var rpm := float(rules.latest.get("cadence", 0))
@@ -137,7 +143,7 @@ func refresh() -> void:
 	var ahead := maxi(0, int(event.startMs) - rules.road_time_ms())
 	var state: Dictionary = rules.event_states[rules._event_cursor]
 	var active := ahead == 0
-	var prefix := "NOW" if active else ("IN %.0f ft" % (ahead / 1000.0 * rules.road_speed_scale() * 3.28084) if rules.distance_based else "IN %.1f s" % (ahead / 1000.0))
+	var prefix := "NOW" if active else "UP NEXT"
 	var choices := NeonCourse.choices(event)
 	var selected: int = int(state.choice)
 	if choices.size() > 1 and selected < 0:
@@ -153,7 +159,7 @@ func refresh() -> void:
 	if active and event.type == "hold":
 		target.text = "%d–%d rpm · %s" % [event.cadenceMin, event.cadenceMax, "PEDAL FASTER" if rpm < event.cadenceMin else ("PEDAL SLOWER" if rpm > event.cadenceMax else "KEEP THIS SPEED")]
 	elif active and event.type == "burst":
-		var joules := int(state.energyMilliJoules) / 1000.0
+		var joules := rules.burst_reward_joules(state)
 		if _power_event_id != event_id:
 			_power_event_id = event_id
 			_power_points.reset()
@@ -187,6 +193,8 @@ func refresh() -> void:
 			detail.text = "Under fire · hold this pace"
 	else:
 		detail.text = "Pedal to earn points" if rpm < 20 and active else ""
+		if not active:
+			detail.text = "Starts in %.0f ft" % (ahead / 1000.0 * rules.road_speed_scale() * 3.28084) if rules.distance_based else "Starts in %.1f s" % (ahead / 1000.0)
 	detail.visible = not detail.text.is_empty()
 
 

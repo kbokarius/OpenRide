@@ -2,6 +2,8 @@ extends SceneTree
 ## Full-duration offline sensor traces for every named track and representative seeds.
 var failures: Array[String] = []
 var cases := 0
+var guidance_changes := 0
+var cadence_ticks := 0
 var simulated_ms := 0
 
 func _initialize() -> void:
@@ -37,6 +39,10 @@ func _run() -> void:
 			var lane_since := 0
 			var barrage_rpm := 80.0
 			var previous_target := -1
+			var visit_content_ms := 0
+			var visit_started := 0
+			var previous_event := ""
+			var started_sections := {}
 			var high_lane_ms := 0
 			var work_ms := 0
 			var quiet_ms := 0
@@ -48,7 +54,7 @@ func _run() -> void:
 					quiet_ms += 50
 					longest_quiet = maxi(longest_quiet, quiet_ms)
 				else: quiet_ms = 0
-				var lane := int(event.get("laneIndex", 0))
+				var lane := LaneSmashSteering.target_for(rules)
 				var kind := str(event.get("type", "cruise"))
 				var rpm := (float(event.cadenceMin) + float(event.cadenceMax)) / 2 if kind == "hold" else (140.0 if kind == "burst" else 95.0)
 				if rules.barrage.active:
@@ -68,11 +74,34 @@ func _run() -> void:
 					lane_since = time
 					last_lane = lane
 				if previous_target >= 0 and lane != previous_target:
+					guidance_changes += 1
+					_check(visit_content_ms > 0, id + " empty lane visit from " + str(visit_started) + " to " + str(time) + " lane=" + str(previous_target + 1))
+					visit_content_ms = 0
+					visit_started = time
 					var jump := absi(lane - previous_target)
 					_check(jump <= 3, id + " requires a jump over three lanes at " + str(time))
 					var gap := int(rules.barrage.section.startMs) - time if rules.barrage.active else int(event.get("startMs", rules.road_time_ms())) - rules.road_time_ms()
 					_check(gap >= LaneSmashCatalog.transition_gap(jump) - 60, id + " insufficient transition gap at " + str(time))
 				previous_target = lane
+				var active_section := not event.is_empty() and rules.road_time_ms() >= int(event.startMs) and rules.road_time_ms() < int(event.endMs) and not rules.barrage.active
+				if active_section:
+					visit_content_ms += 50
+					started_sections[str(event.eventId)] = rules._event_cursor
+					if event.type == "hold":
+						cadence_ticks += 1
+						var gauge := rules.cadence_target()
+						_check(gauge.get("eventId", "") == event.eventId and gauge.get("active", false), id + " cadence meter mismatch at " + str(time))
+						_check(rules.gunfire().get("eventId", "") == event.eventId, id + " missing cadence fire at " + str(time))
+				elif rules.barrage.active and time >= int(rules.barrage.section.startMs): visit_content_ms += 50
+				if not previous_event.is_empty() and previous_event != str(event.get("eventId", "")) and started_sections.has(previous_event):
+					var index := int(started_sections[previous_event])
+					var played: Dictionary = rules.events[index]
+					var state: Dictionary = rules.event_states[index]
+					var expected := int(played.endMs) - int(played.startMs)
+					_check(expected >= (5000 if played.type == "burst" else 10000), id + " short played section " + previous_event)
+					var covered := float(state.possibleTravelUnits) / (NeonRules.MAX_SPEED_MPS * 1000.0)
+					_check(covered >= expected - 30, id + " interrupted section " + previous_event + " road_ms=" + str(covered))
+				previous_event = str(event.get("eventId", ""))
 				if rules.road_time_ms() >= LaneSmashCatalog.WARMUP_ROAD_MS and time < int(course.durationMs) - 60000:
 					work_ms += 50
 					if lane >= 2: high_lane_ms += 50
@@ -107,5 +136,5 @@ func _run() -> void:
 		_check(absf(rules.road_distance() - minf(rpm, 140) / 140.0 * 30000.0) < 0.01, "30-minute speed/distance drift")
 		_check(rules._samples.size() <= 130 and rules._power.size() <= 100 and rules.ghost_trace.size() == 18000, "unbounded input/ghost buffer")
 		await process_frame
-	print("TRACK AUDIT ", "PASS" if failures.is_empty() else "FAIL", " full_tracks=", cases, " simulated_hours=", simulated_ms / 3600000.0, " speed_traces=4 difficulties=", tiers.size(), " failures=", failures)
+	print("TRACK AUDIT ", "PASS" if failures.is_empty() else "FAIL", " full_tracks=", cases, " simulated_hours=", simulated_ms / 3600000.0, " speed_traces=4 difficulties=", tiers.size(), " guidance_changes=", guidance_changes, " cadence_ticks=", cadence_ticks, " failures=", failures)
 	quit(0 if failures.is_empty() else 1)

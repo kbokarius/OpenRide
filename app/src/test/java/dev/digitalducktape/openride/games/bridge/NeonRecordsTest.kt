@@ -209,7 +209,9 @@ class NeonRecordsTest {
         assertEquals(140L, NeonRecords.decode(versioned(9), rider, 0).scoreUnits)
         var rejected = false
         assertEquals(140L, NeonRecords.decode(versioned(10), rider, 0).scoreUnits)
-        try { NeonRecords.decode(versioned(11), rider, 0) } catch (_: IllegalArgumentException) { rejected = true }
+        // Scoring 11 honors announced lanes across attack/cooldown handoffs.
+        assertEquals(140L, NeonRecords.decode(versioned(11), rider, 0).scoreUnits)
+        try { NeonRecords.decode(versioned(12), rider, 0) } catch (_: IllegalArgumentException) { rejected = true }
         assertTrue(rejected)
     }
 

@@ -78,3 +78,26 @@ func test_guidance_persists_through_gaps_and_does_not_change_the_rules() -> void
 	rules._event_cursor = 2  # even a distant upcoming section stays highlighted
 	assert_int(LaneSmashSteering.target_for(rules)).is_equal(int(rules.current_event().laneIndex))
 	assert_int(rules.score_units).is_equal(score)
+
+
+func test_only_inner_edges_warn_and_crossing_keeps_the_same_seam() -> void:
+	for tier: String in NeonRules.CURRENT_TIERS:
+		for lane in 6:
+			var band := NeonRules.band(lane, tier)
+			assert_vector(LaneSmashSteering.edge_warning((band.x + band.y) * 0.5, tier)).is_equal(Vector2(-1, 0))
+			assert_vector(LaneSmashSteering.edge_warning(band.x, tier)).is_equal(Vector2(lane - 1, 1) if lane > 0 else Vector2(-1, 0))
+			assert_vector(LaneSmashSteering.edge_warning(band.y, tier)).is_equal(Vector2(lane, 1) if lane < 5 else Vector2(-1, 0))
+			if lane < 5:
+				assert_vector(LaneSmashSteering.edge_warning(band.y + 1, tier)).is_equal(Vector2(lane, 1))
+	assert_vector(LaneSmashSteering.edge_warning(NAN, "challenging")).is_equal(Vector2(-1, 0))
+	assert_vector(LaneSmashSteering.edge_warning(99, "challenging")).is_equal(Vector2(-1, 0))
+	var steering := LaneSmashSteering.new()
+	steering.update(0, 68, "challenging", 5)
+	steering.update(0.1, 65, "challenging", 5)
+	assert_float(steering.edge_weights[4]).is_between(0.1, 0.5)
+	steering.update(1, 65, "challenging", 5)
+	assert_float(steering.edge_weights[4]).is_equal(1.0)
+	steering.update(0.1, 68, "challenging", 5)
+	assert_float(steering.edge_weights[4]).is_between(0.5, 0.9)
+	steering.update(1, 68, "challenging", 5)
+	for weight in steering.edge_weights: assert_float(weight).is_zero()

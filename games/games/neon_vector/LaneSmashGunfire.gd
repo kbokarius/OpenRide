@@ -37,6 +37,7 @@ var _trail := 40.0
 var _clock := 0.0
 var _spent := false
 var shots_fired := 0
+var _was_firing := false
 
 
 func _ready() -> void:
@@ -53,21 +54,20 @@ func update_view(rules: NeonRules, delta: float, rider_lane: float) -> void:
 	_clock += delta
 	if rules.gun_hits < _hits_seen: _hits_seen = 0  # a new ride
 	var fire := rules.gunfire()
-	var event := rules.current_event()
-	var approaching := false
-	if fire.is_empty() and rules.scoring_version >= 7 and not rules.barrage.active and event.get("type", "") == "hold":
-		# The gunner fades in over the last stretch before the section begins.
-		approaching = int(event.startMs) - rules.road_time_ms() < 2200
+	var preview := rules.cadence_target() if rules.scoring_version >= 7 and rules.pause_reason.is_empty() else {}
+	var approaching := not preview.is_empty() and not bool(preview.active)
 	var wanted := 1.0 if not fire.is_empty() or approaching else 0.0
 	# About a second in and a second out. `_presence` is linear time; `_fade()` eases it.
 	_presence = move_toward(_presence, wanted, delta * (FADE_IN_RATE if wanted > _presence else FADE_OUT_RATE))
+	# Even a sudden acceleration or resumed render must show fire on the first active frame.
+	if not fire.is_empty(): _presence = maxf(_presence, 0.9)
 	if not fire.is_empty() and str(fire.eventId) != _event_id:
 		_event_id = str(fire.eventId)
 		_side = 1.0 if (_event_id.hash() & 1) == 0 else -1.0
 		_lead = 40.0
 		_trail = 40.0
-	elif fire.is_empty() and approaching and str(event.eventId) != _event_id:
-		_event_id = str(event.eventId)
+	elif fire.is_empty() and approaching and str(preview.eventId) != _event_id:
+		_event_id = str(preview.eventId)
 		_side = 1.0 if (_event_id.hash() & 1) == 0 else -1.0
 	_track_hits(rules, rider_lane)
 	if _presence <= 0.001 and _tracers.is_empty():
@@ -84,7 +84,9 @@ func update_view(rules: NeonRules, delta: float, rider_lane: float) -> void:
 	var hover := sin(_clock * 1.7) * 0.5
 	var origin := frame.origin + frame.basis.x * _side * GUNNER_SIDE + frame.basis.y * (GUNNER_UP + hover)
 	gunner.transform = Transform3D(Basis.looking_at(rider_at - origin, frame.basis.y, true).scaled(Vector3.ONE * GUNNER_SCALE), origin)
-	var firing := not fire.is_empty() and not bool(fire.spent) and _presence > 0.85
+	var firing := not fire.is_empty() and not bool(fire.spent)
+	if firing and not _was_firing: _round = 1.0
+	_was_firing = firing
 	gunner.animate(_fade(), _clock, fposmod(_round, 1.0) / ROUNDS_PER_SECOND if firing else -1.0, 0.8 if firing else 0.0)
 	if not fire.is_empty():
 		_aim(rules, fire, delta)

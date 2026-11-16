@@ -256,6 +256,7 @@ func test_power_zone_builds_from_output_and_finishes_at_its_gate() -> void:
 	add_child(space)
 	rules.distance_units = roundi((int(event.startMs) + 2000) * NeonRules.MAX_SPEED_MPS * 1000)
 	rules.event_states[i].energyMilliJoules = 450000
+	rules.event_states[i].speedEnergyMicroJoules = 450000000
 	rules.latest.power = 300
 	space.update_view(rules, 1, int(event.laneIndex), -1, false, "")
 	var zone: Dictionary = space.sections.zones[event.eventId]
