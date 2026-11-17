@@ -126,3 +126,9 @@ The percentage is earned base target credit divided by available target credit f
 Every incoming shot adds 1,800 available target-credit points. Either safe dodge earns that credit, including a zero-point held-back dodge; a hit earns none. Following Pedal Slower therefore does not damage the star rating. Static road-bomb penalties reduce net points without directly subtracting star credit. Scaling both sides by 18 does not change thresholds.
 
 Stars measure target completion, not medical fitness, FTP or comparison with other riders.
+
+## Kid cadence targets (revision 22)
+
+New Kid rides use 50% of each authored Pedal Speed minimum and maximum, rounded to the nearest whole rpm: warm-up 38–48, work lanes 1–2 43–53, lanes 3–4 35–45 and lanes 5–6 28–38. Scoring, the top prompt, local meter and gunfire all read these same saved endpoints. The sweet spot remains midpoint ±3 rpm. Named and random tracks use the same adjustment. Adult difficulties and old saved replays keep their original values.
+
+This changes cadence eligibility, not measured sensors, road speed, spatial lengths, burst rewards or bomb escape recommendations. Riding at the lower targets naturally increases section and approach traversal time; the ride clock still ends at the selected duration. New Kid comparisons are separate from the former faster-target Kid rides.

@@ -345,7 +345,7 @@ func _pick_tier(id: String) -> void:
 
 func _refresh_course() -> void:
 	var id := LaneSmashCatalog.random_id(minutes, random_seed) if random_seed > 0 else "ls_%d_%02d" % [minutes, selected_index + 1]
-	course = _replay_course.duplicate(true) if not _replay_course.is_empty() else NeonCourse.load_course(id)
+	course = _replay_course.duplicate(true) if not _replay_course.is_empty() else NeonCourse.for_difficulty(NeonCourse.load_course(id), tier)
 	for i in track_buttons.size():
 		var row: Dictionary = _track_rows[i]
 		track_buttons[i].set_summary(_score_text(row.id), i == selected_index and random_seed == 0 and _replay_id.is_empty())
@@ -534,7 +534,7 @@ func targets() -> Array[Control]:
 func _score_text(id: String) -> String:
 	var cache_key := "%s:%s:%d" % [id, tier, reference_power]
 	if not _track_keys.has(cache_key):
-		var data := _replay_course if id == _replay_course.get("courseId", "") else NeonCourse.load_course(id)
+		var data := _replay_course if id == _replay_course.get("courseId", "") else NeonCourse.for_difficulty(NeonCourse.load_course(id), tier)
 		if data.is_empty(): return "No previous ride"
 		var rules := NeonRules.new()
 		if not rules.configure(data, tier, reference_power).is_empty(): return "No previous ride"

@@ -43,7 +43,7 @@ func _run() -> void:
 	var flags := OS.get_cmdline_user_args()
 	DirAccess.make_dir_recursive_absolute(out)
 	var rules := NeonRules.new()
-	var errors := rules.configure(NeonCourse.load_course(course_id), tier, 150)
+	var errors := rules.configure(NeonCourse.for_difficulty(NeonCourse.load_course(course_id), tier), tier, 150)
 	if not errors.is_empty():
 		printerr("LOOK course failed: ", errors)
 		quit(1)

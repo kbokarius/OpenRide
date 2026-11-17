@@ -1,6 +1,6 @@
 # Current gameplay and presentation parameters
 
-Verified against revision-21 source November 16, 2026. Build 29 / revision 21 is signed and installed on the Bike. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
+Verified against revision-22 source November 16, 2026. Build 30 / revision 22 is signed and installed on the Bike. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
 
 ## Units and release state
 
@@ -9,7 +9,7 @@ Verified against revision-21 source November 16, 2026. Build 29 / revision 21 is
 - **Road seconds** are distance divided by the maximum rules speed, 60 km/h. One road-second is 16⅔ rules-metres, drawn as 50 world metres. At a constant cadence below 140 rpm, actual seconds = road seconds × 140 / rpm. At zero cadence the road does not advance. Section lengths and mine spacing use road time; attack timers and the final-minute cooldown use active time.
 - The model uses design units, multiplied by `LaneSmashBike.SCALE = 1.3`. These dimensions describe game geometry, not a real motorcycle specification.
 - Current source rules: course **12**, generator **9**, scoring **11**, envelope **1**. Timing and burst-reward changes create new comparison keys. Course 11 retains scoring 10; older saved snapshots and histories remain readable. Kid and all adult resistance bands are unchanged.
-- Latest signed APK and verified device installation: **29 / 1.2.0-lane-smash.21**, packaging gameplay source `6a5572c` with a release-version bump. Installed in place over Wi-Fi on November 16, 2026; selector and sensor-ready state verified. See the [build and installation record](../specs/lane-smash-v21-installation.md). Sustained physical ride performance is not established by this check.
+- Latest signed APK and verified device installation: **30 / 1.2.0-lane-smash.22**, adding half-cadence Kid Pedal Speed targets. Installed in place over Wi-Fi on November 16, 2026. See the [build and installation record](../specs/lane-smash-v22.md).
 
 ## Course generation and pacing
 
@@ -33,7 +33,7 @@ Source: [LaneSmashCatalog.gd](../../games/games/neon_vector/LaneSmashCatalog.gd)
 | Cooldown | Requested at 60 active seconds remaining; finish an active section before changing lanes. An already-announced approach gets a full 10-road-second Collect in that lane before stepping down by at most three lanes. Then descend toward lane 1; no mines, bursts or gunfire in the cooldown tail |
 | Boundary exception | The fixed ride finish can end a section; attack and cooldown handoffs no longer shorten an active section. Very slow/stopped riding can reduce the available cooldown time |
 | Road length | `minutes × 1,000 + 300` rules-metres; sufficient for the 140-rpm speed cap |
-| Latest full-course audit | 116 tracks, 36.25 simulated hours; four additional speed traces; all six difficulty mappings, including full Kid rides. Target-following ordinary gaps below 22 active seconds; Nightfall maximum 19.4 seconds for all durations. This is a measured trace, not a guarantee while stopped. |
+| Latest full-course audit | 116 tracks, 36.25 simulated hours; four additional speed traces; all six difficulty mappings, including full Kid rides. Adult target-following gaps below 22 active seconds; Nightfall 19.4 seconds. Half-cadence Kid uses twice the traversal-time budget (44-second approaches / 120-second lane visits); Kid Nightfall measured 38.15 seconds. Distances and speed mapping are unchanged. These are measured traces, not guarantees while stopped. |
 
 ## Resistance, cadence and guidance
 
@@ -47,7 +47,8 @@ Source: [NeonRules.gd](../../games/games/neon_vector/NeonRules.gd) (`lane_step`,
 | Kid lane step | **3.5**, exactly 50% of the ordinary 7; starts at sensor resistance 0 |
 | Kid lanes 1–6 | **0–3 / 4–6 / 7–10 / 11–13 / 14–17 / 18–20**; alternating four/three integer readings, no gaps or overlaps |
 | Kid interval formula | Lane `n`: `ceil((n−1) × 3.5)` through `ceil(n × 3.5) − 1`; values outside 0–20 do not score |
-| Kid scope | Resistance mapping only; same cadence bands, courses, speed, power reference, bombs and scoring. No automatic physical-knob adjustment. |
+| Kid scope | Resistance 0–20 plus 50% Pedal Speed targets on new rides, rounded to nearest whole rpm. Same track geometry, speed mapping, power reference, bombs and scoring formulas. No automatic physical-knob adjustment. |
+| Kid cadence | Warm-up **38–48 rpm**; work lanes 1–2 **43–53**, lanes 3–4 **35–45**, lanes 5–6 **28–38**. Sweet spot remains midpoint ±3 rpm. Saved older rides keep their original bands. |
 | Selector order | First row Kid / Light / Moderate; second row Hard / Challenging / Extreme; same existing button style, 34 px type, 120 px minimum height, 24 px gaps |
 | Lane settling | 150 ms before scoring in a new lane |
 | Work cadence, lanes 1–2 | 85–105 rpm |

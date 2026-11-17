@@ -61,6 +61,10 @@ func test_selector_targets_text_and_columns() -> void:
 	assert_str(screen.tier_buttons.kid.text).is_equal("Kid")
 	screen._pick_tier("kid")
 	assert_str(screen.range_label.text).is_equal("0–20 ACROSS SIX LANES")
+	assert_int(screen.course.events[1].cadenceMin).is_equal(38)
+	var kid_rules := NeonRules.new()
+	kid_rules.configure(screen.course, "kid", 150)
+	assert_str(screen._track_keys["%s:kid:150" % screen.course.courseId]).is_equal(kid_rules.comparison_key(screen.rider_id))
 	for duration in ["10", "15", "20", "30"]:
 		screen.length_picker.pick(duration)
 		for tier in NeonRules.CURRENT_TIERS:

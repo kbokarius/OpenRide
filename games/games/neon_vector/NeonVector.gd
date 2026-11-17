@@ -86,7 +86,9 @@ func _on_prepare(_seg: Dictionary) -> void:
 	Engine.max_fps = 60
 	var course_id := str(params.get("course_id", "ls_20_01"))
 	var data := NeonCourse.daily(course_id.get_slice("_", 1)) if course_id.begins_with("daily_") else NeonCourse.load_course(course_id)
-	_errors = rules.configure(data, str(params.get("lane_difficulty", "challenging")), float(params.get("reference_power", 150)))
+	var difficulty := str(params.get("lane_difficulty", "challenging"))
+	data = NeonCourse.for_difficulty(data, difficulty)
+	_errors = rules.configure(data, difficulty, float(params.get("reference_power", 150)))
 	_sequence = -1
 	_epoch = -1
 	_started_clock = false

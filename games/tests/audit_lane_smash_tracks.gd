@@ -32,7 +32,12 @@ func _run() -> void:
 						limits[resistance] = true
 				_check(limits.size() == (21 if tier == "kid" else 42), id + " missing resistance bands")
 			var rules := NeonRules.new()
-			rules.configure(course, tiers[cases % tiers.size()], 150)
+			var tier: String = tiers[cases % tiers.size()]
+			rules.configure(NeonCourse.for_difficulty(course, tier), tier, 150)
+			# Kid deliberately halves cadence, not world speed or spatial section lengths.
+			# The same road may take twice as long; adult pace budgets stay unchanged.
+			var pace_factor := 2 if tier == "kid" else 1
+			var warmup_ids: Array = course.events.filter(func(row): return int(row.endMs) <= LaneSmashCatalog.WARMUP_ROAD_MS).map(func(row): return row.eventId)
 			var seen := {}
 			var lanes := {}
 			var last_lane := -1
@@ -70,7 +75,7 @@ func _run() -> void:
 					last_lane = -1
 					lane_since = time
 				elif lane != last_lane:
-					_check(time - lane_since <= 60000, id + " lane unchanged over 60 seconds at " + str(time) + " gap=" + str(time - lane_since) + " from=" + str(last_lane) + " to=" + str(lane))
+					_check(time - lane_since <= 60000 * pace_factor, id + " lane exceeds cadence-adjusted time budget at " + str(time) + " gap=" + str(time - lane_since) + " from=" + str(last_lane) + " to=" + str(lane))
 					lane_since = time
 					last_lane = lane
 				if previous_target >= 0 and lane != previous_target:
@@ -102,14 +107,14 @@ func _run() -> void:
 					var covered := float(state.possibleTravelUnits) / (NeonRules.MAX_SPEED_MPS * 1000.0)
 					_check(covered >= expected - 30, id + " interrupted section " + previous_event + " road_ms=" + str(covered))
 				previous_event = str(event.get("eventId", ""))
-				if rules.road_time_ms() >= LaneSmashCatalog.WARMUP_ROAD_MS and time < int(course.durationMs) - 60000:
+				if rules.road_time_ms() >= LaneSmashCatalog.WARMUP_ROAD_MS and event.get("eventId", "") not in warmup_ids and time < int(course.durationMs) - 60000:
 					work_ms += 50
 					if lane >= 2: high_lane_ms += 50
 				rules.push_sample({"t": time, "seq": time + 1, "cadence": rpm, "power": 250, "resistance": NeonRules.band_center(lane, rules.tier)})
 				rules.advance(time + 50)
 				seen[kind] = true
 				lanes[lane] = true
-			_check(longest_quiet < 22000, id + " empty road over 22 seconds: " + str(longest_quiet))
+			_check(longest_quiet < 22000 * pace_factor, id + " approach exceeds cadence-adjusted time budget: " + str(longest_quiet))
 			if id.ends_with("_01"): print("NIGHTFALL ", minutes, "m longest_empty_ms=", longest_quiet)
 			_check(high_lane_ms == work_ms, id + " work outside lanes 3–6")
 			_check(rules.cooldown, id + " missing final-minute cooldown")

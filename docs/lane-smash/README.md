@@ -1,8 +1,8 @@
 # Lane Smash — living technical reference
 
-Current source: revision 21, with beside-bike bomb guidance, committed lane handoffs, synchronized cadence cues, inner-edge warnings and speed-weighted bursts; course 12 / generator 9 / scoring 11. Updated November 16, 2026. **Signed build 29 is installed on the Peloton.**
+Current source: revision 22, adding half-cadence Pedal Speed targets for new Kid rides to the revision-21 lane-flow and feedback fixes. Course 12 / generator 9 / scoring 11 remain unchanged. Updated November 16, 2026. **Signed build 30 is installed on the Peloton.**
 
-Latest signed APK and verified Peloton installation: code **29** (`1.2.0-lane-smash.21`), installed in place over Wi-Fi on November 16, 2026. The selector and sensor-ready state were checked; no ride was started for this installation. See [Parameters](PARAMETERS.md#units-and-release-state) and the [revision-21 installation record](../specs/lane-smash-v21-installation.md).
+Latest signed APK and verified Peloton installation: code **30** (`1.2.0-lane-smash.22`), installed in place over Wi-Fi on November 16, 2026. See [Parameters](PARAMETERS.md#units-and-release-state) and the [revision-22 build and installation record](../specs/lane-smash-v22.md).
 
 This directory describes the current game. Versioned files under `docs/specs/` preserve past decisions and validation; they are historical when they disagree with this reference.
 
@@ -13,6 +13,7 @@ This directory describes the current game. Versioned files under `docs/specs/` p
 | [Rules and courses](RULES.md) | Steering, speed, course generation, points, bombs and stars |
 | [Presentation and audio](PRESENTATION.md) | Visual contacts, score animation, sound mapping and shared settings |
 | [Player and installation guide](../LANE_SMASH.md) | Visible controls and installation |
+| [Revision 22](../specs/lane-smash-v22.md) | Half-cadence Kid targets, unchanged adult records, signed build 30 and Wi-Fi installation |
 | [Revision 21](../specs/lane-smash-v21.md) | Handoff/cadence audit, beside-bike bomb meter, edge warning and speed-weighted burst scoring |
 | [Revision 21 installation](../specs/lane-smash-v21-installation.md) | Signed build 29, Wi-Fi update and verified sensor-ready selector |
 | [Revision 20](../specs/lane-smash-v20.md) | Signed build 28, Kid/rear-tyre packaging, Wi-Fi installation and physical startup checks |

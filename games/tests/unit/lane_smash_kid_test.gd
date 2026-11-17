@@ -98,4 +98,72 @@ func test_outside_range_message_and_ride_label_use_kid_limits() -> void:
 	game.rules = rules
 	assert_str(game.target_text({})).contains("Kid · 0–20 resistance")
 
-# End of suite.
+func test_new_kid_cadence_is_halved_for_every_named_and_seeded_course() -> void:
+	for minutes in LaneSmashCatalog.LENGTHS:
+		var ids: Array[String] = []
+		for index in 25: ids.append("ls_%d_%02d" % [minutes, index + 1])
+		for seed_value in [1, 77, 104729, 2147483646]: ids.append(LaneSmashCatalog.random_id(minutes, seed_value))
+		for id in ids:
+			var original := NeonCourse.load_course(id)
+			var fingerprint := NeonCourse.fingerprint(original)
+			var kid := NeonCourse.for_difficulty(original, "kid")
+			assert_array(NeonCourse.validate(kid)).is_empty()
+			assert_str(NeonCourse.fingerprint(original)).is_equal(fingerprint)
+			assert_str(NeonCourse.fingerprint(kid)).is_not_equal(fingerprint)
+			assert_dict(NeonCourse.for_difficulty(kid, "kid")).is_equal(kid)
+			for i in original.events.size():
+				var before: Dictionary = original.events[i]
+				var after: Dictionary = kid.events[i]
+				if before.type == "hold":
+					var expected: Vector2i = {75: Vector2i(38, 48), 85: Vector2i(43, 53), 70: Vector2i(35, 45), 55: Vector2i(28, 38)}[int(before.cadenceMin)]
+					assert_vector(Vector2i(after.cadenceMin, after.cadenceMax)).is_equal(expected)
+				else:
+					assert_dict(after).is_equal(before)
+			for tier in ["light", "moderate", "hard", "challenging", "extreme"]:
+				assert_str(NeonCourse.fingerprint(NeonCourse.for_difficulty(original, tier))).is_equal(fingerprint)
+
+
+func test_kid_cadence_scoring_gunfire_meter_and_prompt_share_lower_targets() -> void:
+	var course := _course()
+	course.events = [{"eventId": "kid-hold", "type": "hold", "startMs": 0, "endMs": 10000, "laneIndex": 2, "cadenceMin": 75, "cadenceMax": 95}]
+	var rules := NeonRules.new()
+	assert_array(rules.configure(NeonCourse.for_difficulty(course, "kid"), "kid", 150)).is_empty()
+	_run(rules, 4000, 8, 43)
+	assert_int(rules.score_units).is_greater(0)
+	assert_int(rules.gun_hits).is_zero()
+	var live := rules.cadence_target()
+	assert_bool(live.inBand).is_true()
+	assert_bool(live.inSweet).is_true()
+	assert_int(live.cadenceMin).is_equal(38)
+	assert_int(live.cadenceMax).is_equal(48)
+	assert_int(rules.gunfire().cadenceMin).is_equal(38)
+	var gauge := LaneSmashCadenceGauge.new()
+	gauge.update(0, live, Vector2(960, 700), Rect2(0, 340, 1920, 500))
+	assert_str(gauge.state()).is_equal("sweet")
+	var status: NeonStatus = auto_free(NeonStatus.new())
+	status.rules = rules
+	add_child(status)
+	status.refresh()
+	assert_str(status.target.text).contains("38–48 rpm")
+	_run(rules, 7000, 8, 75)
+	assert_bool(rules.cadence_target().inBand).is_false()
+	assert_int(rules.gun_hits).is_greater(0)
+
+
+func test_kid_snapshot_replays_without_halving_again_and_adult_keys_stay_stable() -> void:
+	var original := NeonCourse.load_course("ls_20_01")
+	var old := NeonRules.new()
+	var current := NeonRules.new()
+	var replay := NeonRules.new()
+	assert_array(old.configure(original, "kid", 150)).is_empty()
+	assert_array(current.configure(NeonCourse.for_difficulty(original, "kid"), "kid", 150)).is_empty()
+	assert_array(replay.configure(JSON.parse_string(JSON.stringify(current.course, "", true, true)), "kid", 150)).is_empty()
+	assert_str(current.comparison_key("1")).is_not_equal(old.comparison_key("1"))
+	assert_str(replay.comparison_key("1")).is_equal(current.comparison_key("1"))
+	assert_dict(replay.events[1]).is_equal(JSON.parse_string(JSON.stringify(current.events[1], "", true, true)))
+	assert_int(old.events[1].cadenceMin).is_equal(75)
+	assert_int(int(replay.events[1].cadenceMin)).is_equal(38)
+	for tier in ["light", "moderate", "hard", "challenging", "extreme"]:
+		old.configure(original, tier, 150)
+		current.configure(NeonCourse.for_difficulty(original, tier), tier, 150)
+		assert_str(current.comparison_key("1")).is_equal(old.comparison_key("1"))

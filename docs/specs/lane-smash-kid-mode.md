@@ -4,6 +4,8 @@ November 15, 2026. Source follow-up after revision 19 and the superbike rear tyr
 
 **Later release:** shipped in signed [revision 20 / APK 28](lane-smash-v20.md), installed over Wi-Fi on the Bike on November 15, 2026.
 
+**Cadence follow-up:** [revision 22](lane-smash-v22.md) halves Pedal Speed requirements for new Kid rides. The resistance-only scope below describes the original implementation.
+
 ## Requested behavior and exact ranges
 
 Add a very easy resistance option starting at the beginning of the sensor scale, with each lane increasing by half the ordinary amount. The native bridge passes Peloton's integer resistance on a 0–100 scale, so Kid starts at **0**. It uses a **3.5-point step**, half the existing seven-point step.

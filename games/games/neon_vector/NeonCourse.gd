@@ -33,7 +33,25 @@ static func fingerprint(course: Dictionary) -> String:
 	# Removing only this new field preserves every pre-presentation comparison hash.
 	var scoring_course := course.duplicate()
 	scoring_course.erase("presentation")
+	# New Kid snapshots use JSON's numeric representation on both first ride and
+	# replay. Keep all existing adult/legacy hashes byte-for-byte unchanged.
+	if scoring_course.get("kidCadencePercent", 100) == 50:
+		scoring_course = JSON.parse_string(JSON.stringify(scoring_course, "", true, true))
 	return JSON.stringify(scoring_course, "", true, true).sha256_text()
+
+
+## Prepare NEW Kid rides only. Store the actual targets in the snapshot so replay,
+## scoring, gunfire and every HUD share them. Adult and saved courses stay unchanged.
+static func for_difficulty(data: Dictionary, difficulty: String) -> Dictionary:
+	if difficulty != "kid" or data.is_empty() or data.get("kidCadencePercent", 100) == 50:
+		return data
+	var adjusted := data.duplicate(true)
+	adjusted.kidCadencePercent = 50
+	for event: Dictionary in adjusted.events:
+		if event.type == "hold":
+			event.cadenceMin = roundi(float(event.cadenceMin) * 0.5)
+			event.cadenceMax = roundi(float(event.cadenceMax) * 0.5)
+	return adjusted
 
 
 static func choices(event: Dictionary) -> Array:

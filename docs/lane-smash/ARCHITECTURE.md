@@ -48,7 +48,7 @@ Comparison identity includes rider, course fingerprint, difficulty, scoring vers
 
 `NeonRules` owns both the existing seven-point lane step and Kid's 3.5-point step from resistance 0. `band` returns inclusive integer endpoints; `lane_for` validates finite integer in-range readings for scoring; `clamped_lane_for` is only for visual steering/rapid-strike placement. `band_center` supplies valid integer samples to simulations, including Kid's narrower bands. The selector, HUD, ride label, scenery normalization and bomb renderer must use these helpers rather than assume 42 values or divide by 7. Android `NeonSettings` accepts `kid` and carries it unchanged into the ride plan.
 
-The existing difficulty field already separates comparisons; no schema or scoring-version change is needed. The course snapshot and adult lane values remain unchanged. See [Kid mode](../specs/lane-smash-kid-mode.md) and [exact parameters](PARAMETERS.md#resistance-cadence-and-guidance).
+The existing difficulty field separates adult/Kid comparisons. Revision 22 uses `NeonCourse.for_difficulty` when preparing new Kid courses, halving and rounding each hold's endpoints once, and saving them with `kidCadencePercent: 50`. The selector, record lookup and gameplay share that preparation; replay loads its stored snapshot without scaling again. Only these new Kid fingerprints normalize JSON numbers before hashing so a saved replay keeps its key; adult and legacy fingerprints remain byte-identical. No schema or scoring-version change is needed. Adult course snapshots and lane values remain unchanged. See [Kid mode](../specs/lane-smash-kid-mode.md) and [exact parameters](PARAMETERS.md#resistance-cadence-and-guidance).
 
 ## Settings
 
