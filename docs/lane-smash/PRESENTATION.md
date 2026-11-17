@@ -179,6 +179,6 @@ Revision 16 adds a lane-checked drop taking at most 450 ms for wrong-lane entrie
 
 Passing the full blast footprint triggers the +1,800 popup and pass cue immediately. The flying bomb remains visible until actual impact, then explodes once with its distant impact cue. View state independently tracks reward feedback and physical impact so neither can be duplicated or appear early. The final impact fades before ordinary play resumes; the former idle eight seconds are removed.
 
-### Resistance feedback (revision 23 source)
+### Resistance feedback (revision 23 / build 31)
 
 The resistance number follows each delivered change immediately using the existing cached label; RPM/watts/heart rate keep their steady one-second cadence. Steering prompts refresh on a changed resistance reading and acknowledge the correct band without waiting for score eligibility. The motorcycle follows a within-lane step at 24/s and a threshold crossing at 40/s, with the same smooth, non-overshooting path. The inner-edge warning uses RGB (0.95, 0.34, 0.38) at the existing 92% maximum blend, 0.3-second fade and bounded road window. No blinking, extra geometry, exterior-edge warning or wider warning region is added.

@@ -1,8 +1,8 @@
 # Lane Smash — living technical reference
 
-Current source: revision 23, improving resistance response and brightening the inner-edge warning. Course 12 / generator 9 / scoring 11 remain unchanged. Updated November 17, 2026. **Source changes tested locally; build 30 / revision 22 remains installed on the Peloton.**
+Current source: revision 23, improving resistance response and brightening the inner-edge warning. Course 12 / generator 9 / scoring 11 remain unchanged. Updated November 17, 2026. **Signed build 31 / revision 23 is installed on the Peloton.**
 
-Latest signed APK and verified Peloton installation: code **30** (`1.2.0-lane-smash.22`), installed in place over Wi-Fi on November 16, 2026. See [Parameters](PARAMETERS.md#units-and-release-state) and the [revision-22 build and installation record](../specs/lane-smash-v22.md).
+Latest signed APK and verified Peloton installation: code **31** (`1.2.0-lane-smash.23`), installed in place over Wi-Fi on November 17, 2026. See [Parameters](PARAMETERS.md#units-and-release-state) and the [revision-23 build and installation record](../specs/lane-smash-v23.md#build-and-installation).
 
 This directory describes the current game. Versioned files under `docs/specs/` preserve past decisions and validation; they are historical when they disagree with this reference.
 
@@ -13,7 +13,7 @@ This directory describes the current game. Versioned files under `docs/specs/` p
 | [Rules and courses](RULES.md) | Steering, speed, course generation, points, bombs and stars |
 | [Presentation and audio](PRESENTATION.md) | Visual contacts, score animation, sound mapping and shared settings |
 | [Player and installation guide](../LANE_SMASH.md) | Visible controls and installation |
-| [Revision 23](../specs/lane-smash-v23.md) | Resistance latency audit, faster reporting request, live steering feedback and brighter edge warning; source-only |
+| [Revision 23](../specs/lane-smash-v23.md) | Resistance latency audit, faster reporting request, live steering feedback and brighter edge warning; signed build 31 and verified Wi-Fi installation |
 | [Revision 22](../specs/lane-smash-v22.md) | Half-cadence Kid targets, unchanged adult records, signed build 30 and Wi-Fi installation |
 | [Revision 21](../specs/lane-smash-v21.md) | Handoff/cadence audit, beside-bike bomb meter, edge warning and speed-weighted burst scoring |
 | [Revision 21 installation](../specs/lane-smash-v21-installation.md) | Signed build 29, Wi-Fi update and verified sensor-ready selector |

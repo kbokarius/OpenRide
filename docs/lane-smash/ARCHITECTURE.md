@@ -76,7 +76,7 @@ Committed-lane handoffs and speed-weighted burst scoring are versioned as course
 
 The edge-warning shader uses five scalar weights and a bounded near-bike distance window on the existing deck. Gauges reuse their anchor/style objects and render a fixed number of primitives. Revision 21 was subsequently packaged as signed build 29 and installed in place over Wi-Fi at the owner's request. The selector displayed Bike connected · ready; no ride was started for this installation. See the [build and device record](../specs/lane-smash-v21-installation.md).
 
-## Resistance delivery and feedback (revision 23 source)
+## Resistance delivery and feedback (revision 23 / build 31)
 
 The Original Bike V1 service pushes timestamped frames into `BikeSampleBuffer`; `InputBus` and `NeonVector` read available input each rendered frame. `NeonRules` consumes those timestamps in 10 ms ticks without smoothing resistance. The separate 150 ms lane-settling rule only gates scoring; steering reads the latest resistance directly.
 

@@ -57,7 +57,7 @@ AIDL assigns binder transaction codes 1..N in method-declaration order, so the r
 | 1 | `registerCallback(IV1Callback, String)` | yes — subscribe to frames |
 | 2 | `unregisterCallback(IV1Callback, String)` | yes — on stop |
 | 3 | `setFakeDataMode(boolean): boolean` | verification only (no-rider frames) |
-| 4 | `setCallbackReportRate(int): int` | yes — revision-23 source requests 100 ms; build 30 requests 200 ms. Firmware may cap or ignore the request |
+| 4 | `setCallbackReportRate(int): int` | yes — build 31 / revision 23 requests 100 ms; previous build 30 requested 200 ms. Firmware may cap or ignore the request |
 
 (The real interface has codes 5..15 too — calibration/Lxx/power-source calls OpenRide never
 uses. Only 1..4 are reconstructed, since declaring more only risks signature drift.)
