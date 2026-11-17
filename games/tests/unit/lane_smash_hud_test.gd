@@ -1,5 +1,44 @@
 extends GdUnitTestSuite
 
+func test_resistance_readout_bypasses_one_second_throttle_without_speeding_other_numbers() -> void:
+	var metrics: RideMetrics = auto_free(RideMetrics.new())
+	add_child(metrics)
+	metrics.set_process(false)
+	metrics.text_interval = 1.0
+	metrics.refresh(80, 150, 36)
+	metrics._refresh_left = 0.8
+	var old := [InputBus.resistance, InputBus.cadence, InputBus.power]
+	InputBus.resistance = 37
+	InputBus.cadence = 95
+	InputBus.power = 200
+	metrics._process(1.0 / 60)
+	assert_str(metrics.values[2].text).is_equal("37")
+	assert_str(metrics.values[0].text).is_equal("80")
+	assert_str(metrics.values[1].text).is_equal("150")
+	InputBus.resistance = 38
+	metrics._process(1.0 / 60)
+	assert_str(metrics.values[2].text).is_equal("38")
+	InputBus.resistance = old[0]
+	InputBus.cadence = old[1]
+	InputBus.power = old[2]
+
+
+func test_lane_prompt_changes_on_delivery_without_waiting_for_score_settle_or_second() -> void:
+	var rules := NeonRules.new()
+	rules.configure(NeonCourse.load_course("ls_10_01"), "challenging", 150)
+	var status: NeonStatus = auto_free(NeonStatus.new())
+	status.rules = rules
+	add_child(status)
+	for row: Array in [[36, "STAY IN THIS LANE"], [37, "LOWER RESISTANCE"], [36, "STAY IN THIS LANE"], [20, "Increase resistance to 30"]]:
+		var time := rules.elapsed_ms
+		rules.push_sample({"t": time, "seq": time + 1, "resistance": row[0], "cadence": 80, "power": 150})
+		rules.advance(time + 10)
+		status.refresh()
+		assert_str(status.target.text).is_equal(row[1])
+		assert_int(rules.settled_lane).is_equal(-1)
+	assert_int(rules.elapsed_ms).is_equal(40)
+
+
 func test_rolling_score_keeps_caption_and_panel_fixed_at_digit_boundaries() -> void:
 	var hud: Hud = auto_free(Hud.new())
 	add_child(hud)

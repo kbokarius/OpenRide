@@ -1787,8 +1787,8 @@ over the power cap). The badge flashes on each beat. The look (`ui_theme()`, the
 `#12052A`, and again when the rider changes the colour option. While a pace change waits for its boundary, whichever of the old and new targets is
 nearer the rider's cadence counts, so riding the new pace is never "ahead" of a beat that hasn't
 moved. **The bike reports a new cadence about once a second** (once a pedal revolution): the
-service streams frames at 5 Hz (`REPORT_RATE_MS` 200) but each rpm repeats for about four, so the
-orb steps with the readings. It is eased a little so it doesn't jump.
+original measurement used a 5 Hz request (`REPORT_RATE_MS` 200), but each rpm repeated for about four frames, so the
+orb stepped with the readings. It is eased a little so it doesn't jump. Revision-23 source requests 100 ms for resistance response; faster callbacks do not establish faster hardware cadence measurements.
 
 **Target.** The rider's target cadence starts at 60 rpm (internally the "pace"; the player only
 ever sees the target rpm) and can adjust it at any time with the − and + buttons under the view (5 rpm a step; `,` and `.` on the

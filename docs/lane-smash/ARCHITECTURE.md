@@ -75,3 +75,9 @@ Committed-lane handoffs and speed-weighted burst scoring are versioned as course
 `completing_section` retains the finished event cursor for the 700 ms final-marker fade before a deferred attack. No scoring runs during that fade, but the view can show its completion effect. Cooldown finishes an active section or honors an announced approach before descending. Every renderer/prompt sees the runtime event list; the stored course hash is unchanged during a ride.
 
 The edge-warning shader uses five scalar weights and a bounded near-bike distance window on the existing deck. Gauges reuse their anchor/style objects and render a fixed number of primitives. Revision 21 was subsequently packaged as signed build 29 and installed in place over Wi-Fi at the owner's request. The selector displayed Bike connected · ready; no ride was started for this installation. See the [build and device record](../specs/lane-smash-v21-installation.md).
+
+## Resistance delivery and feedback (revision 23 source)
+
+The Original Bike V1 service pushes timestamped frames into `BikeSampleBuffer`; `InputBus` and `NeonVector` read available input each rendered frame. `NeonRules` consumes those timestamps in 10 ms ticks without smoothing resistance. The separate 150 ms lane-settling rule only gates scoring; steering reads the latest resistance directly.
+
+The V1 callback request is now 100 ms (previously 200 ms), reapplied on reconnect and logged with the firmware’s return value. Failure to set the rate does not disable the existing callback. Other interfaces and the fallback poll remain unchanged; this is not a claim that firmware measurements or pushes arrive at the requested rate. `RideMetrics` exempts only resistance from its text timer. `NeonStatus` invalidates its text cache on resistance changes and uses actual band membership for steering copy, not scoring eligibility. Course, scoring, resistance mapping and comparison identities are unchanged.

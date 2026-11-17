@@ -130,6 +130,9 @@ func cadence_color(cadence: float) -> Color:
 
 
 func _process(delta: float) -> void:
+	# Resistance is the steering control: show each real change immediately even when
+	# the other readouts are throttled. _show is cached, so identical values do no work.
+	_show(_resistance, "resistance", str(roundi(InputBus.resistance)), HudTheme.INK)
 	_refresh_left -= delta
 	if _refresh_left > 0: return
 	_refresh_left = text_interval

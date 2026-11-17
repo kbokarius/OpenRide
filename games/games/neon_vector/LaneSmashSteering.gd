@@ -3,8 +3,8 @@ extends RefCounted
 ## Presentation only. Rules still use the original integer resistance bands and settle time.
 ## The tyre moves inside the lane, with a quick, eased hop over the seam at each threshold.
 const TRAVEL := 0.28  # fraction of a lane each side; leaves room for the wide motorcycle
-const FOLLOW := 11.0
-const SNAP_FOLLOW := 28.0
+const FOLLOW := 24.0  ## 90% of an in-lane step in ~96 ms, independent of render rate
+const SNAP_FOLLOW := 40.0  ## 90% of a lane crossing in ~58 ms; no predictive steering
 const SNAP_SECONDS := 0.18
 const FADE_SECONDS := 0.32
 const EDGE_FRACTION := 0.25  ## outer quarter of the reported resistance band

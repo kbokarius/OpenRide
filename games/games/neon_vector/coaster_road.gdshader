@@ -76,9 +76,9 @@ void fragment() {
 	vec3 line = mix(accent, second, clamp(level * 0.85, 0.0, 0.8));
 	float nearest_seam = floor(lane + 0.5);
 	float edge_warning = abs(nearest_seam) <= 2.0 ? edge_weights[int(clamp(nearest_seam + 2.0, 0.0, 4.0))] : 0.0;
-	// A quiet rose tint beside and just ahead of the rider; fixed to the actual lane line.
+	// A brighter coral-red tint beside and just ahead of the rider; fixed to the lane line.
 	edge_warning *= smoothstep(rider_s - 18.0, rider_s - 4.0, course_s) * (1.0 - smoothstep(rider_s + 18.0, rider_s + 65.0, course_s));
-	line = mix(line, vec3(0.66, 0.25, 0.29), edge_warning * 0.92);
+	line = mix(line, vec3(0.95, 0.34, 0.38), edge_warning * 0.92);
 	vec3 wash = mix(accent, second, clamp(music.y + music.z * 0.5, 0.0, 1.0));
 	EMISSION = (line * (seam * (1.5 + level * 1.5) * beat + halo * (0.09 + level * 0.14) * beat)
 		+ accent * (tick * 0.5 + border * (0.25 + music.z * 0.35))

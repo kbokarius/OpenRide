@@ -12,6 +12,7 @@ var meter: ProgressBar
 var _event_id := ""
 var _event_active := false
 var _last_refresh_second := -1
+var _last_resistance := -INF
 var _meter_target := 0.0
 var _power_points := PointRollup.new()
 var _power_event_id := ""
@@ -119,16 +120,17 @@ func refresh() -> void:
 	var event_id := str(event.get("eventId", ""))
 	var second := rules.elapsed_ms / 1000
 	var is_active := not event.is_empty() and rules.road_time_ms() >= int(event.startMs)
-	if second == _last_refresh_second and event_id == _event_id and is_active == _event_active: return
+	var res := float(rules.latest.get("resistance", NeonRules.TIERS[rules.tier]))
+	if second == _last_refresh_second and event_id == _event_id and is_active == _event_active and res == _last_resistance: return
 	_show_power_points = false
 	target.show()
 	power_row.hide()
 	_event_id = event_id
 	_event_active = is_active
 	_last_refresh_second = second
+	_last_resistance = res
 	meter.visible = false
 	var rpm := float(rules.latest.get("cadence", 0))
-	var res := float(rules.latest.get("resistance", NeonRules.TIERS[rules.tier]))
 	if rules.selected_lane < 0 and not rules.latest.is_empty():
 		heading.text = "OUTSIDE THE COURSE RANGE"
 		target.text = "Increase resistance to %d" % NeonRules.band(0, rules.tier).x if res < NeonRules.TIERS[rules.tier] else "Lower resistance to %d" % NeonRules.band(5, rules.tier).y
@@ -154,7 +156,9 @@ func refresh() -> void:
 		return
 	if selected >= 0:
 		band = NeonRules.band(int(choices[selected].laneIndex), rules.tier)
-	var direction := "STAY IN THIS LANE" if rules.settled_lane == int(choices[maxi(0, selected)].laneIndex) else ("INCREASE RESISTANCE" if res < band.x else "LOWER RESISTANCE")
+	# Guidance follows the received position now; the scoring settle timer must not
+	# tell a rider already inside the target band to turn the knob out of it again.
+	var direction := "INCREASE RESISTANCE" if res < band.x else ("LOWER RESISTANCE" if res > band.y else "STAY IN THIS LANE")
 	heading.text = "%s · %s" % [prefix, {"cruise": "COLLECT", "hold": "PEDAL SPEED", "burst": "POWER BURST"}.get(event.type, str(event.type).to_upper())]
 	if active and event.type == "hold":
 		target.text = "%d–%d rpm · %s" % [event.cadenceMin, event.cadenceMax, "PEDAL FASTER" if rpm < event.cadenceMin else ("PEDAL SLOWER" if rpm > event.cadenceMax else "KEEP THIS SPEED")]

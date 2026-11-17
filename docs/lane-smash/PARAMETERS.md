@@ -1,6 +1,6 @@
 # Current gameplay and presentation parameters
 
-Verified against revision-22 source November 16, 2026. Build 30 / revision 22 is signed and installed on the Bike. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
+Verified against revision-23 source November 17, 2026. These response/visibility changes are source-only; build 30 / revision 22 remains installed on the Bike. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
 
 ## Units and release state
 
@@ -60,15 +60,17 @@ Source: [NeonRules.gd](../../games/games/neon_vector/NeonRules.gd) (`lane_step`,
 | Speed cap | 140 rpm → 60 km/h in rules; visual stretch 3×, approximately 112 mph on the HUD |
 | Lane width | 4.2 world metres |
 | Within-lane travel | Centre ±28% of a lane (±1.176 world metres) |
-| Steering follow rate | 11/s; 28/s for 0.18 s after crossing a lane threshold |
+| Steering follow rate | **24/s**; **40/s** for 0.18 s after crossing a lane threshold. 90% response in about 96 ms / 58 ms after a received change; frame-rate independent, no prediction |
+| Sensor reporting request | Original Bike V1 path: **100 ms / 10 Hz requested** in revision-23 source (installed build 30 requests 200 ms / 5 Hz). Firmware can limit/ignore this; actual delivery/measurement latency is not established by the request |
+| Resistance readout | Checks current input every rendered frame; changes the cached label only when the rounded resistance changes. RPM, watts and heart-rate readouts retain the one-second text interval |
 | Target highlight fade | 0.32 s; color `#c6ecff` |
 | Target selection | Active attack lane, else current/next event lane, else last target; stays present through approaches and interruptions |
 | Direction prompts | MOVE LEFT / LESS RESISTANCE; MOVE RIGHT / MORE RESISTANCE |
 | Inner-edge warning | Outer 25% of a resistance band near an internal seam; smoothstep strength, 0.3 s fade. Five internal seams only; no exterior-edge warning or steering/scoring change |
-| Warning color / extent | Muted rose RGB (0.66, 0.25, 0.29), mixed at up to 92%; local road window −18 to +65 world metres, fully present −4 to +18; fades at ends |
+| Warning color / extent | Brighter coral-red RGB (0.95, 0.34, 0.38), mixed at up to 92%; local road window −18 to +65 world metres, fully present −4 to +18; fades at ends |
 | Cadence preview | Shared 1,200 active-ms estimate at current speed; current approached section only, no look-ahead across another section; none while stopped ahead of it |
 | Cadence start | Active meter, section and gunfire agree on event ID; first active rendered frame fires, even after a skipped preview; ordinary two-second damage grace remains |
-| Prompt state | UP NEXT with distance during approach; NOW at section start, refreshed at the boundary without waiting for the one-second text timer |
+| Prompt state | UP NEXT with distance during approach; NOW at section start. Section boundaries and each changed resistance reading bypass the one-second text timer. STAY IN THIS LANE appears immediately inside the target band, independent of scoring’s 150 ms settling |
 
 Cadence bands are Lane Smash tuning choices informed by [video research](../research/lanebreak/09-cadence-and-section-flow.md), not a claimed universal Peloton table. The five adult resistance ranges were not changed by either the cadence update or Kid addition. Kid is a custom Lane Smash option, not a published Lanebreak difficulty. Kid uses the same lane-index schedule and lower physical resistance. Current work targets use lanes 3–6; the lane-1/2 work band remains defined for consistency.
 

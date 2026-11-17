@@ -42,6 +42,19 @@ func test_threshold_changes_snap_quickly_without_overshooting_at_different_frame
 		assert_float(steering.lane).is_equal(before)
 
 
+func test_live_resistance_reaches_ninety_percent_within_100_ms_without_prediction() -> void:
+	for fps in [30, 60, 120]:
+		for pair: Vector2i in [Vector2i(31, 35), Vector2i(36, 37), Vector2i(64, 58)]:
+			var steering := LaneSmashSteering.new()
+			steering.update(0, pair.x, "challenging", 1)
+			var start := steering.lane
+			var destination := LaneSmashSteering.position_for(pair.y, "challenging")
+			for frame in int(fps * 0.1): steering.update(1.0 / fps, pair.y, "challenging", 1)
+			var progress := absf(steering.lane - start) / absf(destination - start)
+			assert_float(progress).is_between(0.90, 1.0)
+			assert_float(steering.lane).is_between(minf(start, destination), maxf(start, destination))
+
+
 func test_highlights_crossfade_and_arrows_stop_inside_the_whole_target_band() -> void:
 	var steering := LaneSmashSteering.new()
 	steering.update(0, 33, "challenging", 0)

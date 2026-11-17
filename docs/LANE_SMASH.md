@@ -125,3 +125,7 @@ Update this fork in place: do not uninstall it or clear its app data, since that
 - `godot --path games -s res://tests/demo_lane_smash.gd` opens an automated desktop ride with an isolated completed ghost. It uses simulated sensor values and separate demonstration history.
 
 Lane Smash is the only selectable game; other game assets are excluded from the APK. See the [structured architecture and rules](lane-smash/README.md), [current parameters](lane-smash/PARAMETERS.md) and [revision 19 changes and validation](specs/lane-smash-v19.md).
+
+## Resistance response update (revision 23 source, not yet installed)
+
+The current installed build requests sensor callbacks every 200 ms and may display resistance/steering text up to one second late. The source update requests 100 ms, shows changed resistance on the next rendered frame, makes steering text react immediately and speeds up the motorcycle's smooth response. The red warning on an interior lane line is brighter. Scoring still uses the same raw readings and 150 ms lane settling; the firmware determines when fresh measurements are available. See the [audit and validation](specs/lane-smash-v23.md).

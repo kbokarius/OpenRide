@@ -66,19 +66,54 @@ class PelotonBikeDataSourceTest {
 
     // --- Recovery when the affernet process dies (onBindingDied / onNullBinding) ---
 
-    private class FakeV1Service : IV1Interface.Stub() {
+    private class FakeV1Service(private val rejectRateRequest: Boolean = false) : IV1Interface.Stub() {
         val registered = mutableListOf<IV1Callback>()
+        val requestedRates = mutableListOf<Int>()
         override fun registerCallback(callback: IV1Callback, identifier: String?) {
             registered += callback
         }
         override fun unregisterCallback(callback: IV1Callback?, identifier: String?) = Unit
         override fun setFakeDataMode(enabled: Boolean) = false
-        override fun setCallbackReportRate(rateMillis: Int) = rateMillis
+        override fun setCallbackReportRate(rateMillis: Int): Int {
+            requestedRates += rateMillis
+            if (rejectRateRequest) throw android.os.RemoteException("Rate control unsupported")
+            return rateMillis
+        }
     }
 
     private val frame = BikeData().apply { rpm = 80; power = 15_000; currentResistance = 40 }
 
     private fun advance(millis: Long) = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(millis))
+
+    @Test
+    fun `requests 100 ms updates and records every resistance delivery without smoothing`() {
+        val ctx = RecordingBindContext(context)
+        val dataSource = PelotonBikeDataSource(ctx)
+        dataSource.start()
+        val service = FakeV1Service()
+        ctx.connection.onServiceConnected(RecordingBindContext.AFFERNET, service)
+        assertEquals(listOf(100), service.requestedRates)
+        for (resistance in listOf(36, 37, 38, 38, 36)) {
+            val sample = BikeData().apply { rpm = 80; power = 15_000; currentResistance = resistance }
+            service.registered.single().onSensorDataChange(sample)
+            assertEquals(resistance, dataSource.metrics.value.resistancePercent)
+        }
+        assertEquals(listOf(36, 37, 38, 38, 36), dataSource.samples.readAfter(0).samples.map { it.metrics.resistancePercent })
+        dataSource.stop()
+    }
+
+    @Test
+    fun `firmware rejecting faster interval still delivers real sensor frames`() {
+        val ctx = RecordingBindContext(context)
+        val dataSource = PelotonBikeDataSource(ctx)
+        dataSource.start()
+        val service = FakeV1Service(rejectRateRequest = true)
+        ctx.connection.onServiceConnected(RecordingBindContext.AFFERNET, service)
+        service.registered.single().onSensorDataChange(frame)
+        assertEquals(ConnectionState.Connected, dataSource.connectionState.value)
+        assertEquals(40, dataSource.metrics.value.resistancePercent)
+        dataSource.stop()
+    }
 
     @Test
     fun `binding death unbinds, rebinds after backoff and re-registers the callback`() {
@@ -103,6 +138,7 @@ class PelotonBikeDataSourceTest {
         val second = FakeV1Service()
         ctx.connection.onServiceConnected(RecordingBindContext.AFFERNET, second)
         assertEquals("callback not re-registered on the new binder", 1, second.registered.size)
+        assertEquals(listOf(100), second.requestedRates)
         second.registered.single().onSensorDataChange(frame)
         assertEquals(ConnectionState.Connected, dataSource.connectionState.value)
     }
