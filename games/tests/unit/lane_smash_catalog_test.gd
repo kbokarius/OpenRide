@@ -368,7 +368,7 @@ func test_all_tracks_have_reproducible_bombs_outside_the_scoring_lane() -> void:
 		for id: String in ids:
 			var course := NeonCourse.load_course(id)
 			assert_array(course.hazards).is_not_empty()
-			assert_bool(LaneSmashHazards.valid_dense(course.hazards, course.events)).is_true()
+			assert_bool(LaneSmashHazards.valid_dense(course.hazards, course.events, true)).is_true()
 			assert_array(course.hazards).is_equal(NeonCourse.load_course(id).hazards)
 			var bad := course.duplicate(true)
 			for event: Dictionary in bad.events:

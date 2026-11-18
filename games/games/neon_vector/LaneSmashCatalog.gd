@@ -1,7 +1,7 @@
 class_name LaneSmashCatalog
 extends RefCounted
-## Generator v9 retains v8's full sections/cadence/mines and selects committed lane handoffs.
-## Course v12 selects scoring 11, preserving every older ride snapshot and comparison key.
+## Generator v10 guards between-section gaps with a clear lane-change corridor.
+## Course v13 selects scoring 12, preserving every older ride snapshot and comparison key.
 const LENGTHS := [10, 15, 20, 30]
 const NAMES := ["Nightfall", "Vector Run", "Cold Circuit", "Apex Protocol", "Iron Horizon", "Deep Current", "Solar Array", "Black Meridian", "Velocity", "Carbon Ridge", "Arc Reactor", "Zero Gravity", "Afterburn", "Steel Pulse", "Blue Shift", "Outer Ring", "Ion Storm", "Altitude", "Dark Matter", "Redline", "Titan", "Slipstream", "Overdrive", "Summit Relay", "Event Horizon"]
 const PATTERNS := ["Rolling", "Cadence", "Power", "Climbing", "Mixed"]
@@ -94,13 +94,13 @@ static func generate(minutes: int, seed_value: int, index: int, id: String, rand
 		previous_lane = lane
 		begin = end
 		block += 1
-	return {"schemaVersion": 1, "courseVersion": 12, "generatorVersion": 9, "courseId": id,
+	return {"schemaVersion": 1, "courseVersion": 13, "generatorVersion": 10, "courseId": id,
 		"title": "Random / %06d" % (seed_value % 1000000) if random_track else NAMES[index],
 		"family": "random" if random_track else "catalog", "durationMs": minutes * 60000,
 		"theme": THEMES[(seed_value / 97) % 8] if random_track else THEMES[index % 8],
 		"background": BACKGROUNDS[(seed_value / 193) % 4] if random_track else BACKGROUNDS[(index / 3) % 4],
 		"presentation": LaneSmashPath.generate(seed_value, minutes * 1000 + 300),
-		"hazards": LaneSmashHazards.generate_dense(events),
+		"hazards": LaneSmashHazards.generate_guarded(events),
 		"barrages": LaneSmashBarrage.generate(minutes * 60000, seed_value, true),
 		"distanceBased": true, "maxSpeedKph": 60, "maxCadenceRpm": 140, "roadLengthMeters": minutes * 1000 + 300, "seed": seed_value, "description": PATTERNS[index % 5], "phases": phases, "events": events}
 

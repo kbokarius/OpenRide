@@ -173,7 +173,7 @@ static func validate(course: Dictionary) -> Array[String]:
 				errors.append("Unsupported charge ratios")
 	if not errors.is_empty():
 		return errors
-	if course.has("hazards") and (int(course.courseVersion) < 5 or not bool(course.get("distanceBased", false)) or not (LaneSmashHazards.valid_dense(course.hazards, course.events) if int(course.courseVersion) >= 11 else LaneSmashHazards.valid(course.hazards, course.events, int(course.durationMs)))):
+	if course.has("hazards") and (int(course.courseVersion) < 5 or not bool(course.get("distanceBased", false)) or not (LaneSmashHazards.valid_dense(course.hazards, course.events, int(course.courseVersion) >= 13) if int(course.courseVersion) >= 11 else LaneSmashHazards.valid(course.hazards, course.events, int(course.durationMs)))):
 		errors.append("Invalid bomb hazards")
 	if int(course.courseVersion) >= 5 and not course.has("hazards"):
 		errors.append("Missing bomb hazards")

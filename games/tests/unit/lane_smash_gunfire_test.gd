@@ -42,11 +42,11 @@ func _in_hold(rules: NeonRules, hold: Dictionary) -> bool:
 
 func test_new_tracks_use_course_twelve_and_preserve_legacy_scoring() -> void:
 	var course := NeonCourse.load_course(TRACK)
-	assert_int(int(course.courseVersion)).is_equal(12)
-	assert_int(int(course.generatorVersion)).is_equal(9)
+	assert_int(int(course.courseVersion)).is_equal(13)
+	assert_int(int(course.generatorVersion)).is_equal(10)
 	var rules := NeonRules.new()
 	assert_array(rules.configure(course, "challenging", 150)).is_empty()
-	assert_int(rules.scoring_version).is_equal(11)
+	assert_int(rules.scoring_version).is_equal(12)
 	assert_int(_rules(11).scoring_version).is_equal(10)
 	assert_int(_rules(10).scoring_version).is_equal(9)
 	# A course 8 snapshot keeps scoring 7: machine-gun fire, no sweet-spot bonus.

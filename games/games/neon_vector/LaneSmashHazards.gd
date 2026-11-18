@@ -46,6 +46,34 @@ const DENSE_LIMIT := 4096
 const FIRST_MINE_MS := 1800
 const MINE_SPACING_MS := 3000
 const EXIT_CLEAR_MS := 1800
+const GAP_FIRST_MS := 1000
+const GAP_EXIT_MS := 500
+
+## Minimum road-time allowance to cross one/two/three lanes: 4/5/6 seconds.
+## At lower speeds the same clear corridor takes longer to traverse.
+static func change_grace_ms(lanes: int) -> int:
+	return 0 if lanes == 0 else 3000 + 1000 * lanes
+
+## Course 13+: guard gaps too. The old lane and every crossed lane stay clear
+## during the adjustment allowance; the next target always stays clear.
+## A return from Incoming Fire supplies its actual last lane and road position.
+static func generate_guarded(events: Array, previous_lane := -1, previous_end := -1) -> Array:
+	var hazards: Array = []
+	for event: Dictionary in events:
+		var lane := int(event.laneIndex)
+		if previous_lane >= 0 and event.type in ["cruise", "hold", "burst"]:
+			for at in range(previous_end + GAP_FIRST_MS, int(event.startMs) - GAP_EXIT_MS + 1, MINE_SPACING_MS):
+				for blocked_lane in 6:
+					if _gap_lane_clear(blocked_lane, lane, previous_lane, at - previous_end): continue
+					hazards.append({"hazardId": "%s-approach-%d-%d" % [event.eventId, at - previous_end, blocked_lane], "hitMs": at, "laneIndex": blocked_lane, "penaltyPoints": PENALTY_POINTS})
+		hazards.append_array(generate_dense([event]))
+		previous_lane = lane if event.type in ["cruise", "hold", "burst"] else -1
+		previous_end = int(event.endMs)
+	return hazards
+
+static func _gap_lane_clear(lane: int, target: int, previous: int, since: int) -> bool:
+	if lane == target: return true
+	return since < change_grace_ms(absi(target - previous)) and lane >= mini(previous, target) and lane <= maxi(previous, target)
 
 static func generate_dense(events: Array) -> Array:
 	var hazards: Array = []
@@ -57,7 +85,7 @@ static func generate_dense(events: Array) -> Array:
 				hazards.append({"hazardId": "%s-mine-%d-%d" % [event.eventId, at - int(event.startMs), lane], "hitMs": at, "laneIndex": lane, "penaltyPoints": PENALTY_POINTS})
 	return hazards
 
-static func valid_dense(hazards: Variant, events: Array) -> bool:
+static func valid_dense(hazards: Variant, events: Array, guard_gaps := false) -> bool:
 	if not hazards is Array or hazards.size() > DENSE_LIMIT: return false
 	var ids := {}
 	var last_time := -1
@@ -76,8 +104,14 @@ static func valid_dense(hazards: Variant, events: Array) -> bool:
 		while event_index < events.size() and int(events[event_index].endMs) <= at: event_index += 1
 		if event_index >= events.size(): return false
 		var event: Dictionary = events[event_index]
-		if at < int(event.startMs) + FIRST_MINE_MS or at > int(event.endMs) - EXIT_CLEAR_MS or lane == int(event.laneIndex): return false
 		if event.type not in ["cruise", "hold", "burst"]: return false
+		if at < int(event.startMs):
+			if not guard_gaps or event_index == 0: return false
+			var previous: Dictionary = events[event_index - 1]
+			if previous.type not in ["cruise", "hold", "burst"]: return false
+			if at < int(previous.endMs) + GAP_FIRST_MS or at > int(event.startMs) - GAP_EXIT_MS: return false
+			if _gap_lane_clear(lane, int(event.laneIndex), int(previous.laneIndex), at - int(previous.endMs)): return false
+		elif at < int(event.startMs) + FIRST_MINE_MS or at > int(event.endMs) - EXIT_CLEAR_MS or lane == int(event.laneIndex): return false
 		last_time = at
 		last_lane = lane
 	return true

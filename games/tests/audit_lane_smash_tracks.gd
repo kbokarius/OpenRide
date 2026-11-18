@@ -120,6 +120,7 @@ func _run() -> void:
 			_check(rules.cooldown, id + " missing final-minute cooldown")
 			var result := rules.result()
 			_check(result.status == "completed" and rules.pause_reason.is_empty(), id + " incomplete/stalled")
+			_check(rules.hazard_states.filter(func(state): return state.hit).is_empty(), id + " target-following rider hit a road mine")
 			_check(result.barrage.hits == 0 and result.barrage.dodges == rules.barrage.schedule.filter(func(row): return not row.get("cancelled", false)).size() * 2, id + " incoming fire response")
 			_check(result.stars == 3 and result.scoreUnits > 0, id + " target-following score/stars")
 			_check(seen.size() == 3 and lanes.size() == 6, id + " missing section type or lane")

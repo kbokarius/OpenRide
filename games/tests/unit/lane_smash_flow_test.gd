@@ -72,7 +72,7 @@ func test_waiting_behind_still_earns_zero_and_legacy_pass_waits_for_impact() -> 
 	assert_int(int(legacy.barrage.current_shot().points)).is_equal(1800)
 	assert_bool(legacy.barrage.current_shot().has("resolvedMs")).is_false()
 
-func test_every_track_has_full_sections_paired_cadence_and_mines_only_inside_sections() -> void:
+func test_every_track_has_full_sections_paired_cadence_and_guarded_mines() -> void:
 	var burst_lengths := {}
 	for minutes in LaneSmashCatalog.LENGTHS:
 		var ids: Array = LaneSmashCatalog.tracks(minutes).map(func(row): return row.id)
@@ -80,7 +80,7 @@ func test_every_track_has_full_sections_paired_cadence_and_mines_only_inside_sec
 		for id: String in ids:
 			var course := NeonCourse.load_course(id)
 			assert_array(NeonCourse.validate(course)).override_failure_message(id).is_empty()
-			assert_array(course.hazards).is_equal(LaneSmashHazards.generate_dense(course.events))
+			assert_array(course.hazards).is_equal(LaneSmashHazards.generate_guarded(course.events))
 			assert_int(course.hazards.size()).is_less_equal(LaneSmashHazards.DENSE_LIMIT)
 			for event: Dictionary in course.events:
 				var length := int(event.endMs) - int(event.startMs)
@@ -132,7 +132,10 @@ func test_nightfall_return_has_full_section_no_extra_dead_block_and_matching_gui
 				var gap := int(next.startMs) - rules.road_time_ms()
 				assert_int(gap).is_between(6000, 9010)
 				assert_int(int(next.endMs) - int(next.startMs)).is_greater_equal(5000 if next.type == "burst" else 10000)
-				assert_bool(LaneSmashHazards.valid_dense(rules.hazards.slice(rules._hazard_cursor), rules.events.slice(rules._event_cursor))).is_true()
+				# The first return corridor starts at the actual attack endpoint, not an
+				# authored event; gap_mines_test checks that runtime-only approach.
+				var future_mines := rules.hazards.filter(func(row): return int(row.hitMs) >= int(next.startMs))
+				assert_bool(LaneSmashHazards.valid_dense(future_mines, rules.events.slice(rules._event_cursor), true)).is_true()
 				var hazard_ids := {}
 				for hazard: Dictionary in rules.hazards: hazard_ids[hazard.hazardId] = true
 				assert_int(hazard_ids.size()).is_equal(rules.hazards.size())

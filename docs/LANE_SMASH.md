@@ -129,3 +129,10 @@ Lane Smash is the only selectable game; other game assets are excluded from the 
 ## Resistance response update (installed in build 31 / revision 23)
 
 Previous build 30 requested sensor callbacks every 200 ms and could display resistance/steering text up to one second late. Installed build 31 requests 100 ms, shows changed resistance on the next rendered frame, makes steering text react immediately and speeds up the motorcycle's smooth response. The red warning on an interior lane line is brighter. Scoring still uses the same raw readings and 150 ms lane settling; the firmware determines when fresh measurements are available. See the [audit and validation](specs/lane-smash-v23.md).
+
+
+## Bombs between sections (revision 24 source, not yet installed)
+
+New rides also place bombs in non-target lanes between sections. When changing lanes, the old lane and the path to the highlighted lane stay clear for at least 4–6 seconds at maximum speed, depending on how many lanes you need to cross; slower riding provides more time. Then the next bomb row leaves only the target lane clear. Gaps between sections in the same lane guard the other five lanes. Incoming Fire and cooldown still suppress road mines. Penalties and effects are unchanged.
+
+This uses course 13 / generator 10 / scoring 12, so new last/best comparisons are separate from the old layouts; historical scores and ghosts remain readable. Build 31 on the Peloton still has the previous mine-free gaps. See [revision 24](specs/lane-smash-v24.md) for exact parameters and validation.

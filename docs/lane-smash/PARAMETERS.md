@@ -1,6 +1,6 @@
 # Current gameplay and presentation parameters
 
-Verified against revision-23 source November 17, 2026. Signed build 31 / revision 23 is installed on the Bike. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
+Verified against revision-24 source November 18, 2026. Gap-mine changes are source-only; signed build 31 / revision 23 remains installed on the Bike. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
 
 ## Units and release state
 
@@ -8,7 +8,7 @@ Verified against revision-23 source November 17, 2026. Signed build 31 / revisio
 - **Active seconds** are the ride clock. Stopping pedalling consumes them; a sensor interruption freezes them.
 - **Road seconds** are distance divided by the maximum rules speed, 60 km/h. One road-second is 16⅔ rules-metres, drawn as 50 world metres. At a constant cadence below 140 rpm, actual seconds = road seconds × 140 / rpm. At zero cadence the road does not advance. Section lengths and mine spacing use road time; attack timers and the final-minute cooldown use active time.
 - The model uses design units, multiplied by `LaneSmashBike.SCALE = 1.3`. These dimensions describe game geometry, not a real motorcycle specification.
-- Current source rules: course **12**, generator **9**, scoring **11**, envelope **1**. Timing and burst-reward changes create new comparison keys. Course 11 retains scoring 10; older saved snapshots and histories remain readable. Kid and all adult resistance bands are unchanged.
+- Current source rules: course **13**, generator **10**, scoring **12**, envelope **1**. Added gap hazards create new comparison keys. Course 12 retains scoring 11 and mine-free gaps; course 11 retains scoring 10; older saved snapshots and histories remain readable. Kid and all adult resistance bands are unchanged.
 - Latest signed APK and verified device installation: **31 / 1.2.0-lane-smash.23**, adding faster resistance feedback and a brighter interior-edge warning. Installed in place over Wi-Fi on November 17, 2026. See the [build and installation record](../specs/lane-smash-v23.md#build-and-installation).
 
 ## Course generation and pacing
@@ -33,7 +33,7 @@ Source: [LaneSmashCatalog.gd](../../games/games/neon_vector/LaneSmashCatalog.gd)
 | Cooldown | Requested at 60 active seconds remaining; finish an active section before changing lanes. An already-announced approach gets a full 10-road-second Collect in that lane before stepping down by at most three lanes. Then descend toward lane 1; no mines, bursts or gunfire in the cooldown tail |
 | Boundary exception | The fixed ride finish can end a section; attack and cooldown handoffs no longer shorten an active section. Very slow/stopped riding can reduce the available cooldown time |
 | Road length | `minutes × 1,000 + 300` rules-metres; sufficient for the 140-rpm speed cap |
-| Latest full-course audit | 116 tracks, 36.25 simulated hours; four additional speed traces; all six difficulty mappings, including full Kid rides. Adult target-following gaps below 22 active seconds; Nightfall 19.4 seconds. Half-cadence Kid uses twice the traversal-time budget (44-second approaches / 120-second lane visits); Kid Nightfall measured 38.15 seconds. Distances and speed mapping are unchanged. These are measured traces, not guarantees while stopped. |
+| Latest full-course audit | Revision 24: zero target-following mine hits; 116 tracks, 36.25 simulated hours; four additional speed traces; all six difficulty mappings, including full Kid rides. Adult target-following gaps below 22 active seconds; Nightfall 19.4 seconds. Half-cadence Kid uses twice the traversal-time budget (44-second approaches / 120-second lane visits); Kid Nightfall measured 38.15 seconds. Distances and speed mapping are unchanged. These are measured traces, not guarantees while stopped. |
 
 ## Resistance, cadence and guidance
 
@@ -81,18 +81,21 @@ Source: [LaneSmashHazards.gd](../../games/games/neon_vector/LaneSmashHazards.gd)
 | Parameter | Current value / behavior |
 | --- | --- |
 | Eligible sections | Collect (`cruise`), Pedal speed (`hold`), Power Burst (`burst`) |
-| Row coverage | Five mines: every lane except the section's target, even if the rider is elsewhere |
+| Section row coverage | Five mines: every lane except the section's target, even if the rider is elsewhere |
 | First row | Section start +1,800 road-ms |
 | Row spacing | 3,000 road-ms |
 | End clearance | Last row no later than section end −1,800 road-ms |
 | Example 10-second section | Rows at +1.8, +4.8 and +7.8 road-seconds; 15 mines total |
-| Clear areas | All approach/lane-change gaps; target lane; Incoming Fire; cooldown |
+| Gap rows | Start 1,000 road-ms after the previous section ends, repeat every 3,000 road-ms; stop at least 500 road-ms before the next section starts. No mines before the first section |
+| Lane-change allowance | At least 4 / 5 / 6 road-seconds for a 1 / 2 / 3-lane change. The old lane, intervening lanes and target form a clear corridor until that deadline; the first row at/after it guards every non-target lane |
+| Same-lane gap | Five mines in the other lanes, including the midpoint of the ordinary two-second gap; no adjustment is needed |
+| Clear areas | Target lane always; adjustment corridor during the allowance; initial approach; Incoming Fire; cooldown |
 | Penalty | Base 100 × score scale 18 = up to 1,800 points; zero score floor |
 | Avoidance reward | None |
 | Contact | Resolved once by rules in the crossed mine's lane; existing explosion, loss popup and sound |
 | Pool / authored validation limit | 40 visible mines / 4,096 authored hazards |
 | Render window | Look ahead 16,000 road-ms; retain up to 1,500 road-ms behind for contact clearance; inspect ten prior hazard slots for simultaneous-row fades |
-| Post-attack rebuild | Future mines follow the shifted event copies; resolved states remain; new IDs include the return index to prevent duplicates |
+| Post-attack rebuild | Future mines follow shifted event copies. First gap starts from the actual attack exit lane and road position, rounded up to the 10-ms grid; the same adjustment allowance applies. Resolved states remain; IDs include the return index. Course ≤12 retains its former mine-free gaps |
 
 These are fixed road objects, not projectiles that follow the rider. At 96 rpm, three road-seconds between rows takes approximately 4.38 active seconds.
 

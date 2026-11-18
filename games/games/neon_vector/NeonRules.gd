@@ -11,7 +11,7 @@ const TIERS := {"kid": 0, "light": 15, "moderate": 20, "hard": 25, "challenging"
 	"beginner": 20, "intermediate": 24, "advanced": 30, "expert": 34}
 const LANE_STEP := 7.0
 const KID_LANE_STEP := LANE_STEP * 0.5
-const SCORING_VERSION := 11
+const SCORING_VERSION := 12
 const CURRENT_SCORE_SCALE := 18
 ## Machine-gun fire over cadence sections (scoring version 7). Attackers strafe the road ahead
 ## of and behind the rider; holding the section's cadence band keeps the rider in the gap.
@@ -145,14 +145,15 @@ func configure(data: Dictionary, difficulty_id: String, watts: float) -> Array[S
 		hazard_states.append({"hit": false, "resolved": false, "penaltyUnits": 0})
 	base_units = 0
 	score_scale = CURRENT_SCORE_SCALE if int(course.courseVersion) >= 7 else 1
-	# Course version selects the rules: 12 honors announced lanes at handoffs (11),
+	# Course version selects the rules: 13 guards section gaps (12),
+	# 12 honors announced lanes at handoffs (11),
 	# 11 adds immediate passes/full-section flow (10),
 	# 10 adds lane-checked bombs/cooldown (9),
 	# 9 adds the cadence sweet spot (8), 8 machine-gun
 	# fire (7), 7 the 18x scale (6); older snapshots keep the rules they were ridden under.
 	var version := int(course.courseVersion)
 	if distance_based:
-		scoring_version = SCORING_VERSION if version >= 12 else (10 if version == 11 else (9 if version == 10 else (8 if version == 9 else (7 if version == 8 else (6 if version == 7 else (5 if version >= 6 else (4 if version >= 5 else 3)))))))
+		scoring_version = SCORING_VERSION if version >= 13 else (11 if version == 12 else (10 if version == 11 else (9 if version == 10 else (8 if version == 9 else (7 if version == 8 else (6 if version == 7 else (5 if version >= 6 else (4 if version >= 5 else 3))))))))
 	else:
 		scoring_version = 1 if version == 1 else 2
 	max_units = NeonCourse.maximum(course, false, reference_power)
@@ -612,10 +613,13 @@ func _restart_after_barrage() -> void:
 		events[i].startMs = int(events[i].startMs) + shift
 		events[i].endMs = int(events[i].endMs) + shift
 	# Keep resolved contact slots for pending visual feedback; rebuild future mines,
-	# keeping the target lane and every transition clear after the reflow too.
+	# preserving the guarded adjustment corridor after the reflow too. Saved courses
+	# through v12 retain their original mine-free approaches.
 	hazards.resize(_hazard_cursor)
 	hazard_states.resize(_hazard_cursor)
-	for hazard: Dictionary in LaneSmashHazards.generate_dense(events.slice(_event_cursor)):
+	var future := events.slice(_event_cursor)
+	var rebuilt := LaneSmashHazards.generate_guarded(future, last_target_lane, ceili(at / 10.0) * 10) if scoring_version >= 12 else LaneSmashHazards.generate_dense(future)
+	for hazard: Dictionary in rebuilt:
 		hazard.hazardId = str(hazard.hazardId) + "-return%d" % barrage.cursor
 		hazards.append(hazard)
 		hazard_states.append({"hit": false, "resolved": false, "penaltyUnits": 0})
