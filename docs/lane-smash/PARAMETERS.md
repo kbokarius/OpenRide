@@ -1,6 +1,6 @@
 # Current gameplay and presentation parameters
 
-Verified against revision-24 source November 18, 2026. Gap-mine changes are source-only; signed build 31 / revision 23 remains installed on the Bike. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
+Verified against revision-24 source November 18, 2026. Signed build 32 / revision 24 is installed on the Bike. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
 
 ## Units and release state
 
@@ -9,7 +9,7 @@ Verified against revision-24 source November 18, 2026. Gap-mine changes are sour
 - **Road seconds** are distance divided by the maximum rules speed, 60 km/h. One road-second is 16⅔ rules-metres, drawn as 50 world metres. At a constant cadence below 140 rpm, actual seconds = road seconds × 140 / rpm. At zero cadence the road does not advance. Section lengths and mine spacing use road time; attack timers and the final-minute cooldown use active time.
 - The model uses design units, multiplied by `LaneSmashBike.SCALE = 1.3`. These dimensions describe game geometry, not a real motorcycle specification.
 - Current source rules: course **13**, generator **10**, scoring **12**, envelope **1**. Added gap hazards create new comparison keys. Course 12 retains scoring 11 and mine-free gaps; course 11 retains scoring 10; older saved snapshots and histories remain readable. Kid and all adult resistance bands are unchanged.
-- Latest signed APK and verified device installation: **31 / 1.2.0-lane-smash.23**, adding faster resistance feedback and a brighter interior-edge warning. Installed in place over Wi-Fi on November 17, 2026. See the [build and installation record](../specs/lane-smash-v23.md#build-and-installation).
+- Latest signed APK and verified device installation: **32 / 1.2.0-lane-smash.24**, adding gap mines with protected lane-change corridors. Installed in place over Wi-Fi on November 18, 2026. See the [build and installation record](../specs/lane-smash-v24.md#build-and-installation).
 
 ## Course generation and pacing
 
@@ -61,7 +61,7 @@ Source: [NeonRules.gd](../../games/games/neon_vector/NeonRules.gd) (`lane_step`,
 | Lane width | 4.2 world metres |
 | Within-lane travel | Centre ±28% of a lane (±1.176 world metres) |
 | Steering follow rate | **24/s**; **40/s** for 0.18 s after crossing a lane threshold. 90% response in about 96 ms / 58 ms after a received change; frame-rate independent, no prediction |
-| Sensor reporting request | Original Bike V1 path: **100 ms / 10 Hz requested** in installed build 31 / revision 23 (previous build 30 requested 200 ms / 5 Hz). Firmware can limit/ignore this; actual delivery/measurement latency is not established by the request |
+| Sensor reporting request | Original Bike V1 path: **100 ms / 10 Hz requested** in build 31 onward (previous build 30 requested 200 ms / 5 Hz). Firmware can limit/ignore this; actual delivery/measurement latency is not established by the request |
 | Resistance readout | Checks current input every rendered frame; changes the cached label only when the rounded resistance changes. RPM, watts and heart-rate readouts retain the one-second text interval |
 | Target highlight fade | 0.32 s; color `#c6ecff` |
 | Target selection | Active attack lane, else current/next event lane, else last target; stays present through approaches and interruptions |

@@ -184,6 +184,6 @@ Passing the full blast footprint triggers the +1,800 popup and pass cue immediat
 The resistance number follows each delivered change immediately using the existing cached label; RPM/watts/heart rate keep their steady one-second cadence. Steering prompts refresh on a changed resistance reading and acknowledge the correct band without waiting for score eligibility. The motorcycle follows a within-lane step at 24/s and a threshold crossing at 40/s, with the same smooth, non-overshooting path. The inner-edge warning uses RGB (0.95, 0.34, 0.38) at the existing 92% maximum blend, 0.3-second fade and bounded road window. No blinking, extra geometry, exterior-edge warning or wider warning region is added.
 
 
-### Mines between sections (revision 24 source)
+### Mines between sections (revision 24 / build 32)
 
 Gap mines use the same spiked red road objects, warning rings, impact explosion, negative popup and pleasant impact sound as section mines. The target-lane highlight remains the guide. During a lane change, a visible open corridor connects the old lane to the target; rows farther ahead narrow it to the target after the adjustment allowance. These are fixed positions on the track, so they approach with road speed rather than spawning beside the motorcycle. No extra rendering pool or HUD control is needed.

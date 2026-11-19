@@ -43,7 +43,7 @@ Tracks warm up in lanes 1–2, then work mainly in lanes 3–6, with shuffled wa
 
 Work cadence targets decrease every two lanes: **85–105 rpm in lanes 1–2, 70–90 in lanes 3–4, and 55–75 in lanes 5–6**. Warm-up uses **75–95**. Current work courses use lanes 3–6; the lower-lane work band remains defined for consistency. These are Lane Smash's chosen bands, informed by Lanebreak footage. Difficulty resistance ranges are unchanged.
 
-Incoming Fire begins around 75 seconds and repeats about every three minutes, honoring an already-announced approach and waiting for its full section to finish; attacks that would intrude on the last minute are omitted. Full sections resume after each attack. Only the fixed ride finish can truncate an active section in build 31; cooldown finishes an active section before stepping down. Each section's last target shows its earned total at the endpoint; this is a recap, not a second bonus. Exact timings, spacing and units are in the [parameter reference](lane-smash/PARAMETERS.md).
+Incoming Fire begins around 75 seconds and repeats about every three minutes, honoring an already-announced approach and waiting for its full section to finish; attacks that would intrude on the last minute are omitted. Full sections resume after each attack. Only the fixed ride finish can truncate an active section in build 32; cooldown finishes an active section before stepping down. Each section's last target shows its earned total at the endpoint; this is a recap, not a second bonus. Exact timings, spacing and units are in the [parameter reference](lane-smash/PARAMETERS.md).
 
 You ride a long, low motorcycle with glowing wheels, twin drive rotors and thrusters. The latest source gives it a rounded superbike rear tyre four times its former width, with a matching wider rim and swingarm clearance; the front stays slim. Everything on it follows your pedalling: the rotors turn once per pedal revolution, the wheels roll at game speed, the thrusters lengthen with effort, and the bike leans into lane changes. Faster pedalling moves farther down the track, and the road rushes past to match: the speed shown is your cadence × 0.8 in mph, so about **48 mph at 60 rpm, 77 mph at 96 rpm and 112 mph flat out at 140 rpm**. Ease right off and it slows with you; stop and it stops. Higher cadence cannot overrun the course. This is a game-speed scale, not a road-bike speed estimate. The 10/15/20/30-minute roads are 19.2/28.5/37.8/56.5 miles long on screen, including a buffer beyond the maximum reachable distance. Each ride still ends at the selected active time.
 
@@ -73,7 +73,7 @@ Attempts save before play, every five active seconds, on interruption and before
 
 Return through recent apps or the **Lane Smash** app icon after switching away. Both lead to the same persistent game activity. **Exit** returns to the tablet launcher.
 
-Backups include course snapshots, scores and completed ghost traces. Settings such as music are local preferences. Installed build 31 uses **course 12 / generator 9 / scoring 11** as described below; build-28 snapshots retain course 11 / generator 8 / scoring 10. Older snapshots retain their original scoring and comparison identity, so older history remains readable while changed layouts have separate last/best comparisons. The wider rear tyre is a visual-only update and does not reset comparisons. Room remains at schema 9.
+Backups include course snapshots, scores and completed ghost traces. Settings such as music are local preferences. Installed build 32 uses **course 13 / generator 10 / scoring 12** as described below; build-31 snapshots retain course 12 / generator 9 / scoring 11; build-28 snapshots retain course 11 / generator 8 / scoring 10. Older snapshots retain their original scoring and comparison identity, so older history remains readable while changed layouts have separate last/best comparisons. The wider rear tyre is a visual-only update and does not reset comparisons. Room remains at schema 9.
 
 ## Revision 21 changes (installed in build 29)
 
@@ -81,7 +81,7 @@ Revision 21 moves the bomb meter beside the bike: green above the red blast zone
 
 Approaches are labeled **UP NEXT**, active sections **NOW**. The cadence meter and shooter share a short 1.2-second preview; firing begins with the actual section. An announced lane gets its section before an attack takes over. Cooldown finishes a section already underway and honors an already-requested lane before stepping down, so it can start slightly later than the one-minute mark.
 
-Power Bursts reward speed as well as output. At the same watts, a complete burst at 120 rpm earns roughly twice as much as at 60 rpm. At 90 rpm the prior energy reward is unchanged. Course 12 / generator 9 / scoring 11 keeps these scores separate from older bests and ghosts; previous ride history remains readable. These changes remain included in **build 31** on the Peloton. See [revision-21 validation](specs/lane-smash-v21.md) and the [installation record](specs/lane-smash-v21-installation.md).
+Power Bursts reward speed as well as output. At the same watts, a complete burst at 120 rpm earns roughly twice as much as at 60 rpm. At 90 rpm the prior energy reward is unchanged. Course 12 / generator 9 / scoring 11 keeps these scores separate from older bests and ghosts; previous ride history remains readable. These changes remain included in **build 32** on the Peloton. See [revision-21 validation](specs/lane-smash-v21.md) and the [installation record](specs/lane-smash-v21-installation.md).
 
 ## Easier Kid cadence (introduced in build 30)
 
@@ -106,7 +106,7 @@ OpenPelo's generic Developer Mode Guide includes **Firmware Reset**. First confi
 
 The fork package is `dev.digitalducktape.openride.neon`, with real sensors enabled, a dedicated signing key and a `kbokarius/OpenRide` update channel. It can coexist with upstream OpenRide. Updating this package does not reset the tablet, disable Peloton apps, change the home app or cancel a membership.
 
-For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**. The former Profile and App updates controls are removed. The latest signed installer and verified Bike installation is **code 31 / revision 23**, adding faster resistance feedback and a brighter interior-edge warning while retaining half-cadence Kid targets and previous gameplay fixes. It was installed in place over Wi-Fi on November 17, 2026, then opened with **Bike connected · ready**. See [current source/build/device status](lane-smash/PARAMETERS.md#units-and-release-state). No fork release is automatically published by a local build.
+For later updates, keep the same package and signing key. Install a newer signed APK using **Install local APK**. The former Profile and App updates controls are removed. The latest signed installer and verified Bike installation is **code 32 / revision 24**, adding off-lane bombs between sections with protected lane-change corridors, while retaining the faster resistance feedback and previous gameplay fixes. It was installed in place over Wi-Fi on November 18, 2026, then opened with **Bike connected · ready**. See [current source/build/device status](lane-smash/PARAMETERS.md#units-and-release-state). No fork release is automatically published by a local build.
 
 Wi-Fi updates work when the laptop and Bike share a local network and the Bike has wireless debugging enabled. This laptop's existing authorization was sufficient; no new pairing code or USB connection was required for build 28. Once OpenPelo shows the connected Bike under **Target Device**, use **Install local APK** as above. The [revision-20 installation record](specs/lane-smash-v20.md#repeating-a-wi-fi-update) contains the verified ADB command workflow and first-time pairing distinction. Check that no ride is active before installing.
 
@@ -126,13 +126,13 @@ Update this fork in place: do not uninstall it or clear its app data, since that
 
 Lane Smash is the only selectable game; other game assets are excluded from the APK. See the [structured architecture and rules](lane-smash/README.md), [current parameters](lane-smash/PARAMETERS.md) and [revision 19 changes and validation](specs/lane-smash-v19.md).
 
-## Resistance response update (installed in build 31 / revision 23)
+## Resistance response update (introduced in build 31 / revision 23)
 
-Previous build 30 requested sensor callbacks every 200 ms and could display resistance/steering text up to one second late. Installed build 31 requests 100 ms, shows changed resistance on the next rendered frame, makes steering text react immediately and speeds up the motorcycle's smooth response. The red warning on an interior lane line is brighter. Scoring still uses the same raw readings and 150 ms lane settling; the firmware determines when fresh measurements are available. See the [audit and validation](specs/lane-smash-v23.md).
+Previous build 30 requested sensor callbacks every 200 ms and could display resistance/steering text up to one second late. Build 31 onward requests 100 ms, shows changed resistance on the next rendered frame, makes steering text react immediately and speeds up the motorcycle's smooth response. The red warning on an interior lane line is brighter. Scoring still uses the same raw readings and 150 ms lane settling; the firmware determines when fresh measurements are available. See the [audit and validation](specs/lane-smash-v23.md).
 
 
-## Bombs between sections (revision 24 source, not yet installed)
+## Bombs between sections (installed in build 32 / revision 24)
 
 New rides also place bombs in non-target lanes between sections. When changing lanes, the old lane and the path to the highlighted lane stay clear for at least 4–6 seconds at maximum speed, depending on how many lanes you need to cross; slower riding provides more time. Then the next bomb row leaves only the target lane clear. Gaps between sections in the same lane guard the other five lanes. Incoming Fire and cooldown still suppress road mines. Penalties and effects are unchanged.
 
-This uses course 13 / generator 10 / scoring 12, so new last/best comparisons are separate from the old layouts; historical scores and ghosts remain readable. Build 31 on the Peloton still has the previous mine-free gaps. See [revision 24](specs/lane-smash-v24.md) for exact parameters and validation.
+This uses course 13 / generator 10 / scoring 12, so new last/best comparisons are separate from the old layouts; historical scores and ghosts remain readable. Installed build 32 includes these guarded gaps; saved build-31 courses retain their previous mine-free gaps. See [revision 24](specs/lane-smash-v24.md) for exact parameters and validation.

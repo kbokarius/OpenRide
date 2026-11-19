@@ -1,6 +1,6 @@
 # Revision 24 — bombs between sections
 
-November 18, 2026. Source-only change requested after build 31: discourage easy-lane detours between sections while allowing time to adjust resistance. **The Peloton remains on build 31 / revision 23. No APK was built or installed for this change.**
+November 18, 2026. Requested change after build 31: discourage easy-lane detours between sections while allowing time to adjust resistance. **Signed build 32 / 1.2.0-lane-smash.24 is installed on the Peloton.**
 
 ## Placement and adjustment
 
@@ -42,4 +42,20 @@ New source uses **course 13 / generator 10 / scoring 12 / envelope 1**. Course 1
 - Native Compatibility-renderer capture of Nightfall's between-section approach confirms an open crossing corridor, visible red mines in unrelated lanes and continuous target highlighting. No script/shader errors. Capture history/settings are isolated from personal rides.
 - Android records/settings tests pass, including acceptance of scoring 12, rejection of unknown scoring 13 and older record compatibility.
 
-Local simulated and renderer checks do not establish performance during a physical Peloton ride. The installed build remains unchanged.
+Local simulated and renderer checks do not establish performance during a physical Peloton ride. The installation checks below confirm startup and sensor connectivity.
+
+
+## Build and installation
+
+Signed and installed November 18, 2026 at the owner's request. The existing `neonReal` Gradle pipeline packages source `d5e64a8` plus the Android version bump: code **32**, version **1.2.0-lane-smash.24**. Package `dev.digitalducktape.openride.neon` remains ARM64, non-debuggable, real-sensor enabled, minimum Android 10 / target API 34. Auto remains the graphics default.
+
+- `assembleNeonReal`, `lintNeonReal` and **17 real-build records/settings tests** passed; lint has zero errors and 79 existing warnings.
+- APK signature verifies with v2. Certificate SHA-256: `45820456eab35d1a56adbc29d2ef7f09369b94d41f101868f5bb354ac3903773`, matching earlier installed builds.
+- Artifact: `openride-neon-32.apk`, **204,207,861 bytes**. SHA-256: `1f985deeda7e535946976c2990c4f4c3f0c05759a6b75d47b58ba921016da56d`.
+- Embedded `assets/games.pck` is uncompressed and matches the exported pack byte-for-byte. Independent loading verifies course 13 / generator 10 / scoring 12, valid gap hazards, the three-lane 6,000-road-ms allowance, faster steering, half-cadence Kid targets and Auto graphics.
+
+The verified Original Bike was showing a completed ride before installation. Its screen slept during packaging; waking it confirmed the same completed result, so no active ride was interrupted. Wi-Fi `adb install -r` returned **Success**. Android reports code **32** / `1.2.0-lane-smash.24`; the package user ID and first-install timestamp are unchanged. No uninstall, data clear or launcher change was performed.
+
+Cold launch returned **Status: ok**. After loading, the animated selector showed **Bike connected · ready**, with Nightfall, 20 minutes and Challenging selected. No ride was started. The inspected process log after the menu loaded contains no fatal exception or script error; existing vendor/engine warnings remain.
+
+This verifies installation, initial rendering and sensor connectivity, not sustained riding performance. App storage is preserved by the in-place update; historical ride lists and every saved preference were not individually re-inspected. New-layout last/best/ghost comparisons are intentionally separate from previous layouts, as described above.

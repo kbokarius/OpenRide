@@ -83,7 +83,7 @@ The Original Bike V1 service pushes timestamped frames into `BikeSampleBuffer`; 
 The V1 callback request is now 100 ms (previously 200 ms), reapplied on reconnect and logged with the firmware’s return value. Failure to set the rate does not disable the existing callback. Other interfaces and the fallback poll remain unchanged; this is not a claim that firmware measurements or pushes arrive at the requested rate. `RideMetrics` exempts only resistance from its text timer. `NeonStatus` invalidates its text cache on resistance changes and uses actual band membership for steering copy, not scoring eligibility. Course, scoring, resistance mapping and comparison identities are unchanged.
 
 
-## Gap-mine scheduling (revision 24 source)
+## Gap-mine scheduling (revision 24 / build 32)
 
 `LaneSmashHazards.generate_guarded` adds deterministic gap rows around the unchanged `generate_dense` section schedule. Placement follows authored lanes, not the rider's current resistance. Saved course 13 validates gaps against the previous event, the adjustment allowance and the next target. Earlier course versions use the existing validator and generator unchanged.
 
