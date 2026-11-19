@@ -61,6 +61,8 @@ Overlap alpha is the greater of longitudinal clearance (1.4–4.5 rules-metres) 
 - Menu, preview and nearby/alongside ghost screenshots were visually inspected at 1280 × 720. The capture uses separate history/settings and does not modify personal records.
 - Android lint passed with **0 errors / 79 existing warnings**. Final Godot import, whitespace and changed-document link checks passed. Logs and captures are stored outside the repository under `work/revision25-*`.
 
+The final native capture passed every assertion and exited with code 0, then emitted shutdown diagnostics for four remaining ObjectDB instances/two resources. No in-session script error was logged. The headless test run reported zero orphans. This capture-exit diagnostic has not been established as a physical-device runtime leak; no claim of physical ride stability is made by this visual test.
+
 The initial broader framework run also encountered obsolete tests that require the removed `demo`/`kart_race` registrations (`intro_touch_test` / one `intro_card_countdown_test` case). They were not changed or counted in the passing set; the active Lane Smash layout and native lifecycle were checked directly instead. An initial benchmark test exposed JSON float-versus-int nested-array comparison, fixed with numeric lane-band comparisons before the passing run.
 
 ## Release state and limits
