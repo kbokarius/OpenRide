@@ -83,6 +83,7 @@ static func local_request(data: Dictionary, rider_id: String) -> Dictionary:
 						best = record
 				if data.action == "best": continue
 				# Keep at most one full trace while reading; menu history needs metadata only.
+				record["benchmark"] = benchmark(record)
 				record.erase("ghost")
 				record.erase("course")
 				record.result.erase("events")
@@ -96,12 +97,27 @@ static func local_request(data: Dictionary, rider_id: String) -> Dictionary:
 				if row.result.status == "pending": continue
 				var key := str(row.comparisonKey)
 				if not track_stats.has(key):
-					track_stats[key] = {"lastScoreUnits": row.result.scoreUnits, "lastStatus": row.result.status, "bestScoreUnits": -1}
+					track_stats[key] = {"lastScoreUnits": row.result.scoreUnits, "lastStatus": row.result.status, "bestScoreUnits": -1, "last": row.benchmark}
 				if row.result.status == "completed":
-					track_stats[key].bestScoreUnits = maxi(int(track_stats[key].bestScoreUnits), int(row.result.scoreUnits))
+					var current: Dictionary = track_stats[key].get("best", {})
+					if current.is_empty() or NeonBenchmark.better(row.benchmark, current):
+						track_stats[key].best = row.benchmark
+						track_stats[key].bestScoreUnits = row.result.scoreUnits
+			for row in rows: row.erase("benchmark")
 			rows = rows.slice(0, 50)
 			return {"ok": true, "completions": completions, "history": rows, "trackStats": track_stats}
 	return failure("Unknown ride storage request.")
+
+
+static func benchmark(record: Dictionary) -> Dictionary:
+	var result: Dictionary = record.result
+	var summary := {"attemptId": record.attemptId, "riderId": record.riderId, "comparisonKey": record.comparisonKey,
+		"courseId": result.courseId, "durationMs": record.course.durationMs,
+		"kidCadencePercent": record.course.get("kidCadencePercent", 100),
+		"status": result.status, "scoreUnits": result.scoreUnits, "updatedMs": record.get("updatedMs", 0)}
+	for field in ["difficulty", "referencePower", "scoreScale", "envelopeVersion", "laneBands"]:
+		if result.has(field): summary[field] = result[field]
+	return summary
 
 
 static func valid_record(record: Dictionary) -> bool:

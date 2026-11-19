@@ -432,7 +432,7 @@ func _process(delta: float) -> void:
 		_sync_pause_screen()
 	match phase:
 		Phase.INTRO:
-			if not Session.paused:
+			if not Session.paused and game.intro_ready():
 				_intro_left -= delta
 				intro_card.set_time_left(_intro_left)
 				var count := ceili(_intro_left)

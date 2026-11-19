@@ -25,7 +25,7 @@ data class NeonAttempt(
 
 
 /** Compact selector data, independent of the 50-row history limit. */
-data class NeonTrackStat(val comparisonKey: String, val courseId: String, val lastScoreUnits: Long, val lastStatus: String, val bestScoreUnits: Long?)
+data class NeonTrackStat(val comparisonKey: String, val courseId: String, val lastScoreUnits: Long, val lastStatus: String, val bestScoreUnits: Long?, val lastAttemptId: String, val bestAttemptId: String?)
 
 @Dao
 abstract class NeonAttemptDao {
@@ -80,7 +80,9 @@ abstract class NeonAttemptDao {
     abstract suspend fun best(profileId: Long?, key: String): NeonAttempt?
 
     @Query("""SELECT n.comparisonKey, n.courseId, n.scoreUnits AS lastScoreUnits, n.status AS lastStatus,
-        (SELECT MAX(b.scoreUnits) FROM neon_attempts b WHERE b.profileId IS :profileId AND b.comparisonKey = n.comparisonKey AND b.status = 'completed') AS bestScoreUnits
+        (SELECT MAX(b.scoreUnits) FROM neon_attempts b WHERE b.profileId IS :profileId AND b.comparisonKey = n.comparisonKey AND b.status = 'completed') AS bestScoreUnits,
+        n.attemptId AS lastAttemptId,
+        (SELECT b.attemptId FROM neon_attempts b WHERE b.profileId IS :profileId AND b.comparisonKey = n.comparisonKey AND b.status = 'completed' ORDER BY b.scoreUnits DESC, b.updatedMs ASC, b.attemptId ASC LIMIT 1) AS bestAttemptId
         FROM neon_attempts n WHERE n.profileId IS :profileId AND n.status != 'pending'
         AND NOT EXISTS (SELECT 1 FROM neon_attempts newer WHERE newer.profileId IS :profileId AND newer.comparisonKey = n.comparisonKey AND newer.status != 'pending'
         AND (newer.updatedMs > n.updatedMs OR (newer.updatedMs = n.updatedMs AND newer.attemptId > n.attemptId)))""")

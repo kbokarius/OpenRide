@@ -1,6 +1,6 @@
 # Current gameplay and presentation parameters
 
-Verified against revision-24 source November 18, 2026. Signed build 32 / revision 24 is installed on the Bike. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
+Verified against revision-25 source November 19, 2026. Signed build 32 / revision 24 remains installed on the Bike; revision 25 is not installed. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
 
 ## Units and release state
 
@@ -182,3 +182,18 @@ Source: [LaneSmashBike.gd](../../games/games/neon_vector/LaneSmashBike.gd). Impl
 Rear swingarms run from `(±0.38, 0.67, 1.50)` at the axle to `(±0.40, 0.82, 0.52)` at the chassis, clearing the wider rubber. Both wheels retain three lit spokes per side and fourteen centre-tread dashes; each dash is 0.075 × 0.03 × 0.15 design units, centred at radius 0.666. The rolling radius stays **0.871 world units**, front axle distance **1.365**, axle-height constant **0.921**, and front contact reach **2.236**. These collision constants, front silhouette, cadence-driven rotation and lane-change lean were not changed.
 
 Visual verification: native riding view and rear three-quarter close-up rendered without script errors. The rendered wheel assembly bounds are 0.30 wide front and 0.76 wide rear in design units (including axle), with identical Y/Z bounds. This verifies appearance and dimensions, not physical-tablet performance. Graphics remains **Auto** by default.
+
+## Personal best preview and ghost (revision 25)
+
+| Parameter | Value / behavior |
+| --- | --- |
+| Previous best | Highest completed compatible score for this rider, track, duration and difficulty |
+| Score to beat | Displayed whole-number best + 1 point |
+| Version boundary | Same point scale, envelope, reference power, six resistance bands and Kid cadence percentage; an older comparison key is explicitly labeled |
+| Countdown | Existing countdown starts advancing only after benchmark/trace loading completes |
+| Preview block | 1120 × 174 logical px; 36 px previous score, 52 px goal, 30 px explanation |
+| Ghost samples | Existing 100 ms recording; interpolate distance/lane and derive cadence between samples |
+| Nearby ghost | Visible from −5 to +85 rules-metres, with far/portal fades; distant gap remains in HUD |
+| Overlap fade | Longitudinal fade 1.4–4.5 rules-metres; lateral clearance fade 0.15–0.65 lanes, using the larger visibility |
+| Earlier-version HUD | PRIOR BEST; same-version HUD BEST RIDE; gap/points remain on the existing one-second refresh |
+| First ride / unavailable trace | Explicit first-high-score or missing-recording message; no invented ghost |

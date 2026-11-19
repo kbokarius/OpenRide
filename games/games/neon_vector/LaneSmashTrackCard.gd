@@ -72,6 +72,8 @@ func configure(row: Dictionary, index: int, look: GameTheme, action: Callable) -
 	add_child(description)
 	score_label = look.label("", LaneSmashMenuTheme.LABEL, LaneSmashMenuTheme.TEXT_MUTED)
 	score_label.position = Vector2(TEXT_X, 124)
+	score_label.clip_text = true
+	score_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	add_child(score_label)
 	selected_label = look.label("SELECTED", LaneSmashMenuTheme.LABEL, LaneSmashMenuTheme.TEXT)
 	selected_label.add_theme_font_override("font", _look.caps_font())
@@ -85,6 +87,7 @@ func configure(row: Dictionary, index: int, look: GameTheme, action: Callable) -
 	_place_badge()
 
 func _fit_preview() -> void:
+	score_label.size.x = maxf(size.x, SIZE.x) - TEXT_X - PAD
 	_material.set_shader_parameter("aspect", maxf(1.0, size.x / maxf(1.0, size.y)))
 	_material.set_shader_parameter("size_px", (size - Vector2(4, 4)).max(Vector2.ONE))
 	_place_badge()

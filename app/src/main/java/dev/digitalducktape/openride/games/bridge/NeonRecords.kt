@@ -81,6 +81,8 @@ class NeonRecords(
                     put(row.comparisonKey, buildJsonObject {
                         put("lastScoreUnits", row.lastScoreUnits); put("lastStatus", row.lastStatus)
                         put("bestScoreUnits", row.bestScoreUnits ?: -1)
+                        dao.get(row.lastAttemptId)?.let { put("last", benchmark(it)) }
+                        row.bestAttemptId?.let { id -> dao.get(id)?.let { put("best", benchmark(it)) } }
                     })
                 } })
                 put("history", buildJsonArray {
@@ -108,6 +110,21 @@ class NeonRecords(
     }
 
     companion object {
+        /** Small cross-version benchmarks; full courses/traces are fetched only for the chosen ghost. */
+        internal fun benchmark(row: NeonAttempt): JsonObject {
+            val data = Json.parseToJsonElement(row.payloadJson).jsonObject
+            val course = data.getValue("course").jsonObject
+            val result = data.getValue("result").jsonObject
+            return buildJsonObject {
+                for (field in listOf("attemptId", "riderId", "comparisonKey")) put(field, data.getValue(field))
+                put("courseId", row.courseId); put("durationMs", course.getValue("durationMs"))
+                put("kidCadencePercent", course["kidCadencePercent"] ?: JsonPrimitive(100))
+                put("status", row.status); put("scoreUnits", row.scoreUnits); put("updatedMs", row.updatedMs)
+                for (field in listOf("difficulty", "referencePower", "scoreScale", "envelopeVersion", "laneBands")) {
+                    result[field]?.let { put(field, it) }
+                }
+            }
+        }
         internal fun decode(record: JsonObject, profile: Long?, now: Long): NeonAttempt {
             require(record["version"]?.jsonPrimitive?.intOrNull == 1)
             val id = record.getValue("attemptId").jsonPrimitive.content

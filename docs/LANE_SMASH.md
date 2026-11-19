@@ -7,7 +7,7 @@ A resistance-controlled 3D cycling game built inside OpenRide. Original code, gr
 1. Open **Lane Smash**. Its track selector appears directly; no profile, FTP, or game-selection screen is required.
 2. Choose **10, 15, 20 or 30 min**. Each duration has 25 named tracks.
 3. Select a track, or tap **Generate random track**. Drag anywhere on the library, including on the cards themselves, to scroll it; a tap that does not move picks the card. There are no visible scrollbars.
-4. Choose the resistance difficulty. **Kid** starts at 0 and uses half-size lane steps; its full range is 0–20. **Last** and **Best** show scores for this exact track and difficulty; incomplete last attempts are marked **partial**.
+4. Choose the resistance difficulty. **Kid** starts at 0 and uses half-size lane steps; its full range is 0–20. **Last** and **Best** show scores for this track, duration and difficulty; incomplete last attempts are marked **partial**. Compatible older-version scores are labeled **different version**.
 5. Pedal until **Bike connected · ready** appears, then tap **Start ride**.
 
 Every track has one scoring lane at a time. Turn the physical knob to reach it. Difficulty sets the resistance at both ends of the six-lane road, without changing the selected track layout.
@@ -53,7 +53,9 @@ The old **Reference power** control is gone. An internal 150 W reference supplie
 
 **Settings & history** offers **Music** (with the track picker and seek slider), **Sound effects**, **Best-ride ghost**, **Background motion**, **Graphics**, and the latest 50 attempts. Selecting a saved attempt replays its stored course, including generated tracks. Track-level last/best statistics remain available even when an attempt is older than the history list.
 
-The ghost is your highest-scoring completed ride on the same exact course and resistance difficulty. It appears as a see-through projection of your motorcycle, following the recorded distance and lane at the same elapsed time. It fades when overlapping you or becoming too distant. **BEST RIDE** keeps showing how many feet it is ahead/behind, plus your points difference, even when the bike is out of view. Partial attempts cannot replace that best.
+Revision 25 shows **Previous best** and **Score to beat** in the countdown preview. The target is one displayed point above your best. The ghost is your highest-scoring completed compatible ride on the same track, duration and difficulty, including earlier versions after an update. The preview identifies **Different track version** when rules/layouts differ. Different point scales or resistance bands are not mixed.
+
+The ghost appears as a see-through motorcycle following your recorded distance and lane at the same elapsed time. It stays visible alongside you in another lane, and fades on a true overlap or when too distant. **BEST RIDE** (or **PRIOR BEST** for an earlier version) keeps showing its distance ahead/behind and your points difference even when it is out of view. Partial attempts cannot replace that best. **Best-ride ghost** must be **On** in Settings. Revision 25 is tested source only; installed build 32 still uses the older exact-version lookup.
 
 Eight immediately available palettes are assigned to named tracks: **Arctic, Cobalt, Copper, Titanium, Petrol, Amber, Ember and Glacier**. Four flowing psychedelic backgrounds replace the floating scenery: **Prismatic flow, Kaleidoscope, Liquid aurora and Vortex**. Cadence controls flow speed; resistance smoothly changes the pattern and colors. Random generation varies both palette and environment; saved replays retain the exact combination. There are no cosmetic unlocks or rider trails.
 
@@ -73,7 +75,7 @@ Attempts save before play, every five active seconds, on interruption and before
 
 Return through recent apps or the **Lane Smash** app icon after switching away. Both lead to the same persistent game activity. **Exit** returns to the tablet launcher.
 
-Backups include course snapshots, scores and completed ghost traces. Settings such as music are local preferences. Installed build 32 uses **course 13 / generator 10 / scoring 12** as described below; build-31 snapshots retain course 12 / generator 9 / scoring 11; build-28 snapshots retain course 11 / generator 8 / scoring 10. Older snapshots retain their original scoring and comparison identity, so older history remains readable while changed layouts have separate last/best comparisons. The wider rear tyre is a visual-only update and does not reset comparisons. Room remains at schema 9.
+Backups include course snapshots, scores and completed ghost traces. Settings such as music are local preferences. Installed build 32 uses **course 13 / generator 10 / scoring 12** as described below; build-31 snapshots retain course 12 / generator 9 / scoring 11; build-28 snapshots retain course 11 / generator 8 / scoring 10. Older snapshots retain their original scoring and comparison identity, so older history remains readable while changed layouts retain separate exact-version records. Revision 25 additionally displays compatible earlier records as labeled personal best/ghost benchmarks. The wider rear tyre is a visual-only update and does not reset comparisons. Room remains at schema 9.
 
 ## Revision 21 changes (installed in build 29)
 

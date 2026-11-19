@@ -193,6 +193,36 @@ class NeonRecordsTest {
         assertTrue(NeonRecords.payload(detailed).getValue("result").jsonObject.containsKey("events"))
     }
 
+    @Test fun `state exposes old version benchmark identity beyond history without copying heavy payloads`() = runTest {
+        val source = record(course = "ls_20_07", status = "completed", elapsed = 600000, score = 154321)
+        val data = Json.parseToJsonElement(source.payloadJson).jsonObject.toMutableMap()
+        data["result"] = JsonObject(data.getValue("result").jsonObject.toMutableMap().apply {
+            put("difficulty", JsonPrimitive("hard")); put("referencePower", JsonPrimitive(150))
+            put("scoreScale", JsonPrimitive(18)); put("envelopeVersion", JsonPrimitive(1))
+            put("laneBands", Json.parseToJsonElement("[[25,31],[32,38],[39,45],[46,52],[53,59],[60,66]]"))
+        })
+        dao.save(record(course = "ls_20_07"))
+        dao.save(source.copy(payloadJson = JsonObject(data).toString()))
+        repeat(51) { index ->
+            val row = record(id = "c", key = "d").copy(attemptId = index.toString(16).padStart(32, '0'), updatedMs = 3000L + index)
+            dao.save(row); dao.save(row.copy(status = "ended"))
+        }
+        val records = NeonRecords(dao, backgroundScope, { rider })
+        val state = records.execute("""{"action":"state"}""", rider)
+        assertEquals(50, state.getValue("history").jsonArray.size)
+        val stat = state.getValue("trackStats").jsonObject.getValue(source.comparisonKey).jsonObject
+        val best = stat.getValue("best").jsonObject
+        assertEquals(source.attemptId, best.getValue("attemptId").jsonPrimitive.content)
+        assertEquals("ls_20_07", best.getValue("courseId").jsonPrimitive.content)
+        assertEquals("hard", best.getValue("difficulty").jsonPrimitive.content)
+        assertEquals(18, best.getValue("scoreScale").jsonPrimitive.int)
+        assertEquals(600000.0, best.getValue("durationMs").jsonPrimitive.double, 0.0)
+        assertFalse(best.containsKey("course")); assertFalse(best.containsKey("ghost"))
+        assertTrue(records.execute("""{"action":"state"}""", other).getValue("trackStats").jsonObject.isEmpty())
+        val restored = records.execute("""{"action":"get","attemptId":"${source.attemptId}"}""", rider).getValue("record").jsonObject
+        assertFalse(restored.getValue("ghost").jsonArray.isEmpty())
+    }
+
     @Test fun `current and historical scoring versions are accepted and unknown versions are rejected`() = runTest {
         fun versioned(version: Int): JsonObject {
             val source = Json.parseToJsonElement(record(status = "pending", elapsed = 1000, score = 140).payloadJson).jsonObject

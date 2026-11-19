@@ -68,6 +68,11 @@ func intro_visual() -> Control:
 	return null
 
 
+## Keep the countdown visible while a game's pre-ride data is loading.
+func intro_ready() -> bool:
+	return true
+
+
 ## The game's look (framework/ui/UI_STYLE.md), or null for the kit's plain one. Session styles
 ## the intro card and the pause screen with it; the game skins the HUD itself in `_on_prepare`
 ## (`hud.set_skin(theme.hud_skin())`). Called after `_on_prepare`, and again whenever the game

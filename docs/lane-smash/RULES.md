@@ -2,6 +2,10 @@
 
 For exact constants, source locations and the distinction between active time and road time, see [Parameters](PARAMETERS.md).
 
+## Personal records
+
+The pre-ride target is one displayed point above the rider’s highest completed compatible score for the selected track, duration and difficulty. A rules update retains that personal benchmark and its ghost when point units, reference power, lane bands, envelope and Kid cadence mode still match. Earlier-version benchmarks are labeled; saved exact-version comparisons and replays remain unchanged. Random seeds, riders and difficulties never mix. Partial rides can be the last result but cannot replace a best. See [benchmark selection](ARCHITECTURE.md#personal-benchmarks-and-pre-ride-loading-revision-25).
+
 ## Course selection
 
 Each 10/15/20/30-minute duration has the same 25 names with duration-specific seeded courses. Random generation chooses its layout, theme, environment and fixed 3D route from a stored seed. Saved replays load the snapshot, not a newly generated replacement.

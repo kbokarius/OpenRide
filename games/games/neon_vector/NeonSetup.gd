@@ -28,7 +28,7 @@ var look := LaneSmashMenuTheme.shared()
 var course: Dictionary = {}
 var tier_buttons: Dictionary = {}
 var track_buttons: Array[LaneSmashTrackCard] = []
-var _track_keys := {}
+var _score_text_cache := {}
 var _track_rows: Array[Dictionary] = []
 var length_picker: Segmented
 var length_label: Label
@@ -307,7 +307,7 @@ func _rebuild_tracks() -> void:
 		track_list.remove_child(child)
 		child.queue_free()
 	track_buttons.clear()
-	_track_keys.clear()
+	_score_text_cache.clear()
 	_track_rows = LaneSmashCatalog.tracks(minutes)
 	var random_button := look.button("Generate random track  ↻", library_drag.guard(_random_track), GameTheme.SECONDARY)
 	random_button.name = "Random"
@@ -388,6 +388,7 @@ func start_answered() -> void:
 
 func _load_progress() -> void:
 	_progress = await NeonRecords.request({"action": "state"}, rider_id)
+	_score_text_cache.clear()
 	_loading_records = false
 	if not bool(_progress.get("ok", false)):
 		notice.emit(str(_progress.get("error", "Could not load saved rides.")))
@@ -533,15 +534,10 @@ func targets() -> Array[Control]:
 
 func _score_text(id: String) -> String:
 	var cache_key := "%s:%s:%d" % [id, tier, reference_power]
-	if not _track_keys.has(cache_key):
+	if not _score_text_cache.has(cache_key):
 		var data := _replay_course if id == _replay_course.get("courseId", "") else NeonCourse.for_difficulty(NeonCourse.load_course(id), tier)
 		if data.is_empty(): return "No previous ride"
 		var rules := NeonRules.new()
 		if not rules.configure(data, tier, reference_power).is_empty(): return "No previous ride"
-		_track_keys[cache_key] = rules.comparison_key(rider_id)
-	var stats: Dictionary = _progress.get("trackStats", {}).get(_track_keys[cache_key], {})
-	if stats.is_empty(): return "No previous ride at this difficulty"
-	var last := "Last %s" % HudTheme.grouped(int(stats.lastScoreUnits) / NeonRules.UNIT)
-	if stats.lastStatus != "completed": last += " (partial)"
-	var best := "Best %s" % HudTheme.grouped(int(stats.bestScoreUnits) / NeonRules.UNIT) if int(stats.bestScoreUnits) >= 0 else "No completed best"
-	return "%s  ·  %s" % [last, best]
+		_score_text_cache[cache_key] = NeonBenchmark.menu_text(NeonBenchmark.select(_progress.get("trackStats", {}), rules, rider_id))
+	return _score_text_cache[cache_key]

@@ -28,6 +28,10 @@ var _finalizing := false
 var _save_error := ""
 var _ghost: Array = []
 var _ghost_cursor := 0
+var _benchmark_card: LaneSmashBenchmarkCard
+var _benchmark_selection: Dictionary = {}
+var _benchmark_loading := false
+var _benchmark_error := ""
 var _governor := LaneSmashGovernor.new()
 
 
@@ -59,6 +63,26 @@ func info() -> GameInfo:
 
 func ui_theme() -> GameTheme:
 	return look
+
+
+func how_to_text(_segment: Dictionary) -> String:
+	return "Turn resistance to follow the highlighted lane.\nCollect points, match pedal speed and avoid bombs."
+
+
+func intro_visual() -> Control:
+	_benchmark_card = LaneSmashBenchmarkCard.new()
+	_refresh_benchmark_card()
+	return _benchmark_card
+
+
+func intro_ready() -> bool:
+	return not _benchmark_loading
+
+
+func _refresh_benchmark_card() -> void:
+	if not is_instance_valid(_benchmark_card) or _benchmark_loading: return
+	if not _benchmark_error.is_empty(): _benchmark_card.show_error()
+	else: _benchmark_card.show_benchmark(_benchmark_selection, option("ghost") == "on", not _ghost.is_empty())
 
 
 ## The ride HUD's skin, shared with the capture harnesses so reviews match the real game.
@@ -103,6 +127,9 @@ func _on_prepare(_seg: Dictionary) -> void:
 	_save_error = ""
 	_ghost = []
 	_ghost_cursor = 0
+	_benchmark_selection = {}
+	_benchmark_error = ""
+	_benchmark_loading = true
 	variant = "nv%d:" % rules.scoring_version + rules.comparison_key(GameOptions.rider())
 	track.world_id = str(rules.course.get("theme", "arctic"))
 	track.rules = rules
@@ -127,35 +154,60 @@ func _on_prepare(_seg: Dictionary) -> void:
 	sounds.track = track
 	add_child(sounds)
 	_apply_music()
+	_prepare_benchmark.call_deferred()
 
 
 func _on_start() -> void:
 	_begin_ride()
 
 
-func _begin_ride() -> void:
-	_save_busy = true
-
+func _load_benchmark() -> Dictionary:
 	var replay_id := str(params.get("replay_attempt_id", ""))
 	if not replay_id.is_empty():
 		var replay := await NeonRecords.request({"action": "get", "attemptId": replay_id}, _rider)
 		if not bool(replay.get("ok", false)):
-			_storage_failed(replay)
-			return
+			return replay
 		var saved: Dictionary = replay.get("record", {})
 		_errors = rules.configure(saved.get("course", {}), rules.tier, rules.reference_power)
 		variant = "nv%d:" % rules.scoring_version + rules.comparison_key(_rider)
 	if not _errors.is_empty():
-		_storage_failed(NeonRecords.failure("Course unavailable. End this ride and choose another."))
-		return
+		return NeonRecords.failure("Course unavailable. End this ride and choose another.")
 	track.world_id = str(rules.course.get("theme", "arctic"))
-	var previous := await NeonRecords.request({"action": "best", "key": rules.comparison_key(_rider)}, _rider)
+	var previous := await NeonRecords.request({"action": "state"}, _rider)
 	if not bool(previous.get("ok", false)):
-		_storage_failed(previous)
-		return
-	var ghost_record: Dictionary = previous.get("record", {})
-	if not ghost_record.is_empty() and NeonRecords.valid_record(ghost_record) and ghost_record.get("comparisonKey", "") == rules.comparison_key(_rider):
+		return previous
+	_benchmark_selection = NeonBenchmark.select(previous.get("trackStats", {}), rules, _rider)
+	var best: Dictionary = _benchmark_selection.best
+	_ghost = []
+	_ghost_cursor = 0
+	track.ghost_different_version = bool(_benchmark_selection.differentVersion)
+	if not best.is_empty():
+		var saved := await NeonRecords.request({"action": "get", "attemptId": best.attemptId}, _rider)
+		if not bool(saved.get("ok", false)): return saved
+		var ghost_record: Dictionary = saved.get("record", {})
+		if not NeonRecords.valid_record(ghost_record) or ghost_record.result.status != "completed" or not NeonBenchmark.matches(NeonRecords.benchmark(ghost_record), rules, _rider):
+			return NeonRecords.failure("Saved best ride could not be read.")
 		_ghost = ghost_record.get("ghost", [])
+	return {"ok": true}
+
+
+func _prepare_benchmark() -> void:
+	_benchmark_loading = true
+	var reply := await _load_benchmark()
+	_benchmark_error = str(reply.get("error", "")) if not bool(reply.get("ok", false)) else ""
+	_benchmark_loading = false
+	_refresh_benchmark_card()
+
+
+func _begin_ride() -> void:
+	_save_busy = true
+	while _benchmark_loading:
+		await get_tree().process_frame
+	if not _benchmark_error.is_empty():
+		await _prepare_benchmark()
+		if not _benchmark_error.is_empty():
+			_storage_failed(NeonRecords.failure(_benchmark_error))
+			return
 	var reply := await NeonRecords.request({"action": "save", "record": _record("pending")}, _rider)
 	_save_busy = false
 	if not bool(reply.get("ok", false)):
@@ -222,7 +274,9 @@ func _update_ghost() -> void:
 	while _ghost_cursor + 1 < _ghost.size() and int(_ghost[_ghost_cursor + 1][0]) <= rules.elapsed_ms:
 		_ghost_cursor += 1
 	var tick: Array = _ghost[_ghost_cursor]
-	track.ghost_lane = float(tick[1]) if int(tick[0]) <= rules.elapsed_ms else -1.0
+	if int(tick[0]) > rules.elapsed_ms:
+		track.ghost_lane = -1.0
+		return
 	var position := float(tick[3]) / 1000.0 if tick.size() == 4 else rules.road_distance() + 3.5
 	var ghost_lane := float(tick[1])
 	if tick.size() == 4 and _ghost_cursor + 1 < _ghost.size():
