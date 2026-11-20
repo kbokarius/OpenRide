@@ -1,8 +1,8 @@
 # Lane Smash — living technical reference
 
-Current source: revision 25, showing previous-best targets in the pre-ride preview and retaining compatible best-ride ghosts across updates. Course 13 / generator 10 / scoring 12 are unchanged. Updated November 19, 2026. **Build 32 / revision 24 remains installed on the Peloton; revision 25 has not been installed.**
+Current source: revision 25, showing previous-best targets in the pre-ride preview and retaining compatible best-ride ghosts across updates. Course 13 / generator 10 / scoring 12 are unchanged. Updated November 20, 2026. **Signed build 33 / revision 25 is installed on the Peloton.**
 
-Latest signed APK and verified Peloton installation: code **32** (`1.2.0-lane-smash.24`), installed in place over Wi-Fi on November 18, 2026. See [Parameters](PARAMETERS.md#units-and-release-state) and the [revision-24 build and installation record](../specs/lane-smash-v24.md#build-and-installation).
+Latest signed APK and verified Peloton installation: code **33** (`1.2.0-lane-smash.25`), installed in place over Wi-Fi on November 20, 2026. See [Parameters](PARAMETERS.md#units-and-release-state) and the [revision-25 build and installation record](../specs/lane-smash-v25.md#build-and-installation).
 
 This directory describes the current game. Versioned files under `docs/specs/` preserve past decisions and validation; they are historical when they disagree with this reference.
 
@@ -13,7 +13,7 @@ This directory describes the current game. Versioned files under `docs/specs/` p
 | [Rules and courses](RULES.md) | Steering, speed, course generation, points, bombs and stars |
 | [Presentation and audio](PRESENTATION.md) | Visual contacts, score animation, sound mapping and shared settings |
 | [Player and installation guide](../LANE_SMASH.md) | Visible controls and installation |
-| [Revision 25](../specs/lane-smash-v25.md) | Pre-ride score target, cross-version personal benchmarks, ghost visibility and validation |
+| [Revision 25](../specs/lane-smash-v25.md) | Pre-ride score target, cross-version personal benchmarks, ghost visibility and validation; signed build 33 and verified Wi-Fi installation |
 | [Revision 24](../specs/lane-smash-v24.md) | Between-section mines, lane-change allowance, compatibility and validation; signed build 32 and verified Wi-Fi installation |
 | [Revision 23](../specs/lane-smash-v23.md) | Resistance latency audit, faster reporting request, live steering feedback and brighter edge warning; signed build 31 and verified Wi-Fi installation |
 | [Revision 22](../specs/lane-smash-v22.md) | Half-cadence Kid targets, unchanged adult records, signed build 30 and Wi-Fi installation |

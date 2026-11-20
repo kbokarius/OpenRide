@@ -1,6 +1,6 @@
 # Revision 25 — pre-ride score targets and persistent ghosts
 
-Date: November 19, 2026. Source change only. Build 32 / revision 24 remains installed on the Peloton.
+Implemented November 19, 2026. Signed build 33 / revision 25 was installed on the Peloton on November 20, 2026.
 
 ## Request and diagnosis
 
@@ -67,4 +67,21 @@ The initial broader framework run also encountered obsolete tests that require t
 
 ## Release state and limits
 
-No Peloton installation, signing/version bump or physical ride was performed for revision 25. Build 32 remains on the device. A completed recording must exist in its saved data, and **Best-ride ghost** must be On. No code change can reconstruct a deleted or never-completed ride. Changing point units, lane bands or Kid cadence mode intentionally keeps incompatible benchmarks separate.
+Signed build 33 is installed and startup/sensor connectivity were verified as recorded below. No physical ride was started for verification. A completed recording must exist in its saved data, and **Best-ride ghost** must be On. No code change can reconstruct a deleted or never-completed ride. Changing point units, lane bands or Kid cadence mode intentionally keeps incompatible benchmarks separate.
+
+
+## Build and installation
+
+Signed and installed November 20, 2026 at the owner's request. The existing `neonReal` pipeline packages source `223509f` plus the Android version bump: code **33**, version **1.2.0-lane-smash.25**. Package `dev.digitalducktape.openride.neon` remains ARM64, non-debuggable, real-sensor enabled, minimum API 29 / target 34. Graphics default remains Auto; course 13 / generator 10 / scoring 12 / envelope 1 are unchanged.
+
+- `assembleNeonReal`, `lintNeonReal` and **18 Android tests** (14 records + 4 settings) passed. Lint: 0 errors / 79 existing warnings.
+- APK v2 signature verified. Certificate SHA-256: `45820456eab35d1a56adbc29d2ef7f09369b94d41f101868f5bb354ac3903773`, matching earlier installed releases.
+- Artifact `openride-neon-33.apk`: **204,218,333 bytes**. SHA-256: `6d2eec06e7b6f045211c27e250d79c57b33033f8cc25fbc24341464fb4f545d7`.
+- Embedded `assets/games.pck` is uncompressed and byte-for-byte equal to the fresh export. PCK SHA-256: `45738a1944bf5955d64112732b3c94223389cdb0b7c7d65facb9785e4df87526`.
+- An independent run loaded the extracted APK pack and verified an old-version ghost benchmark, its one-point-higher target, countdown loading gate, Auto graphics and the retained course/scoring/gap-mine constants. The first verification command used incorrect relative paths; the corrected absolute-path command passed against the extracted pack.
+
+The Original Bike was at the selector before packaging and immediately before installation. The laptop's ADB server restarted during the build/checks; reconnecting to the already-authorized Wi-Fi device succeeded. `adb install -r` returned **Success**. Android reports code **33** / `1.2.0-lane-smash.25`; its package user ID and original first-install timestamp are unchanged. No uninstall, data clear, launcher change or active-ride interruption occurred.
+
+Cold launch returned **Status: ok**. The selector rendered, showed **Bike connected · ready**, and displayed existing saved scores, including a completed prior record. The captured application startup log contained no FATAL EXCEPTION, SCRIPT ERROR or ERROR: entries. Screenshots/logs and the APK remain outside the repository; private connection details and personal score values are not committed.
+
+This verifies installation, startup, sensor connectivity and visible record retention. It does not constitute a new physical endurance ride or direct inspection of the device's private database/ghost arrays. The previous source tests and packaged-code check establish ghost selection behavior; the actual motorcycle replay will appear when the rider starts the matching course with Best-ride ghost On.

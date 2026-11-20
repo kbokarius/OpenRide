@@ -1,6 +1,6 @@
 # Current gameplay and presentation parameters
 
-Verified against revision-25 source November 19, 2026. Signed build 32 / revision 24 remains installed on the Bike; revision 25 is not installed. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
+Verified against revision-25 source November 20, 2026. Signed build 33 / revision 25 is installed on the Bike. This is a tuning reference; [Rules](RULES.md) explains behavior, [Presentation](PRESENTATION.md) explains the look/audio, and [Architecture](ARCHITECTURE.md) explains ownership and persistence.
 
 ## Units and release state
 
@@ -9,7 +9,7 @@ Verified against revision-25 source November 19, 2026. Signed build 32 / revisio
 - **Road seconds** are distance divided by the maximum rules speed, 60 km/h. One road-second is 16⅔ rules-metres, drawn as 50 world metres. At a constant cadence below 140 rpm, actual seconds = road seconds × 140 / rpm. At zero cadence the road does not advance. Section lengths and mine spacing use road time; attack timers and the final-minute cooldown use active time.
 - The model uses design units, multiplied by `LaneSmashBike.SCALE = 1.3`. These dimensions describe game geometry, not a real motorcycle specification.
 - Current source rules: course **13**, generator **10**, scoring **12**, envelope **1**. Added gap hazards create new comparison keys. Course 12 retains scoring 11 and mine-free gaps; course 11 retains scoring 10; older saved snapshots and histories remain readable. Kid and all adult resistance bands are unchanged.
-- Latest signed APK and verified device installation: **32 / 1.2.0-lane-smash.24**, adding gap mines with protected lane-change corridors. Installed in place over Wi-Fi on November 18, 2026. See the [build and installation record](../specs/lane-smash-v24.md#build-and-installation).
+- Latest signed APK and verified device installation: **33 / 1.2.0-lane-smash.25**, adding pre-ride personal score targets and compatible ghosts across updates. Installed in place over Wi-Fi on November 20, 2026. See the [build and installation record](../specs/lane-smash-v25.md#build-and-installation).
 
 ## Course generation and pacing
 
