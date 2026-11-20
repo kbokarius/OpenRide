@@ -53,6 +53,12 @@ Comparison identity includes rider, course fingerprint, difficulty, scoring vers
 
 `NeonVector` loads any saved replay, summaries and selected trace during prepare. Its intro visual updates once when ready; `Game.intro_ready()` keeps the existing countdown from advancing while storage is pending. The attempt and independent ride clock still begin through the existing pending-save/start path. Failures use the existing retry/error flow. The selector caches score text per track/difficulty/reference and invalidates it after reloading records. There is no per-frame storage query.
 
+### Ghost playback coverage (revision-25 follow-up)
+
+`LaneSmashGhostPlayback` owns the replay cursor and indexes contiguous 100 ms sample spans once at load time. It updates distance/lane interpolation, measured cadence, opacity and availability without storage IO or per-frame trace copies. It fades over 500 ms at incomplete span boundaries, hides missing time, resumes only where samples exist, and clears stale output at an exhausted trace. A complete stationary tail remains visible; zero recorded speed is valid. The final sample of a full ride derives cadence from its preceding sample, including when playback jumps directly to the finish.
+
+`NeonVector` configures playback when assigning the loaded trace, passes opacity through `NeonTrack` to `NeonSpace`, and supplies the preview's coverage message. The existing once-per-second HUD replaces missing comparison values with `GHOST RECORDING UNAVAILABLE` or `GHOST RECORDING ENDED`. Coverage does not reject or rewrite a completed score: existing record validators, best selection, bridge payloads and Room schema remain unchanged. See [hardening details](../specs/lane-smash-ghost-hardening.md).
+
 ## Difficulty mapping
 
 `NeonRules` owns both the existing seven-point lane step and Kid's 3.5-point step from resistance 0. `band` returns inclusive integer endpoints; `lane_for` validates finite integer in-range readings for scoring; `clamped_lane_for` is only for visual steering/rapid-strike placement. `band_center` supplies valid integer samples to simulations, including Kid's narrower bands. The selector, HUD, ride label, scenery normalization and bomb renderer must use these helpers rather than assume 42 values or divide by 7. Android `NeonSettings` accepts `kid` and carries it unchanged into the ride plan.

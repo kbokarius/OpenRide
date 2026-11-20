@@ -282,7 +282,6 @@ func _build_ride(course_id: String, ghost: bool) -> void:
 	track.world_id = rules.course.theme
 	track._completion_cursor = 0
 	replay._ghost = []
-	replay._ghost_cursor = 0
 	track.ghost_visible = false
 	if ghost:
 		var previous := NeonRules.new()
@@ -558,7 +557,6 @@ func _resync() -> void:
 	track.gauge.alpha = 0.0
 	track.gauge.target = {}
 	track.celebration.age = LaneSmashCelebration.LIFE
-	replay._ghost_cursor = 0
 	_last_second = -1
 	track.update_view(0)
 	status.refresh()

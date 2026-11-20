@@ -197,3 +197,10 @@ Visual verification: native riding view and rear three-quarter close-up rendered
 | Overlap fade | Longitudinal fade 1.4–4.5 rules-metres; lateral clearance fade 0.15–0.65 lanes, using the larger visibility |
 | Earlier-version HUD | PRIOR BEST; same-version HUD BEST RIDE; gap/points remain on the existing one-second refresh |
 | First ride / unavailable trace | Explicit first-high-score or missing-recording message; no invented ghost |
+| Replay coverage (source follow-up) | Contiguous sample spans have no interval over 100 ms; complete coverage begins by 100 ms and reaches the final expected 100 ms tick |
+| Missing-data fade | 500 ms smooth fade before an early span end; 500 ms fade in at a delayed start or after a gap |
+| Missing-data HUD | GHOST RECORDING UNAVAILABLE during gaps; GHOST RECORDING ENDED after an early endpoint; existing one-second text refresh |
+| Recorded stops | Full recordings retain their stationary tail and zero measured cadence; no fade triggered by zero speed |
+| Coverage and score | Incomplete replay leaves the saved best score and score-to-beat intact; preview says Ghost recording is incomplete |
+
+The playback hardening is source-only until a subsequent build is installed; build 33 remains on the Peloton.

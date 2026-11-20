@@ -51,6 +51,8 @@ var ghost_distance := -1.0
 var ghost_gap := 0.0
 var ghost_cadence := 80.0
 var ghost_visible := false
+var ghost_opacity := 1.0
+var ghost_notice := ""
 var ghost_different_version := false
 var _text_second := -1
 var _speed_text := ""
@@ -214,6 +216,7 @@ func update_view(delta: float) -> void:
 		var beat := float(jukebox.pulse) if jukebox != null and not reduced_motion else 0.0
 		space.ghost_distance = ghost_distance
 		space.ghost_cadence = ghost_cadence
+		space.ghost_opacity = ghost_opacity
 		space.reduced_motion = reduced_motion
 		space.music_pulse = beat
 		# Colour and the seam pulses read the eased levels; Reduced motion keeps a third of the
@@ -249,6 +252,7 @@ func update_view(delta: float) -> void:
 			_speed_text = "%.0f mph  ·  %.2f mi" % [rules.speed_kph * scale / 1.609344, rules.road_distance() * scale / 1609.344]
 			var position_text := "%.0f ft ahead" % (ghost_gap * scale * 3.28084) if ghost_gap > 1.4 else ("%.0f ft behind" % (-ghost_gap * scale * 3.28084) if ghost_gap < -1.4 else "alongside")
 			_ghost_text = "%s  %s  ·  %+d PTS" % ["PRIOR BEST" if ghost_different_version else "BEST RIDE", position_text, ghost_delta] if ghost_visible else "TURN RESISTANCE TO CHANGE LANES"
+			if not ghost_notice.is_empty(): _ghost_text = ghost_notice
 	queue_redraw()
 
 

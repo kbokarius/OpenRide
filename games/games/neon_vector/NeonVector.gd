@@ -26,8 +26,11 @@ var _save_busy := false
 var _saved_final := false
 var _finalizing := false
 var _save_error := ""
-var _ghost: Array = []
-var _ghost_cursor := 0
+var _ghost_playback := LaneSmashGhostPlayback.new()
+var _ghost: Array = []:
+	set(value):
+		_ghost = value
+		_ghost_playback.configure(value, int(rules.course.get("durationMs", 0)))
 var _benchmark_card: LaneSmashBenchmarkCard
 var _benchmark_selection: Dictionary = {}
 var _benchmark_loading := false
@@ -82,7 +85,7 @@ func intro_ready() -> bool:
 func _refresh_benchmark_card() -> void:
 	if not is_instance_valid(_benchmark_card) or _benchmark_loading: return
 	if not _benchmark_error.is_empty(): _benchmark_card.show_error()
-	else: _benchmark_card.show_benchmark(_benchmark_selection, option("ghost") == "on", not _ghost.is_empty())
+	else: _benchmark_card.show_benchmark(_benchmark_selection, option("ghost") == "on", not _ghost.is_empty(), _ghost_playback.complete)
 
 
 ## The ride HUD's skin, shared with the capture harnesses so reviews match the real game.
@@ -126,7 +129,6 @@ func _on_prepare(_seg: Dictionary) -> void:
 	_saved_final = false
 	_save_error = ""
 	_ghost = []
-	_ghost_cursor = 0
 	_benchmark_selection = {}
 	_benchmark_error = ""
 	_benchmark_loading = true
@@ -179,7 +181,6 @@ func _load_benchmark() -> Dictionary:
 	_benchmark_selection = NeonBenchmark.select(previous.get("trackStats", {}), rules, _rider)
 	var best: Dictionary = _benchmark_selection.best
 	_ghost = []
-	_ghost_cursor = 0
 	track.ghost_different_version = bool(_benchmark_selection.differentVersion)
 	if not best.is_empty():
 		var saved := await NeonRecords.request({"action": "get", "attemptId": best.attemptId}, _rider)
@@ -268,27 +269,16 @@ func _complete(state: String) -> void:
 
 
 func _update_ghost() -> void:
-	track.ghost_visible = option("ghost") == "on" and not _ghost.is_empty()
-	if _ghost.is_empty():
-		return
-	while _ghost_cursor + 1 < _ghost.size() and int(_ghost[_ghost_cursor + 1][0]) <= rules.elapsed_ms:
-		_ghost_cursor += 1
-	var tick: Array = _ghost[_ghost_cursor]
-	if int(tick[0]) > rules.elapsed_ms:
-		track.ghost_lane = -1.0
-		return
-	var position := float(tick[3]) / 1000.0 if tick.size() == 4 else rules.road_distance() + 3.5
-	var ghost_lane := float(tick[1])
-	if tick.size() == 4 and _ghost_cursor + 1 < _ghost.size():
-		var following: Array = _ghost[_ghost_cursor + 1]
-		track.ghost_cadence = clampf(float(int(following[3]) - int(tick[3])) / maxi(1, int(following[0]) - int(tick[0])) / NeonRules.MAX_SPEED_MPS * NeonRules.MAX_CADENCE, 0, NeonRules.MAX_CADENCE)
-		var blend := clampf(float(rules.elapsed_ms - int(tick[0])) / maxi(1, int(following[0]) - int(tick[0])), 0, 1)
-		position = lerpf(position, float(following[3]) / 1000.0, blend)
-		if ghost_lane >= 0 and int(following[1]) >= 0: ghost_lane = lerpf(ghost_lane, float(following[1]), blend)
-	track.ghost_lane = ghost_lane
-	track.ghost_distance = position
-	track.ghost_gap = position - rules.road_distance()
-	track.ghost_delta = floori(float(rules.score_units - int(tick[2])) / NeonRules.UNIT)
+	_ghost_playback.update(rules.elapsed_ms, rules.road_distance() + 3.5)
+	var enabled := option("ghost") == "on"
+	track.ghost_visible = enabled and _ghost_playback.available
+	track.ghost_notice = _ghost_playback.notice if enabled else ""
+	track.ghost_opacity = _ghost_playback.opacity
+	track.ghost_cadence = _ghost_playback.cadence
+	track.ghost_lane = _ghost_playback.lane
+	track.ghost_distance = _ghost_playback.distance
+	track.ghost_gap = _ghost_playback.distance - rules.road_distance() if _ghost_playback.available else 0.0
+	track.ghost_delta = floori(float(rules.score_units - _ghost_playback.score_units) / NeonRules.UNIT) if _ghost_playback.available else 0
 
 
 func _on_frame(delta: float) -> void:

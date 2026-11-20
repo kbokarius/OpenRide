@@ -21,7 +21,7 @@ func _init() -> void:
 		add_child(label)
 
 
-func show_benchmark(selection: Dictionary, ghost_enabled: bool, has_trace: bool) -> void:
+func show_benchmark(selection: Dictionary, ghost_enabled: bool, has_trace: bool, complete_trace := true) -> void:
 	var best: Dictionary = selection.get("best", {})
 	if best.is_empty():
 		best_label.text = "No completed ride at this difficulty yet"
@@ -32,6 +32,8 @@ func show_benchmark(selection: Dictionary, ghost_enabled: bool, has_trace: bool)
 	best_label.text = "PREVIOUS BEST  %s" % HudTheme.grouped(score)
 	target_label.text = "SCORE TO BEAT  %s" % HudTheme.grouped(score + 1)
 	detail_label.text = "Race your best-ride ghost" if ghost_enabled and has_trace else ("Ghost is off in Settings" if not ghost_enabled else "This saved ride has no ghost recording")
+	if ghost_enabled and has_trace and not complete_trace:
+		detail_label.text = "Ghost recording is incomplete"
 	if bool(selection.get("differentVersion", false)):
 		detail_label.text += " · Different track version"
 

@@ -56,6 +56,7 @@ var _terrain_id := ""
 var _unit_speed := SPEED
 var ghost_distance := -1.0
 var ghost_cadence := 80.0
+var ghost_opacity := 1.0
 var scenery: LaneSmashScenery
 var fx: LaneSmashFx
 var _glows: MultiMeshInstance3D
@@ -293,9 +294,9 @@ func update_view(rules: NeonRules, delta: float, lane: float, ghost_lane: float,
 	var ghost_gap := ghost_at - distance
 	# Fade only an actual overlap. A ghost alongside in another lane is a visible opponent.
 	var overlap_alpha := maxf(smoothstep(1.4, 4.5, absf(ghost_gap)), smoothstep(0.15, 0.65, absf(ghost_lane - lane)))
-	ghost.visible = (show_ghost and ghost_lane >= 0 and ghost_gap > -5 and ghost_gap < minf(85.0, portal_distance - distance - 24.0) and overlap_alpha > 0.01) or _warming
+	ghost.visible = (show_ghost and ghost_opacity > 0.0 and ghost_lane >= 0 and ghost_gap > -5 and ghost_gap < minf(85.0, portal_distance - distance - 24.0) and overlap_alpha > 0.01) or _warming
 	if ghost.visible:
-		ghost.set_opacity(smoothstep(-5.0, -1.5, ghost_gap) * (1.0 - smoothstep(50.0, 85.0, ghost_gap)) * overlap_alpha * (1.0 - smoothstep(portal_distance - 48.0, portal_distance - 24.0, ghost_at)))
+		ghost.set_opacity(smoothstep(-5.0, -1.5, ghost_gap) * (1.0 - smoothstep(50.0, 85.0, ghost_gap)) * overlap_alpha * (1.0 - smoothstep(portal_distance - 48.0, portal_distance - 24.0, ghost_at)) * (1.0 if _warming else ghost_opacity))
 		ghost.transform = pose(distance + 3.5 / STRETCH if _warming else ghost_at, ((2.5 if _warming else ghost_lane) - 2.5) * LANE_WIDTH, 0.05)
 		ghost.animate(ghost_cadence, delta)
 	_events(rules, lane)

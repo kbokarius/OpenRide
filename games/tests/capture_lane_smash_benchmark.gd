@@ -96,7 +96,36 @@ func _run() -> void:
 		game.track.space.update_view(game.rules, 0, float(item[2]), game.track.ghost_lane, game.track.ghost_visible, "")
 		assert(game.track.space.ghost.visible == bool(item[3]), "Ghost visibility: " + item[0])
 		if item[0] != "overlap": await _capture(item[0])
-	print("BENCHMARK CAPTURE PASS: earlier-version menu/preview, 12000 saved ghost ticks, near/alongside/overlap/far visibility")
+	# A damaged recording ends at 30.5 s. Its last half-second fades while still following
+	# recorded motion; at the endpoint both the model and stale comparison disappear.
+	game._ghost = game._ghost.slice(0, 305)
+	for item: Array in [["fading", 30250, 0.5], ["ended", 30500, 0.0]]:
+		game.rules.elapsed_ms = int(item[1])
+		game.rules.distance_units = roundi((float(item[1]) * 0.008 - 15.0) * 1000000.0)
+		game.track._text_second = -1
+		game._update_ghost()
+		game.track.update_view(0)
+		game.track.space.update_view(game.rules, 0, 2.0, game.track.ghost_lane, game.track.ghost_visible, "")
+		assert(is_equal_approx(game.track.ghost_opacity, float(item[2])))
+		assert(game.track.space.ghost.visible == (float(item[2]) > 0.0))
+		if item[0] == "fading":
+			# Portal/curve visibility may already attenuate the model; coverage multiplies it.
+			var faded: float = game.track.space.ghost._opacity
+			game.track.space.ghost_opacity = 1.0
+			game.track.space.update_view(game.rules, 0, 2.0, game.track.ghost_lane, true, "")
+			assert(game.track.space.ghost._opacity > 0.0)
+			assert(is_equal_approx(faded, game.track.space.ghost._opacity * 0.5))
+			game.track.space.ghost_opacity = 0.5
+			game.track.space.update_view(game.rules, 0, 2.0, game.track.ghost_lane, true, "")
+		else:
+			assert(game.track._ghost_text == "GHOST RECORDING ENDED" and game.track.ghost_cadence == 0.0)
+		await _capture(item[0])
+	game._refresh_benchmark_card()
+	director.intro_card.show()
+	director.intro_card.set_time_left(6)
+	assert(game._benchmark_card.detail_label.text.contains("Ghost recording is incomplete"))
+	await _capture("incomplete_preview")
+	print("BENCHMARK CAPTURE PASS: earlier-version menu/preview, full trace, near/alongside/overlap/far visibility, incomplete preview, 50% fade and ended ghost")
 	for file in DirAccess.get_files_at(NeonRecords.path): DirAccess.remove_absolute(NeonRecords.path.path_join(file))
 	DirAccess.remove_absolute(NeonRecords.path)
 	DirAccess.remove_absolute(options.path)
